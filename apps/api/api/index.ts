@@ -43,30 +43,51 @@ async function createNestServer(expressInstance: Express) {
 }
 
 export default async function handler(req: any, res: any) {
-  // 1. Immediate HTTP 200 OK Preflight response for CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', req.headers?.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  // 1. Dynamic origin mirroring for CORS with Credentials
+  const origin = req.headers?.origin || req.headers?.referer || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  if (origin !== '*') {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
   );
 
+  // Immediate 200 OK response for OPTIONS preflight
   if (req.method === 'OPTIONS') {
     res.statusCode = 200;
     return res.end();
   }
 
-  // 2. Ensure req.url matches NestJS global prefix (/api/v1)
+  // 2. Restore client path from Vercel headers if altered by rewrite
+  const clientPath = req.headers['x-forwarded-uri'] || req.headers['x-matched-path'] || req.url;
+  if (typeof clientPath === 'string' && clientPath !== '/api') {
+    req.url = clientPath;
+  }
+
+  // 3. Ensure req.url matches NestJS global prefix (/api/v1)
   if (req.url && !req.url.startsWith('/api/v1')) {
     req.url = '/api/v1' + (req.url.startsWith('/') ? req.url : '/' + req.url);
   }
 
-  // 3. Lazy initialize NestJS Express instance
-  if (!isInitialized) {
-    await createNestServer(server);
-    isInitialized = true;
+  // 4. Lazy initialize NestJS Express instance
+  try {
+    if (!isInitialized) {
+      await createNestServer(server);
+      isInitialized = true;
+    }
+    server(req, res);
+  } catch (err: any) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        statusCode: 500,
+        message: err?.message || 'Serverless Boot Error',
+        error: 'Internal Server Error',
+      }),
+    );
   }
-
-  server(req, res);
 }
