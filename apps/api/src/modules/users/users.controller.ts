@@ -4,9 +4,9 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { CreateStudentDto, CreateTeacherDto, UpdateUserStatusDto, UpdateTeacherPermissionsDto } from './dto/create-student.dto';
-import { CurrentUser, CurrentUserPayload } from '@/platform/rbac/decorators/current-user.decorator';
-import { PermissionGuard } from '@/platform/rbac/guards/permission.guard';
-import { RequirePermission } from '@/platform/rbac/decorators/require-permission.decorator';
+import { CurrentUser, CurrentUserPayload } from '../../platform/rbac/decorators/current-user.decorator';
+import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
+import { RequirePermission } from '../../platform/rbac/decorators/require-permission.decorator';
 
 @ApiTags('User Management (Students & Teachers)')
 @ApiBearerAuth()

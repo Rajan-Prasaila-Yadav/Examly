@@ -1,6 +1,6 @@
 // apps/api/src/modules/chat/chat.service.ts
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '@/modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { RoleType } from '@prisma/client';
 
 @Injectable()

@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto, GoogleLoginDto } from './dto/refresh-token.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { CurrentUser, CurrentUserPayload } from '@/platform/rbac/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserPayload } from '../../platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')

@@ -3,9 +3,9 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nes
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LessonsService } from './lessons.service';
-import { PermissionGuard } from '@/platform/rbac/guards/permission.guard';
-import { RequirePermission } from '@/platform/rbac/decorators/require-permission.decorator';
-import { CurrentUser } from '@/platform/rbac/decorators/current-user.decorator';
+import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
+import { RequirePermission } from '../../platform/rbac/decorators/require-permission.decorator';
+import { CurrentUser } from '../../platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('Academic Catalog - Lessons & Content')
 @ApiBearerAuth()

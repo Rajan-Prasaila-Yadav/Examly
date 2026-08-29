@@ -3,7 +3,7 @@ import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { ChatService } from './chat.service';
-import { CurrentUser, CurrentUserPayload } from '@/platform/rbac/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserPayload } from '../../platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('1-on-1 Doubt Solving & Messaging')
 @ApiBearerAuth()

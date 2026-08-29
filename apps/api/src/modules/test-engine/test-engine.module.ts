@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TestsService } from './tests.service';
 import { TestsController } from './tests.controller';
 import { AiQuestionImportService } from './ai-question-import.service';
-import { PermissionGuard } from '@/platform/rbac/guards/permission.guard';
+import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
 
 @Module({
   imports: [ConfigModule],

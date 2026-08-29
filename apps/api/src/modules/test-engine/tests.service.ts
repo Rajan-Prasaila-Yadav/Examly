@@ -1,6 +1,6 @@
 // apps/api/src/modules/test-engine/tests.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '@/modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { RecordStatus, TestType, QuestionType, ResultPublishMode } from '@prisma/client';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PdfPrinter = require('pdfmake');

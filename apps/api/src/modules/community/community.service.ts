@@ -1,6 +1,6 @@
 // apps/api/src/modules/community/community.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '@/modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { ReactionType } from '@prisma/client';
 
 @Injectable()

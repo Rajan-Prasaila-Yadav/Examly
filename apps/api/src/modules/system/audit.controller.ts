@@ -3,9 +3,9 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuditService } from './audit.service';
-import { PermissionGuard } from '@/platform/rbac/guards/permission.guard';
-import { RequirePermission } from '@/platform/rbac/decorators/require-permission.decorator';
-import { CurrentUser, CurrentUserPayload } from '@/platform/rbac/decorators/current-user.decorator';
+import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
+import { RequirePermission } from '../../platform/rbac/decorators/require-permission.decorator';
+import { CurrentUser, CurrentUserPayload } from '../../platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('System - Audit Logs')
 @ApiBearerAuth()

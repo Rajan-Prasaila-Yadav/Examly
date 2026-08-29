@@ -3,7 +3,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/co
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiProperty } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CommunityService } from './community.service';
-import { CurrentUser, CurrentUserPayload } from '@/platform/rbac/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserPayload } from '../../platform/rbac/decorators/current-user.decorator';
 import { ReactionType } from '@prisma/client';
 import { IsNotEmpty, IsString, IsOptional, IsArray, IsEnum } from 'class-validator';
 
