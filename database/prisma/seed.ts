@@ -123,6 +123,126 @@ async function main() {
     });
   }
 
+  // Teacher also needs to delete authored tests & manage question bank
+  const teacherExtras = [
+    { resource: 'tests', action: 'delete', scope: PermissionScope.ASSIGNED_ONLY },
+    { resource: 'lessons', action: 'create', scope: PermissionScope.ASSIGNED_ONLY },
+    { resource: 'lessons', action: 'update', scope: PermissionScope.ASSIGNED_ONLY },
+    { resource: 'subjects', action: 'create', scope: PermissionScope.ASSIGNED_ONLY },
+    { resource: 'subjects', action: 'update', scope: PermissionScope.ASSIGNED_ONLY },
+  ];
+
+  for (const perm of teacherExtras) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_resource_action: {
+          roleId: teacherRole.id,
+          resource: perm.resource,
+          action: perm.action,
+        },
+      },
+      update: {},
+      create: {
+        roleId: teacherRole.id,
+        resource: perm.resource,
+        action: perm.action,
+        scope: perm.scope,
+      },
+    });
+  }
+
+  // 4b. Admin Role Permissions (full institute-scope management per doc 6.2)
+  const adminPermissions = [
+    { resource: 'batches', action: 'create' },
+    { resource: 'batches', action: 'read' },
+    { resource: 'batches', action: 'update' },
+    { resource: 'batches', action: 'delete' },
+    { resource: 'subjects', action: 'create' },
+    { resource: 'subjects', action: 'read' },
+    { resource: 'subjects', action: 'update' },
+    { resource: 'subjects', action: 'delete' },
+    { resource: 'lessons', action: 'create' },
+    { resource: 'lessons', action: 'read' },
+    { resource: 'lessons', action: 'update' },
+    { resource: 'lessons', action: 'delete' },
+    { resource: 'videos', action: 'create' },
+    { resource: 'videos', action: 'read' },
+    { resource: 'videos', action: 'update' },
+    { resource: 'videos', action: 'delete' },
+    { resource: 'tests', action: 'create' },
+    { resource: 'tests', action: 'read' },
+    { resource: 'tests', action: 'update' },
+    { resource: 'tests', action: 'delete' },
+    { resource: 'tests', action: 'publish' },
+    { resource: 'students', action: 'create' },
+    { resource: 'students', action: 'read' },
+    { resource: 'students', action: 'update' },
+    { resource: 'students', action: 'delete' },
+    { resource: 'teachers', action: 'create' },
+    { resource: 'teachers', action: 'read' },
+    { resource: 'teachers', action: 'update' },
+    { resource: 'teachers', action: 'delete' },
+    { resource: 'roles', action: 'update' },
+    { resource: 'community', action: 'create' },
+    { resource: 'community', action: 'read' },
+    { resource: 'community', action: 'update' },
+    { resource: 'community', action: 'delete' },
+    { resource: 'chat', action: 'create' },
+    { resource: 'chat', action: 'read' },
+  ];
+
+  for (const perm of adminPermissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_resource_action: {
+          roleId: adminRole.id,
+          resource: perm.resource,
+          action: perm.action,
+        },
+      },
+      update: {},
+      create: {
+        roleId: adminRole.id,
+        resource: perm.resource,
+        action: perm.action,
+        scope: PermissionScope.INSTITUTE,
+      },
+    });
+  }
+
+  // 4c. Student Role Permissions (baseline floor: browse content & take tests)
+  const studentPermissions = [
+    { resource: 'batches', action: 'read' },
+    { resource: 'subjects', action: 'read' },
+    { resource: 'lessons', action: 'read' },
+    { resource: 'videos', action: 'read' },
+    { resource: 'tests', action: 'read' },
+    { resource: 'tests', action: 'take' },
+    { resource: 'community', action: 'create' },
+    { resource: 'community', action: 'read' },
+    { resource: 'chat', action: 'create' },
+    { resource: 'chat', action: 'read' },
+  ];
+
+  for (const perm of studentPermissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_resource_action: {
+          roleId: studentRole.id,
+          resource: perm.resource,
+          action: perm.action,
+        },
+      },
+      update: {},
+      create: {
+        roleId: studentRole.id,
+        resource: perm.resource,
+        action: perm.action,
+        scope: PermissionScope.INSTITUTE,
+      },
+    });
+  }
+
   // 5. Create / Update Primary Super Admin User (Rajan Prasaila)
   const defaultPasswordHash = await bcrypt.hash('Admin@Examly2026!', 10);
 

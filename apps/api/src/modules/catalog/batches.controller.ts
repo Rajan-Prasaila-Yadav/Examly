@@ -46,6 +46,47 @@ export class BatchesController {
     return this.batchesService.update(id, user.instituteId!, body);
   }
 
+  @Post(':id/students')
+  @ApiOperation({ summary: 'Enroll students in batch' })
+  @RequirePermission('batches', 'update')
+  async enrollStudents(
+    @Param('id') id: string,
+    @Body() body: { studentIds: string[] },
+  ) {
+    return this.batchesService.enrollStudents(id, body.studentIds || []);
+  }
+
+  @Get(':id/students')
+  @ApiOperation({ summary: 'Get batch enrolled students' })
+  @RequirePermission('batches', 'read')
+  async getStudents(@Param('id') id: string) {
+    return this.batchesService.getStudents(id);
+  }
+
+  @Delete(':id/students/:studentId')
+  @ApiOperation({ summary: 'Remove student from batch' })
+  @RequirePermission('batches', 'update')
+  async removeStudent(
+    @Param('id') id: string,
+    @Param('studentId') studentId: string,
+  ) {
+    return this.batchesService.removeStudent(id, studentId);
+  }
+
+  @Get(':id/teachers')
+  @ApiOperation({ summary: 'Get teachers for batch' })
+  @RequirePermission('batches', 'read')
+  async getTeachers(@Param('id') id: string) {
+    return this.batchesService.getTeachers(id);
+  }
+
+  @Get(':id/tests')
+  @ApiOperation({ summary: 'Get batch-level tests' })
+  @RequirePermission('batches', 'read')
+  async getBatchTests(@Param('id') id: string) {
+    return this.batchesService.getBatchTests(id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete batch' })
   @RequirePermission('batches', 'delete')

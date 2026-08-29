@@ -28,11 +28,25 @@ export class UsersController {
     return this.usersService.getStudents(user.instituteId!, batchId, search);
   }
 
+  @Get('students/:id/360')
+  @ApiOperation({ summary: 'Get 360-degree student profile analytics' })
+  @RequirePermission('students', 'read')
+  async getStudent360(@Param('id') id: string) {
+    return this.usersService.getStudent360(id);
+  }
+
   @Get('teachers')
   @ApiOperation({ summary: 'Get list of faculty teachers' })
   @RequirePermission('teachers', 'read')
   async getTeachers(@CurrentUser() user: CurrentUserPayload) {
     return this.usersService.getTeachers(user.instituteId!);
+  }
+
+  @Get('teachers/:id/360')
+  @ApiOperation({ summary: 'Get 360-degree teacher profile' })
+  @RequirePermission('teachers', 'read')
+  async getTeacher360(@Param('id') id: string) {
+    return this.usersService.getTeacher360(id);
   }
 
   @Post('students')
@@ -42,11 +56,25 @@ export class UsersController {
     return this.usersService.createStudent(user.instituteId!, dto);
   }
 
+  @Put('students/:id')
+  @ApiOperation({ summary: 'Update student profile (Admin)' })
+  @RequirePermission('students', 'update')
+  async updateStudent(@Param('id') id: string, @Body() dto: any) {
+    return this.usersService.updateStudent(id, dto);
+  }
+
   @Post('teachers')
   @ApiOperation({ summary: 'Onboard new faculty teacher (Admin)' })
   @RequirePermission('teachers', 'create')
   async createTeacher(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateTeacherDto) {
     return this.usersService.createTeacher(user.instituteId!, dto);
+  }
+
+  @Put('teachers/:id')
+  @ApiOperation({ summary: 'Update teacher profile (Admin)' })
+  @RequirePermission('teachers', 'update')
+  async updateTeacher(@Param('id') id: string, @Body() dto: any) {
+    return this.usersService.updateTeacher(id, dto);
   }
 
   @Put(':id/status')

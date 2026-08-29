@@ -96,7 +96,7 @@ export function Sidebar() {
     <aside
       ref={sidebarRef}
       style={{ width: `${width}px` }}
-      className={`relative bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800 select-none transition-[width] duration-100 ease-out z-40 ${
+      className={`hidden md:flex relative bg-slate-900 text-white flex-col shrink-0 border-r border-slate-800 select-none transition-[width] duration-100 ease-out z-40 ${
         isDragging ? 'transition-none' : ''
       }`}
     >

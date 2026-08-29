@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { Lock, User, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, User, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, AlertCircle, Chrome } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,6 +65,29 @@ export default function LoginPage() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Google Sign-in Button */}
+        <button
+          type="button"
+          onClick={() => {
+            // Google OAuth flow would be implemented here
+            // For now, show a placeholder
+            alert('Google Sign-in requires OAuth setup. Use manual login for now.');
+          }}
+          className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-900 font-semibold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] border border-slate-200"
+        >
+          <Chrome className="w-4 h-4" />
+          Sign in with Google
+        </button>
+
+        <div className="relative py-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-700/50"></div>
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="px-2 bg-slate-900 text-slate-500">or continue with email</span>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -139,6 +162,16 @@ export default function LoginPage() {
               <span className="block text-[9px] text-slate-400 truncate font-mono">director@apex...</span>
             </button>
           </div>
+        </div>
+
+        {/* Signup & Forgot Password Links */}
+        <div className="mt-6 pt-4 border-t border-slate-800/80 flex justify-between text-xs">
+          <a href="/signup" className="text-brand-400 hover:text-brand-300 font-semibold transition-colors">
+            Create Account
+          </a>
+          <a href="/forgot-password" className="text-slate-400 hover:text-brand-400 font-semibold transition-colors">
+            Forgot Password?
+          </a>
         </div>
       </div>
     </div>

@@ -104,7 +104,16 @@ export class BatchesService {
     await this.findOne(id, instituteId);
     return this.prisma.batch.update({
       where: { id },
-      data,
+      data: {
+        name: data.name,
+        code: data.code,
+        description: data.description,
+        imageUrl: data.imageUrl,
+        priceNpr: data.priceNpr !== undefined ? Number(data.priceNpr) : undefined,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        status: data.status,
+      },
     });
   }
 
@@ -113,6 +122,63 @@ export class BatchesService {
     return this.prisma.batch.update({
       where: { id },
       data: { status: RecordStatus.DELETED, deletedAt: new Date() },
+    });
+  }
+
+  async getStudents(batchId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        studentProfile: { batchId },
+        status: { not: RecordStatus.DELETED },
+      },
+      include: {
+        studentProfile: true,
+        _count: { select: { testAttempts: true } },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+  }
+
+  async enrollStudents(batchId: string, studentIds: string[]) {
+    await this.prisma.studentProfile.updateMany({
+      where: { userId: { in: studentIds } },
+      data: { batchId },
+    });
+    return { success: true, count: studentIds.length };
+  }
+
+  async removeStudent(batchId: string, studentId: string) {
+    await this.prisma.studentProfile.updateMany({
+      where: { userId: studentId, batchId },
+      data: { batchId: null },
+    });
+    return { success: true };
+  }
+
+  async getTeachers(batchId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        role: { code: 'TEACHER' },
+        status: { not: RecordStatus.DELETED },
+      },
+      include: {
+        teacherProfile: true,
+      },
+      orderBy: { fullName: 'asc' },
+    });
+  }
+
+  async getBatchTests(batchId: string) {
+    return this.prisma.test.findMany({
+      where: {
+        batchId,
+        status: { not: RecordStatus.DELETED },
+      },
+      include: {
+        config: true,
+        _count: { select: { sections: true, attempts: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

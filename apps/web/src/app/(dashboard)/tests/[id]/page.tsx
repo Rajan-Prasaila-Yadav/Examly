@@ -31,7 +31,9 @@ import {
   TrendingUp,
   BarChart3,
   FileSpreadsheet,
+  FileText,
   FolderPlus,
+  History,
 } from 'lucide-react';
 import katex from 'katex';
 
@@ -42,8 +44,10 @@ export default function TestDetailPage() {
 
   const [test, setTest] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [selectedStudentAttempts, setSelectedStudentAttempts] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'questions' | 'analytics' | 'leaderboard' | 'settings'>('questions');
+  const [attempts, setAttempts] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'questions' | 'analytics' | 'leaderboard' | 'attempts' | 'settings'>('questions');
   const [isLoading, setIsLoading] = useState(true);
 
   // Edit Test Modal
@@ -82,10 +86,11 @@ export default function TestDetailPage() {
 
   const fetchTestDetails = async () => {
     try {
-      const [testRes, boardRes, analyticsRes] = await Promise.all([
+      const [testRes, boardRes, analyticsRes, attemptsRes] = await Promise.all([
         api.get(`/tests/${testId}`),
         api.get(`/tests/${testId}/leaderboard`).catch(() => ({ data: [] })),
         api.get(`/tests/${testId}/analytics`).catch(() => ({ data: null })),
+        api.get(`/tests/${testId}/attempts`).catch(() => ({ data: null })),
       ]);
       setTest(testRes.data);
       setTitle(testRes.data.title);
@@ -94,10 +99,27 @@ export default function TestDetailPage() {
       setDurationMinutes(testRes.data.durationMinutes);
       setLeaderboard(boardRes.data);
       setAnalytics(analyticsRes.data);
+      setAttempts(attemptsRes.data);
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const downloadFile = async (path: string, filename: string) => {
+    try {
+      const res = await api.get(path, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Download failed');
     }
   };
 
@@ -439,6 +461,7 @@ export default function TestDetailPage() {
           {[
             { key: 'questions', label: `Questions (${allQuestions.length})`, icon: Layers },
             { key: 'analytics', label: 'Analytics & Accuracy', icon: BarChart3 },
+            { key: 'attempts', label: `Attempts (${attempts?.totalAttempts ?? 0})`, icon: Clock },
             { key: 'leaderboard', label: `Leaderboard (${leaderboard.length})`, icon: Award },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -694,64 +717,205 @@ export default function TestDetailPage() {
         </div>
       )}
 
-      {/* ── TAB 3: LEADERBOARD ── */}
+      {/* ── TAB 3: ATTEMPTS HISTORY (multi-attempt tracking) ── */}
+      {activeTab === 'attempts' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-brand-600" /> Attempt History — Each Student's Re-sits & Scores
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => downloadFile(`/tests/${testId}/export/attempts/pdf`, `attempts-${testId}.pdf`)}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                title="Download attempts history as PDF"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </button>
+              <button
+                onClick={() => downloadFile(`/tests/${testId}/export/attempts/excel`, `attempts-${testId}.xlsx`)}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                title="Download attempts history as Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+              </button>
+            </div>
+          </div>
+
+          {attempts && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
+              <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-100">
+                <span className="text-[10px] text-slate-500 block font-medium">Students Attempted</span>
+                <span className="text-2xl font-extrabold text-brand-700 font-mono">{attempts.studentCount}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-[10px] text-slate-500 block font-medium">Total Attempts (re-sits included)</span>
+                <span className="text-2xl font-extrabold text-slate-900 font-mono">{attempts.totalAttempts}</span>
+              </div>
+              <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
+                <span className="text-[10px] text-slate-500 block font-medium">Avg Attempts / Student</span>
+                <span className="text-2xl font-extrabold text-purple-700 font-mono">
+                  {attempts.studentCount > 0 ? (attempts.totalAttempts / attempts.studentCount).toFixed(2) : '0.00'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="pb-3">Student</th>
+                  <th className="pb-3">Roll No</th>
+                  <th className="pb-3 text-center">Attempts</th>
+                  <th className="pb-3">Scores (Recent 2 & Full History)</th>
+                  <th className="pb-3 text-center">Best %</th>
+                  <th className="pb-3 text-right">Last Submitted</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {(attempts?.students || []).map((row: any) => {
+                  const sortedAttempts = [...(row.attempts || [])].sort((a: any, b: any) => (b.attemptNumber || 0) - (a.attemptNumber || 0));
+                  const recentAttempts = sortedAttempts.slice(0, 2);
+                  const extraAttemptsCount = Math.max(0, sortedAttempts.length - 2);
+                  const rollNo =
+                    row.student?.studentProfile?.rollNumber ||
+                    (row.student?.identifier && !row.student.identifier.includes('@') ? row.student.identifier : null) ||
+                    '-';
+
+                  return (
+                    <tr key={row.studentId} className="hover:bg-slate-50 transition-colors align-top">
+                      <td className="py-3.5">
+                        <div className="font-bold text-slate-900">{row.student?.fullName || 'Student'}</div>
+                        {row.student?.email && (
+                          <div className="text-[10px] text-slate-400 font-normal">{row.student.email}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 font-mono text-slate-700 font-medium">{rollNo}</td>
+                      <td className="py-3.5 text-center">
+                        <span className="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 font-bold font-mono">
+                          {row.attemptCount}
+                        </span>
+                      </td>
+                      <td className="py-3.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {recentAttempts.map((a: any) => (
+                            <span
+                              key={a.attemptId}
+                              className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
+                                a.isPassed
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                              title={`Attempt #${a.attemptNumber}: ${a.score} marks (${a.percentage}%), Duration: ${Math.floor((a.durationSeconds || 0) / 60)}m`}
+                            >
+                              #{a.attemptNumber}: {a.score ?? 0}
+                            </span>
+                          ))}
+
+                          {extraAttemptsCount > 0 && (
+                            <button
+                              onClick={() => setSelectedStudentAttempts({ ...row, sortedAttempts })}
+                              className="px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 font-mono text-[11px] font-bold border border-brand-200 flex items-center gap-1 transition-colors"
+                              title={`View complete log of all ${row.attemptCount} attempts`}
+                            >
+                              <Eye className="w-3 h-3 text-brand-600" /> +{extraAttemptsCount} more
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 text-center font-mono font-bold text-brand-700">{row.bestPercentage ?? 0}%</td>
+                      <td className="py-3.5 text-right text-slate-500 font-mono text-[11px]">
+                        {row.lastSubmittedAt
+                          ? new Date(row.lastSubmittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {(!attempts || (attempts.students || []).length === 0) && (
+            <p className="text-xs text-slate-500 text-center py-6">No attempts recorded yet. Students can re-sit the test — each submission is tracked here.</p>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB 4: LEADERBOARD ── */}
       {activeTab === 'leaderboard' && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Award className="w-4 h-4 text-brand-600" /> Student Scorecards & Ranked Leaderboard
             </h2>
-            <button
-              onClick={() => window.print()}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" /> Export PDF / Print
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => downloadFile(`/tests/${testId}/export/leaderboard/pdf`, `leaderboard-${testId}.pdf`)}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                title="Download leaderboard as PDF"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </button>
+              <button
+                onClick={() => downloadFile(`/tests/${testId}/export/leaderboard/excel`, `leaderboard-${testId}.xlsx`)}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                title="Download leaderboard as Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
                   <th className="pb-3">Rank</th>
-                  <th className="pb-3">Student Name</th>
+                  <th className="pb-3">Student</th>
                   <th className="pb-3">Roll No</th>
-                  <th className="pb-3">Score</th>
-                  <th className="pb-3">Accuracy</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Submitted At</th>
+                  <th className="pb-3 text-center">Attempts</th>
+                  <th className="pb-3">Scores (per attempt)</th>
+                  <th className="pb-3 text-center">Best %</th>
+                  <th className="pb-3 text-right">Last Submitted</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {leaderboard.map((row, idx) => (
-                  <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 font-bold font-mono text-brand-700">#{row.rank || idx + 1}</td>
-                    <td className="py-3.5 font-bold text-slate-900">{row.student?.fullName}</td>
-                    <td className="py-3.5 font-mono text-slate-500">{row.student?.identifier}</td>
-                    <td className="py-3.5 font-mono font-bold text-brand-700">
-                      {row.result?.totalScore} / {test.totalMarks}
-                    </td>
-                    <td className="py-3.5 font-mono text-emerald-600">
-                      {row.result?.percentage}% ({row.result?.totalCorrect} ✔, {row.result?.totalWrong} ✖)
-                    </td>
-                    <td className="py-3.5">
-                      {row.result?.isPassed ? (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                          PASSED
+                {leaderboard.map((row, idx) => {
+                  const rollNo =
+                    row.rollNumber ||
+                    row.student?.studentProfile?.rollNumber ||
+                    (row.student?.identifier && !row.student.identifier.includes('@') ? row.student.identifier : null) ||
+                    '-';
+
+                  return (
+                    <tr key={row.id || idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 font-bold font-mono text-brand-700">#{row.rank || idx + 1}</td>
+                      <td className="py-3.5">
+                        <div className="font-bold text-slate-900">{row.student?.fullName || row.studentName || 'Student'}</div>
+                        {row.student?.email && (
+                          <div className="text-[10px] text-slate-400 font-normal">{row.student.email}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 font-mono text-slate-700 font-medium">{rollNo}</td>
+                      <td className="py-3.5 text-center font-mono font-semibold text-slate-700">{row.attemptCount || 1}</td>
+                      <td className="py-3.5 font-mono font-bold text-brand-700">
+                        {row.result?.totalScore ?? row.bestScore ?? 0} / {test?.totalMarks || 200}
+                      </td>
+                      <td className="py-3.5 text-center">
+                        <span className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-mono font-bold text-xs border border-emerald-200">
+                          {row.result?.percentage ?? row.bestPercentage ?? 0}%
                         </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[10px] font-bold border border-rose-200">
-                          FAILED
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 text-right text-slate-400 font-mono">
-                      {row.submittedAt
-                        ? new Date(row.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 text-right text-slate-500 font-mono text-[11px]">
+                        {row.submittedAt
+                          ? new Date(row.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -898,7 +1062,7 @@ export default function TestDetailPage() {
                     <option value="MULTIPLE_CORRECT">2. Multiple Correct MCQ</option>
                     <option value="NUMERICAL">3. Numerical Value</option>
                     <option value="ASSERTION_REASON">4. Assertion & Reason</option>
-                    <option value="FILL_IN_BLANK">5. Fill in the Blank</option>
+                    <option value="FILL_BLANK">5. Fill in the Blank</option>
                     <option value="MATRIX_MATCH">6. Matrix Match</option>
                     <option value="TRUE_FALSE">7. True / False</option>
                     <option value="DESCRIPTIVE">8. Descriptive Subjective</option>
@@ -1215,6 +1379,98 @@ export default function TestDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── STUDENT ALL ATTEMPTS HISTORY MODAL ── */}
+      {selectedStudentAttempts && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <History className="w-5 h-5 text-brand-600" />
+                  {selectedStudentAttempts.student?.fullName || 'Student'}&apos;s Complete Attempt Log
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Roll No: <span className="font-mono font-bold text-slate-800">
+                    {selectedStudentAttempts.student?.studentProfile?.rollNumber ||
+                      (selectedStudentAttempts.student?.identifier && !selectedStudentAttempts.student.identifier.includes('@') ? selectedStudentAttempts.student.identifier : null) ||
+                      '-'}
+                  </span> • Total Re-sits: <span className="font-mono font-bold text-brand-700">{selectedStudentAttempts.attemptCount} Attempts</span> • Best Score: <span className="font-mono font-bold text-emerald-700">{selectedStudentAttempts.bestPercentage ?? 0}%</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedStudentAttempts(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[55vh] overflow-y-auto pr-1">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                    <th className="pb-3">Attempt #</th>
+                    <th className="pb-3">Submitted At</th>
+                    <th className="pb-3">Duration</th>
+                    <th className="pb-3">Score</th>
+                    <th className="pb-3 text-center">Accuracy %</th>
+                    <th className="pb-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {(selectedStudentAttempts.sortedAttempts || selectedStudentAttempts.attempts || []).map((a: any) => (
+                    <tr key={a.attemptId || a.id} className="hover:bg-slate-50 font-mono">
+                      <td className="py-3 font-bold text-slate-900">Attempt #{a.attemptNumber}</td>
+                      <td className="py-3 text-slate-500 font-sans text-[11px]">
+                        {a.submittedAt
+                          ? new Date(a.submittedAt).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '-'}
+                      </td>
+                      <td className="py-3 text-slate-600">
+                        {a.durationSeconds
+                          ? `${Math.floor(a.durationSeconds / 60)}m ${a.durationSeconds % 60}s`
+                          : '-'}
+                      </td>
+                      <td className="py-3 font-bold text-brand-700">
+                        {a.score ?? 0} / {test?.totalMarks || 200}
+                      </td>
+                      <td className="py-3 text-center font-bold text-emerald-600">
+                        {a.percentage ?? 0}%
+                      </td>
+                      <td className="py-3 text-right">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                            a.isPassed
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        >
+                          {a.isPassed ? 'PASSED' : 'FAILED'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedStudentAttempts(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+              >
+                Close History
+              </button>
+            </div>
           </div>
         </div>
       )}

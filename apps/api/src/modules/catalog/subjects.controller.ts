@@ -41,6 +41,13 @@ export class SubjectsController {
     return this.subjectsService.update(id, body);
   }
 
+  @Get(':id/tests')
+  @ApiOperation({ summary: 'Get subject-level tests' })
+  @RequirePermission('subjects', 'read')
+  async getSubjectTests(@Param('id') id: string) {
+    return this.subjectsService.getSubjectTests(id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete subject' })
   @RequirePermission('subjects', 'delete')

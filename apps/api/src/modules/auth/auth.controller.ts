@@ -33,6 +33,27 @@ export class AuthController {
     return this.authService.refresh(dto);
   }
 
+  @Post('register')
+  @ApiOperation({ summary: 'Register new user account' })
+  @ApiResponse({ status: 201, description: 'Registration successful' })
+  async register(@Body() dto: any, @Ip() ip: string) {
+    return this.authService.register(dto, ip);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset link' })
+  @ApiResponse({ status: 200, description: 'Password reset email sent' })
+  async forgotPassword(@Body() dto: { email: string }) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  async resetPassword(@Body() dto: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

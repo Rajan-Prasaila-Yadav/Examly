@@ -1,7 +1,14 @@
 // apps/api/src/modules/users/users.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { CreateStudentDto, CreateTeacherDto, UpdateUserStatusDto, UpdateTeacherPermissionsDto } from './dto/create-student.dto';
+import {
+  CreateStudentDto,
+  UpdateStudentDto,
+  CreateTeacherDto,
+  UpdateTeacherDto,
+  UpdateUserStatusDto,
+  UpdateTeacherPermissionsDto,
+} from './dto/create-student.dto';
 import * as bcrypt from 'bcrypt';
 import { RecordStatus, RoleType } from '@prisma/client';
 
@@ -74,6 +81,8 @@ export class UsersService {
       throw new BadRequestException('Student role not found');
     }
 
+    const rollNumber = dto.rollNumber?.trim() || `RN-${Math.floor(10000 + Math.random() * 90000)}`;
+    const identifier = rollNumber;
     const password = dto.password || `Examly@${Math.floor(1000 + Math.random() * 9000)}`;
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -81,15 +90,16 @@ export class UsersService {
       data: {
         instituteId,
         roleId: studentRole.id,
-        identifier: dto.rollNumber,
+        identifier,
         fullName: dto.fullName,
         email: dto.email,
         phone: dto.phone,
+        avatarUrl: dto.avatarUrl,
         passwordHash,
         status: RecordStatus.ACTIVE,
         studentProfile: {
           create: {
-            rollNumber: dto.rollNumber,
+            rollNumber,
             batchId: dto.batchId,
             parentPhone: dto.parentPhone,
             province: dto.province,
@@ -110,6 +120,55 @@ export class UsersService {
     };
   }
 
+  async updateStudent(id: string, dto: UpdateStudentDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { studentProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        fullName: dto.fullName !== undefined ? dto.fullName : user.fullName,
+        phone: dto.phone !== undefined ? dto.phone : user.phone,
+        email: dto.email !== undefined ? dto.email : user.email,
+        avatarUrl: dto.avatarUrl !== undefined ? dto.avatarUrl : user.avatarUrl,
+        identifier: dto.rollNumber?.trim() || user.identifier,
+        studentProfile: {
+          upsert: {
+            create: {
+              rollNumber: dto.rollNumber?.trim() || `RN-${Math.floor(10000 + Math.random() * 90000)}`,
+              batchId: dto.batchId,
+              parentPhone: dto.parentPhone,
+              province: dto.province,
+              district: dto.district,
+              municipality: dto.municipality,
+              wardNumber: dto.wardNumber,
+            },
+            update: {
+              rollNumber: dto.rollNumber !== undefined ? dto.rollNumber : user.studentProfile?.rollNumber,
+              batchId: dto.batchId !== undefined ? dto.batchId : user.studentProfile?.batchId,
+              parentPhone: dto.parentPhone !== undefined ? dto.parentPhone : user.studentProfile?.parentPhone,
+              province: dto.province !== undefined ? dto.province : user.studentProfile?.province,
+              district: dto.district !== undefined ? dto.district : user.studentProfile?.district,
+              municipality: dto.municipality !== undefined ? dto.municipality : user.studentProfile?.municipality,
+              wardNumber: dto.wardNumber !== undefined ? dto.wardNumber : user.studentProfile?.wardNumber,
+            },
+          },
+        },
+      },
+      include: {
+        studentProfile: { include: { batch: true } },
+      },
+    });
+
+    return updated;
+  }
+
   async createTeacher(instituteId: string | undefined, dto: CreateTeacherDto) {
     const teacherRole = await this.prisma.role.findFirst({
       where: {
@@ -121,6 +180,8 @@ export class UsersService {
       throw new BadRequestException('Teacher role not found');
     }
 
+    const facultyCode = dto.facultyCode?.trim() || `TCH-${Math.floor(100 + Math.random() * 900)}`;
+    const identifier = facultyCode;
     const password = dto.password || `Teacher@${Math.floor(1000 + Math.random() * 9000)}`;
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -128,15 +189,16 @@ export class UsersService {
       data: {
         instituteId,
         roleId: teacherRole.id,
-        identifier: dto.facultyCode,
+        identifier,
         fullName: dto.fullName,
         email: dto.email,
         phone: dto.phone,
+        avatarUrl: dto.avatarUrl,
         passwordHash,
         status: RecordStatus.ACTIVE,
         teacherProfile: {
           create: {
-            facultyCode: dto.facultyCode,
+            facultyCode,
             designation: dto.designation,
             specialization: dto.specialization || [],
             assignedBatchIds: dto.assignedBatchIds || [],
@@ -152,6 +214,47 @@ export class UsersService {
       ...user,
       rawPassword: password,
     };
+  }
+
+  async updateTeacher(id: string, dto: UpdateTeacherDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { teacherProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Teacher not found');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        fullName: dto.fullName !== undefined ? dto.fullName : user.fullName,
+        phone: dto.phone !== undefined ? dto.phone : user.phone,
+        email: dto.email !== undefined ? dto.email : user.email,
+        avatarUrl: dto.avatarUrl !== undefined ? dto.avatarUrl : user.avatarUrl,
+        identifier: dto.facultyCode?.trim() || user.identifier,
+        teacherProfile: {
+          upsert: {
+            create: {
+              facultyCode: dto.facultyCode?.trim() || `TCH-${Math.floor(100 + Math.random() * 900)}`,
+              designation: dto.designation || 'Faculty Member',
+              specialization: dto.specialization || [],
+            },
+            update: {
+              facultyCode: dto.facultyCode !== undefined ? dto.facultyCode : user.teacherProfile?.facultyCode,
+              designation: dto.designation !== undefined ? dto.designation : user.teacherProfile?.designation,
+              specialization: dto.specialization !== undefined ? dto.specialization : user.teacherProfile?.specialization,
+            },
+          },
+        },
+      },
+      include: {
+        teacherProfile: true,
+      },
+    });
+
+    return updated;
   }
 
   async updateUserStatus(userId: string, instituteId: string | undefined, dto: UpdateUserStatusDto) {
@@ -248,5 +351,126 @@ export class UsersService {
       where: { id: roleId },
       include: { permissions: true },
     });
+  }
+
+  // ──────────────────────────────────────────────
+  // 360° Profile Analytics
+  // ──────────────────────────────────────────────
+
+  async getStudent360(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        studentProfile: {
+          include: {
+            batch: {
+              include: {
+                subjects: {
+                  where: { status: { not: RecordStatus.DELETED } },
+                  include: {
+                    _count: { select: { lessons: true, tests: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        testAttempts: {
+          where: { submittedAt: { not: null } },
+          include: {
+            test: { select: { id: true, title: true, totalMarks: true, passMarks: true } },
+            result: true,
+          },
+          orderBy: { submittedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Student user not found');
+    }
+
+    const attempts = user.testAttempts.filter((a) => a.result);
+    const totalAttempts = attempts.length;
+    const scores = attempts.map((a) => a.result!.totalScore);
+    const percentages = attempts.map((a) => a.result!.percentage);
+
+    const bestPercentage = percentages.length > 0 ? Math.max(...percentages) : 0;
+    const avgPercentage =
+      percentages.length > 0
+        ? Math.round((percentages.reduce((a, b) => a + b, 0) / percentages.length) * 100) / 100
+        : 0;
+    const passedCount = attempts.filter((a) => a.result!.isPassed).length;
+    const failedCount = totalAttempts - passedCount;
+
+    return {
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        identifier: user.identifier,
+        email: user.email,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl,
+        status: user.status,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      },
+      studentProfile: user.studentProfile,
+      metrics: {
+        totalAttempts,
+        bestPercentage,
+        avgPercentage,
+        passedCount,
+        failedCount,
+        passRate: totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0,
+      },
+      recentAttempts: user.testAttempts.map((a) => ({
+        id: a.id,
+        testId: a.testId,
+        testTitle: a.test.title,
+        attemptNumber: a.attemptNumber,
+        submittedAt: a.submittedAt,
+        durationSeconds: a.durationSeconds,
+        cheatStrikes: a.cheatStrikes,
+        score: a.result?.totalScore ?? 0,
+        totalMarks: a.test.totalMarks,
+        percentage: a.result?.percentage ?? 0,
+        isPassed: a.result?.isPassed ?? false,
+        correct: a.result?.totalCorrect ?? 0,
+        wrong: a.result?.totalWrong ?? 0,
+      })),
+    };
+  }
+
+  async getTeacher360(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        teacherProfile: true,
+        permissionGrants: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Teacher user not found');
+    }
+
+    return {
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        identifier: user.identifier,
+        email: user.email,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl,
+        status: user.status,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      },
+      teacherProfile: user.teacherProfile,
+      permissionGrants: user.permissionGrants,
+    };
   }
 }

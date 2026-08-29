@@ -18,10 +18,10 @@ export class CreateStudentDto {
   @IsEmail()
   email?: string;
 
-  @ApiProperty({ example: '12A-034' })
+  @ApiProperty({ required: false, example: '12A-034' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  rollNumber: string;
+  rollNumber?: string;
 
   @ApiProperty({ required: false, example: 'batch-cee-2026-a' })
   @IsOptional()
@@ -53,10 +53,72 @@ export class CreateStudentDto {
   @IsString()
   parentPhone?: string;
 
+  @ApiProperty({ required: false, example: 'https://avatar-url.jpg' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
   @ApiProperty({ required: false, example: 'TempPass@123' })
   @IsOptional()
   @IsString()
   password?: string;
+}
+
+export class UpdateStudentDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  rollNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  batchId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  municipality?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  wardNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  parentPhone?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }
 
 export class CreateTeacherDto {
@@ -75,10 +137,10 @@ export class CreateTeacherDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'TCH-014' })
+  @ApiProperty({ required: false, example: 'TCH-014' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  facultyCode: string;
+  facultyCode?: string;
 
   @ApiProperty({ example: 'Senior Physics Faculty' })
   @IsString()
@@ -95,10 +157,52 @@ export class CreateTeacherDto {
   @IsOptional()
   assignedBatchIds?: string[];
 
+  @ApiProperty({ required: false, example: 'https://avatar-url.jpg' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
   @ApiProperty({ required: false, example: 'TeacherPass@123' })
   @IsOptional()
   @IsString()
   password?: string;
+}
+
+export class UpdateTeacherDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  facultyCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  designation?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsArray()
+  specialization?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }
 
 export class UpdateUserStatusDto {

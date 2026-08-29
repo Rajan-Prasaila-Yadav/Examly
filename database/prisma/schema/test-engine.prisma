@@ -17,6 +17,8 @@ model Test {
   passMarks         Float
   negativeMarkRate  Float             @default(1.0) // Deducted on wrong answer
   isPublished       Boolean           @default(false)
+  testStatus        TestStatus        @default(DRAFT)
+  publishAt         DateTime?         // For SCHEDULED status: when it auto-goes LIVE
   status            RecordStatus      @default(ACTIVE)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
@@ -44,6 +46,12 @@ model TestConfig {
   publishDateTime   DateTime?
   submitUnlockDelayMins Int           @default(5)
   questionsPerScreen Int              @default(1)
+  oneQuestionAtATime   Boolean        @default(true)
+  totalQuestions       Int?           // target number of questions declared by author
+  optionsCount         Int            @default(4) // 2 / 3 / 4 / 5 / ...
+  correctAnswerType    CorrectAnswerType @default(SINGLE)
+  defaultPositiveMarks Float          @default(4.0) // used when a question leaves marks blank
+  defaultNegativeMarks Float          @default(1.0)
 
   test              Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
 }
@@ -106,6 +114,7 @@ model TestAttempt {
   id                String            @id @default(cuid())
   testId            String
   studentId         String
+  attemptNumber     Int               @default(1)
   startedAt         DateTime          @default(now())
   submittedAt       DateTime?
   durationSeconds   Int               @default(0)

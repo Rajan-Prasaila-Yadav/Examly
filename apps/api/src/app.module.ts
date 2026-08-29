@@ -12,6 +12,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { CommunityModule } from './modules/community/community.module';
+import { SystemModule } from './modules/system/system.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CommunityModule } from './modules/community/community.module';
     UsersModule,
     ChatModule,
     CommunityModule,
+    SystemModule,
   ],
   providers: [
     {

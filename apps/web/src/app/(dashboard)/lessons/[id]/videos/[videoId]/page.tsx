@@ -24,10 +24,12 @@ import {
   ArrowRight,
   Video,
   FileText,
+  FileCheck2,
   Clock,
   Sparkles,
   Shield,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import katex from 'katex';
 
@@ -42,43 +44,44 @@ export default function SocialVideoPlayerPage() {
   const [lesson, setLesson] = useState<any>(null);
   const [currentVideo, setCurrentVideo] = useState<any>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState('1.0');
-  const [selectedReaction, setSelectedReaction] = useState<string | null>('LIKE');
-  const [reactionsCount, setReactionsCount] = useState({
-    LIKE: 142,
-    LOVE: 38,
-    HELPFUL: 24,
-    BRAVO: 18,
+  const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
+  const [reactionsCount, setReactionsCount] = useState<Record<string, number>>({
+    LIKE: 0,
+    LOVE: 0,
+    HELPFUL: 0,
+    BRAVO: 0,
+    CELEBRATE: 0,
   });
 
-  // Comments State
+  // Live Comments State
   const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState<any[]>([
-    {
-      id: 'c1',
-      author: 'Dr. Arun Mehta (Instructor)',
-      isPinned: true,
-      timeAgo: '1 day ago',
-      content:
-        'Remember: In kinematic formula $v^2 = u^2 + 2as$, acceleration $a$ must be strictly constant throughout the motion! Pay special attention to Example 3.4 at 18:20.',
-      likes: 34,
-    },
-    {
-      id: 'c2',
-      author: 'Rohan Shrestha',
-      isPinned: false,
-      timeAgo: '4 hours ago',
-      content: 'Sir, why did we take $g = -9.8\\text{ m/s}^2$ instead of $+9.8$ at timestamp 12:45?',
-      likes: 3,
-      reply: {
-        author: 'Dr. Arun Mehta (Instructor)',
-        timeAgo: '2 hours ago',
-        content: 'Because the upward vertical direction was chosen as the positive y-axis coordinate!',
-        likes: 8,
-      },
-    },
-  ]);
+  const [comments, setComments] = useState<any[]>([]);
+  const [replyTextMap, setReplyTextMap] = useState<Record<string, string>>({});
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [isPostingComment, setIsPostingComment] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchReactions = async (vidId: string) => {
+    try {
+      const res = await api.get(`/lessons/videos/${vidId}/reactions`);
+      if (res.data) {
+        setReactionsCount(res.data.counts || {});
+        setSelectedReaction(res.data.userReaction || null);
+      }
+    } catch (e) {
+      console.error('Failed to load reactions', e);
+    }
+  };
+
+  const fetchComments = async (vidId: string) => {
+    try {
+      const res = await api.get(`/lessons/videos/${vidId}/comments`);
+      setComments(res.data || []);
+    } catch (e) {
+      console.error('Failed to load comments', e);
+    }
+  };
 
   useEffect(() => {
     const fetchLesson = async () => {
@@ -87,6 +90,10 @@ export default function SocialVideoPlayerPage() {
         setLesson(res.data);
         const v = res.data.videos?.find((x: any) => x.id === videoId) || res.data.videos?.[0];
         setCurrentVideo(v);
+        if (v) {
+          fetchReactions(v.id);
+          fetchComments(v.id);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -99,34 +106,60 @@ export default function SocialVideoPlayerPage() {
     }
   }, [lessonId, videoId]);
 
-  const handleReact = (type: 'LIKE' | 'LOVE' | 'HELPFUL' | 'BRAVO') => {
-    if (selectedReaction === type) {
-      setSelectedReaction(null);
-      setReactionsCount((prev) => ({ ...prev, [type]: prev[type] - 1 }));
-    } else {
-      if (selectedReaction) {
-        setReactionsCount((prev) => ({ ...prev, [selectedReaction]: prev[selectedReaction as keyof typeof prev] - 1 }));
+  const handleReact = async (type: 'LIKE' | 'LOVE' | 'HELPFUL' | 'BRAVO') => {
+    if (!currentVideo) return;
+    try {
+      const res = await api.post(`/lessons/videos/${currentVideo.id}/reactions`, {
+        reactionType: type,
+      });
+      if (res.data) {
+        setReactionsCount(res.data.counts || {});
+        setSelectedReaction(res.data.userReaction || null);
       }
-      setSelectedReaction(type);
-      setReactionsCount((prev) => ({ ...prev, [type]: prev[type] + 1 }));
+    } catch (e) {
+      console.error('Failed to update reaction', e);
     }
   };
 
-  const handlePostComment = (e: React.FormEvent) => {
+  const handlePostComment = async (e: React.FormEvent, parentId?: string) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    const content = parentId ? replyTextMap[parentId] : commentText;
+    if (!content || !content.trim() || !currentVideo) return;
 
-    const newComment = {
-      id: Date.now().toString(),
-      author: user?.fullName || 'Aarav Sharma',
-      isPinned: false,
-      timeAgo: 'Just now',
-      content: commentText,
-      likes: 0,
-    };
+    setIsPostingComment(true);
+    try {
+      const res = await api.post(`/lessons/videos/${currentVideo.id}/comments`, {
+        content: content.trim(),
+        parentId: parentId || null,
+      });
 
-    setComments([newComment, ...comments]);
-    setCommentText('');
+      if (parentId) {
+        // Append reply
+        setComments((prev) =>
+          prev.map((c) => (c.id === parentId ? { ...c, replies: [...(c.replies || []), res.data] } : c))
+        );
+        setReplyTextMap((prev) => ({ ...prev, [parentId]: '' }));
+        setActiveReplyId(null);
+      } else {
+        // Append top-level comment
+        setComments([res.data, ...comments]);
+        setCommentText('');
+      }
+    } catch (e) {
+      alert('Failed to post doubt discussion comment');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('Delete this comment?')) return;
+    try {
+      await api.delete(`/lessons/videos/comments/${commentId}`);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (e) {
+      alert('Failed to delete comment');
+    }
   };
 
   const renderMath = (text: string) => {
@@ -238,18 +271,23 @@ export default function SocialVideoPlayerPage() {
             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
-                  Dr
+                  {lesson?.subject?.name ? lesson.subject.name[0] : 'F'}
                 </div>
                 <div>
-                  <span className="font-bold text-xs text-slate-900 block">Dr. Arun Mehta</span>
+                  <span className="font-bold text-xs text-slate-900 block">
+                    {lesson?.subject?.name || 'Subject'} Faculty
+                  </span>
                   <span className="text-[10px] text-brand-600 font-medium">
-                    Senior Physics Faculty • 2.4K Followers
+                    {lesson?.subject?.batch?.name || 'Academic Batch'} • Official Video Lecture
                   </span>
                 </div>
               </div>
-              <button className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-all">
-                + Follow Faculty
-              </button>
+              <Link
+                href={`/lessons/${lessonId}`}
+                className="px-3.5 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold rounded-xl transition-all"
+              >
+                ← Back to Chapter
+              </Link>
             </div>
 
             {/* Single Reaction Emoji Bar & Share */}
@@ -262,7 +300,7 @@ export default function SocialVideoPlayerPage() {
               ].map((r) => {
                 const Icon = r.icon;
                 const isSelected = selectedReaction === r.type;
-                const count = reactionsCount[r.type];
+                const count = reactionsCount[r.type] || 0;
 
                 return (
                   <button
@@ -296,73 +334,170 @@ export default function SocialVideoPlayerPage() {
 
           {/* Doubts & Discussion Feed */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-5">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-brand-600" /> Academic Discussion & Doubt Forum
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-brand-600" /> Academic Discussion & Doubt Forum ({comments.length})
+              </h2>
+            </div>
 
             {/* Comment Form */}
-            <form onSubmit={handlePostComment} className="flex gap-2">
+            <form onSubmit={(e) => handlePostComment(e)} className="flex gap-2">
               <input
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Ask a question or formula doubt on this timestamp..."
+                placeholder="Ask a question or formula doubt on this lecture (supports KaTeX $formula$)..."
                 className="flex-1 text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5"
+                disabled={isPostingComment || !commentText.trim()}
+                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5"
               >
-                <Send className="w-3.5 h-3.5" /> Post
+                <Send className="w-3.5 h-3.5" /> Post Doubt
               </button>
             </form>
 
             {/* Comments List */}
             <div className="space-y-4 pt-2">
-              {comments.map((c) => (
-                <div
-                  key={c.id}
-                  className={`p-4 rounded-2xl border space-y-2.5 transition-all ${
-                    c.isPinned ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50/70 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{c.author}</span>
-                      <span className="text-[10px] text-slate-400">{c.timeAgo}</span>
+              {comments.map((c) => {
+                const authorName = c.author?.fullName || 'Student';
+                const roleCode = c.author?.role?.code || 'STUDENT';
+                const isTeacher = roleCode === 'TEACHER' || roleCode === 'ADMIN' || roleCode === 'SUPER_ADMIN';
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`p-4 rounded-2xl border space-y-2.5 transition-all ${
+                      c.isPinned ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50/70 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">{authorName}</span>
+                        {isTeacher && (
+                          <span className="px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold">
+                            Faculty
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Recent'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {c.isPinned && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                            <Pin className="w-3 h-3" /> Pinned
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setActiveReplyId(activeReplyId === c.id ? null : c.id)}
+                          className="text-[11px] font-semibold text-brand-600 hover:text-brand-700"
+                        >
+                          Reply
+                        </button>
+                        {(user?.id === c.userId || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                          <button
+                            onClick={() => handleDeleteComment(c.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {c.isPinned && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                        <Pin className="w-3 h-3" /> Pinned by Faculty
-                      </span>
+                    <div className="text-xs text-slate-700 leading-relaxed font-normal">
+                      {renderMath(c.content)}
+                    </div>
+
+                    {/* Threaded Replies */}
+                    {(c.replies || []).length > 0 && (
+                      <div className="mt-3 pl-4 border-l-2 border-brand-300 space-y-2">
+                        {c.replies.map((r: any) => (
+                          <div key={r.id} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-brand-800">
+                                  {r.author?.fullName || 'Faculty'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}
+                                </span>
+                              </div>
+                              {(user?.id === r.userId || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                                <button
+                                  onClick={() => handleDeleteComment(r.id)}
+                                  className="text-slate-400 hover:text-rose-600 p-0.5"
+                                  title="Delete reply"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-700 leading-relaxed">
+                              {renderMath(r.content)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Inline Reply Form */}
+                    {activeReplyId === c.id && (
+                      <form onSubmit={(e) => handlePostComment(e, c.id)} className="mt-2 flex gap-2 pt-2 border-t border-slate-200">
+                        <input
+                          type="text"
+                          value={replyTextMap[c.id] || ''}
+                          onChange={(e) => setReplyTextMap({ ...replyTextMap, [c.id]: e.target.value })}
+                          placeholder="Write your explanation or doubt answer..."
+                          className="flex-1 text-xs p-2 bg-white border border-slate-200 rounded-xl focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!replyTextMap[c.id]?.trim()}
+                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-xl disabled:opacity-50"
+                        >
+                          Reply
+                        </button>
+                      </form>
                     )}
                   </div>
+                );
+              })}
 
-                  <div className="text-xs text-slate-700 leading-relaxed font-normal">
-                    {renderMath(c.content)}
-                  </div>
-
-                  {/* Reply if present */}
-                  {c.reply && (
-                    <div className="mt-3 pl-4 border-l-2 border-brand-300 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-brand-700">{c.reply.author}</span>
-                        <span className="text-[10px] text-slate-400">{c.reply.timeAgo}</span>
-                      </div>
-                      <div className="text-xs text-slate-700 leading-relaxed">
-                        {renderMath(c.reply.content)}
-                      </div>
-                    </div>
-                  )}
+              {comments.length === 0 && (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  No academic doubts posted for this lecture yet. Be the first to ask!
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
 
         {/* Sidebar: Next Video Card & Lesson Playlist (1 Col) */}
         <div className="space-y-5">
+          {/* Chapter Test Action Card */}
+          {lesson?.tests?.length > 0 && (
+            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-5 text-white shadow-xl space-y-3">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-200 flex items-center gap-1">
+                <FileCheck2 className="w-3.5 h-3.5" /> Chapter Test Available
+              </span>
+              <h3 className="text-sm font-bold leading-snug">{lesson.tests[0].title}</h3>
+              <p className="text-[11px] text-emerald-100 font-mono">
+                {lesson.tests[0].durationMinutes} Mins • {lesson.tests[0].totalMarks} Marks
+              </p>
+              <Link
+                href={`/tests/${lesson.tests[0].id}`}
+                className="w-full py-2.5 bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+              >
+                <Play className="w-4 h-4 fill-emerald-800" /> Start Chapter Test
+              </Link>
+            </div>
+          )}
+
           {/* Next Video Countdown Card (SCR-STU-06B) */}
           {nextVideo && (
             <div className="bg-gradient-to-br from-brand-600 to-accent-indigo rounded-3xl p-5 text-white shadow-xl space-y-3">
@@ -390,7 +525,7 @@ export default function SocialVideoPlayerPage() {
             </h3>
 
             <div className="space-y-2.5">
-              {videoList.map((v: any, idx: number) => {
+              {videoList.map((v: any) => {
                 const isPlaying = v.id === currentVideo?.id;
                 const thumb = getYouTubeThumbnailUrl(v.videoUrl);
 

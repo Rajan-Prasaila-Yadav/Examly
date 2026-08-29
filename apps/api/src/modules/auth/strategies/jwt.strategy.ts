@@ -16,8 +16,21 @@ export interface JwtPayload {
   email?: string;
 }
 
+interface CachedUserPayload {
+  userId: string;
+  instituteId: string | null;
+  roleCode: string;
+  identifier: string;
+  email: string | null;
+  status: RecordStatus;
+  cachedAt: number;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private static userCache = new Map<string, CachedUserPayload>();
+  private static readonly TTL_MS = 60 * 1000; // 60 seconds
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
@@ -34,14 +47,35 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: Request, payload: JwtPayload) {
+    // 1. Check in-memory fast cache
+    const cached = JwtStrategy.userCache.get(payload.sub);
+    if (cached && Date.now() - cached.cachedAt < JwtStrategy.TTL_MS) {
+      if (cached.status !== RecordStatus.ACTIVE) {
+        throw new UnauthorizedException('User is inactive or blocked');
+      }
+      return {
+        userId: cached.userId,
+        instituteId: cached.instituteId,
+        roleCode: cached.roleCode,
+        identifier: cached.identifier,
+        email: cached.email,
+      };
+    }
+
+    // 2. Check blacklist
     const rawToken = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
     if (rawToken) {
-      const isBlacklisted = await this.cache.isTokenBlacklisted(rawToken);
-      if (isBlacklisted) {
-        throw new UnauthorizedException('Token has been revoked');
+      try {
+        const isBlacklisted = await this.cache.isTokenBlacklisted(rawToken);
+        if (isBlacklisted) {
+          throw new UnauthorizedException('Token has been revoked');
+        }
+      } catch {
+        // Continue if cache check errors
       }
     }
 
+    // 3. Query DB
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: { role: true },
@@ -51,12 +85,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User is inactive or blocked');
     }
 
-    return {
+    const result = {
       userId: user.id,
       instituteId: user.instituteId,
       roleCode: user.role.code,
       identifier: user.identifier,
       email: user.email,
     };
+
+    // Cache valid payload
+    JwtStrategy.userCache.set(payload.sub, {
+      ...result,
+      status: user.status,
+      cachedAt: Date.now(),
+    });
+
+    return result;
   }
 }

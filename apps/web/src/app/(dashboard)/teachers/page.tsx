@@ -35,6 +35,8 @@ export default function TeachersPage() {
   const [facultyCode, setFacultyCode] = useState('');
   const [designation, setDesignation] = useState('Senior Faculty');
   const [specialization, setSpecialization] = useState('Physics');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Delete State
   const [deletingTeacher, setDeletingTeacher] = useState<any | null>(null);
@@ -45,8 +47,8 @@ export default function TeachersPage() {
         api.get('/users/teachers'),
         api.get('/batches'),
       ]);
-      setTeachers(tchRes.data);
-      setBatches(batRes.data);
+      setTeachers(tchRes.data || []);
+      setBatches(batRes.data || []);
     } catch (e) {
       console.error(e);
     }
@@ -56,28 +58,81 @@ export default function TeachersPage() {
     fetchTeachers();
   }, []);
 
+  const generateFacultyCode = () => {
+    return `TCH-${Math.floor(100 + Math.random() * 900)}`;
+  };
+
+  const handleOpenAdd = () => {
+    setEditingTeacher(null);
+    setFullName('');
+    setEmail('');
+    setPhone('');
+    setFacultyCode(generateFacultyCode());
+    setDesignation('Senior Faculty');
+    setSpecialization('Physics');
+    setAvatarUrl('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (tch: any) => {
+    setEditingTeacher(tch);
+    setFullName(tch.fullName || '');
+    setEmail(tch.email || '');
+    setPhone(tch.phone || '');
+    setFacultyCode(tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : generateFacultyCode()));
+    setDesignation(tch.teacherProfile?.designation || 'Senior Faculty');
+    setSpecialization((tch.teacherProfile?.specialization || []).join(', '));
+    setAvatarUrl(tch.avatarUrl || '');
+    setIsModalOpen(true);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarUrl(reader.result as string);
+      setIsUploadingPhoto(false);
+    };
+    reader.onerror = () => {
+      alert('Failed to read image file');
+      setIsUploadingPhoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
+    const finalCode = facultyCode?.trim() || generateFacultyCode();
+
     try {
       if (editingTeacher) {
-        alert('Teacher profile updated!');
+        await api.put(`/users/teachers/${editingTeacher.id}`, {
+          fullName,
+          email,
+          phone,
+          facultyCode: finalCode,
+          designation,
+          specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
+          avatarUrl,
+        });
+        alert('Teacher profile updated successfully!');
       } else {
         const res = await api.post('/users/teachers', {
           fullName,
           email,
           phone,
-          facultyCode,
+          facultyCode: finalCode,
           designation,
-          specialization: specialization.split(',').map((s) => s.trim()),
+          specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
+          avatarUrl,
         });
         alert(`Teacher onboarded! Temporary Password: ${res.data.rawPassword}`);
       }
       setIsModalOpen(false);
       setEditingTeacher(null);
-      setFullName('');
-      setEmail('');
-      setPhone('');
-      setFacultyCode('');
       fetchTeachers();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Failed to save teacher');
@@ -112,20 +167,13 @@ export default function TeachersPage() {
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Faculty & Instructors</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Full Faculty CRUD: Onboard, Edit profiles, Block/Unblock, and Configure Granular RBAC Permissions.
+            Full Faculty Management: Onboard, Edit profiles, Block/Unblock, and 360° Profile Analytics.
           </p>
         </div>
 
         <button
-          onClick={() => {
-            setEditingTeacher(null);
-            setFullName('');
-            setEmail('');
-            setPhone('');
-            setFacultyCode('');
-            setIsModalOpen(true);
-          }}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
+          onClick={handleOpenAdd}
+          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" /> Onboard Faculty Teacher
         </button>
@@ -140,27 +188,26 @@ export default function TeachersPage() {
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
-                  {tch.fullName[0]}
-                </div>
+                {tch.avatarUrl ? (
+                  <img
+                    src={tch.avatarUrl}
+                    alt={tch.fullName}
+                    className="w-10 h-10 rounded-2xl object-cover border border-slate-200"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
+                    {tch.fullName ? tch.fullName[0] : 'T'}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-200">
-                    {tch.teacherProfile?.facultyCode || tch.identifier}
+                    {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
                   </span>
 
                   <button
-                    onClick={() => {
-                      setEditingTeacher(tch);
-                      setFullName(tch.fullName);
-                      setEmail(tch.email || '');
-                      setPhone(tch.phone || '');
-                      setFacultyCode(tch.teacherProfile?.facultyCode || tch.identifier);
-                      setDesignation(tch.teacherProfile?.designation || 'Senior Faculty');
-                      setSpecialization((tch.teacherProfile?.specialization || []).join(', '));
-                      setIsModalOpen(true);
-                    }}
-                    className="p-1 text-slate-400 hover:text-brand-600 rounded-md"
+                    onClick={() => handleOpenEdit(tch)}
+                    className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                     title="Edit Teacher"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -168,7 +215,7 @@ export default function TeachersPage() {
 
                   <button
                     onClick={() => setDeletingTeacher(tch)}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                     title="Delete Teacher"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -188,7 +235,7 @@ export default function TeachersPage() {
 
               {/* Specialization Badges */}
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {(tch.teacherProfile?.specialization || ['Medical Prep', 'Physics']).map((spec: string) => (
+                {(tch.teacherProfile?.specialization || ['Curriculum Expert']).map((spec: string) => (
                   <span
                     key={spec}
                     className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md"
@@ -228,53 +275,92 @@ export default function TeachersPage() {
                 href={`/teachers/${tch.id}`}
                 className="px-3 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 text-xs font-semibold rounded-lg transition-all"
               >
-                Edit Permissions →
+                360° View →
               </Link>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Onboard / Edit Teacher Modal */}
+      {/* ── SCROLLABLE ONBOARD & EDIT TEACHER MODAL ── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="text-base font-bold text-slate-900">
-                {editingTeacher ? 'Edit Faculty Profile' : 'Onboard Faculty Teacher'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {editingTeacher ? `Edit Faculty: ${editingTeacher.fullName}` : 'Onboard Faculty Teacher'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Faculty credentials, designation & subject specialization.</p>
+              </div>
+
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTeacher} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Dr. Arun Mehta"
-                  required
-                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                />
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveTeacher} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+              {/* Photo & Name */}
+              <div className="flex items-center gap-4">
+                <label className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-brand-500 cursor-pointer relative group overflow-hidden shrink-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <UserSquare2 className="w-5 h-5 text-slate-400 group-hover:text-brand-600" />
+                      <span className="text-[9px] font-bold mt-1">Photo</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                </label>
+
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Dr. Arun Mehta"
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Faculty Code</label>
+              {/* Faculty Code */}
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-200 flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-purple-900 mb-1">
+                    Faculty Code *
+                  </label>
                   <input
                     type="text"
                     value={facultyCode}
                     onChange={(e) => setFacultyCode(e.target.value)}
-                    placeholder="TCH-015"
+                    placeholder="e.g. TCH-015"
                     required
-                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                    className="w-full text-xs p-2.5 bg-white border border-purple-300 rounded-xl font-mono font-bold text-purple-700 focus:outline-none"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setFacultyCode(generateFacultyCode())}
+                  className="mt-5 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
+                >
+                  🎲 Generate
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone *</label>
                   <input
                     type="text"
                     value={phone}
@@ -284,18 +370,18 @@ export default function TeachersPage() {
                     className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="arun.mehta@apexmedical.edu.np"
-                  required
-                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                />
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Email Address *</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="faculty@examly.edu.np"
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>
@@ -310,29 +396,30 @@ export default function TeachersPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Specialization (Comma separated)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Specialization Areas (Comma separated)</label>
                 <input
                   type="text"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
-                  placeholder="Mechanics, Thermodynamics"
+                  placeholder="Mechanics, Modern Physics, Thermodynamics"
                   className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                 />
               </div>
 
-              <div className="pt-2 flex gap-3">
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-100 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20"
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20 transition-all"
                 >
-                  Save Faculty
+                  {editingTeacher ? 'Save Changes' : 'Onboard Faculty'}
                 </button>
               </div>
             </form>

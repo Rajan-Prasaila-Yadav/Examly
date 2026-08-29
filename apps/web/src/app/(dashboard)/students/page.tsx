@@ -46,6 +46,7 @@ export default function StudentsPage() {
   const [batchId, setBatchId] = useState('');
   const [admissionDate, setAdmissionDate] = useState(new Date().toISOString().slice(0, 10));
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Nepal Cascade
   const [province, setProvince] = useState('Bagmati');
@@ -62,9 +63,9 @@ export default function StudentsPage() {
         api.get('/users/students', { params: { search } }),
         api.get('/batches'),
       ]);
-      setStudents(stuRes.data);
-      setBatches(batRes.data);
-      if (batRes.data.length > 0 && !batchId) {
+      setStudents(stuRes.data || []);
+      setBatches(batRes.data || []);
+      if (batRes.data?.length > 0 && !batchId) {
         setBatchId(batRes.data[0].id);
       }
     } catch (e) {
@@ -76,34 +77,90 @@ export default function StudentsPage() {
     fetchStudents();
   }, [search]);
 
+  const generateRollNumber = () => {
+    return `RN-${Math.floor(10000 + Math.random() * 90000)}`;
+  };
+
   const handleOpenAdd = () => {
     setEditingStudent(null);
     setFullName('');
     setPhone('');
     setEmail('');
-    setRollNumber('');
+    setRollNumber(generateRollNumber());
     setParentName('');
     setParentPhone('');
+    setAvatarUrl('');
     setFormStep('personal');
     setIsModalOpen(true);
   };
 
+  const handleOpenEdit = (stu: any) => {
+    setEditingStudent(stu);
+    setFullName(stu.fullName || '');
+    setPhone(stu.phone || '');
+    setEmail(stu.email || '');
+    setRollNumber(stu.studentProfile?.rollNumber || (stu.identifier && !stu.identifier.includes('@') ? stu.identifier : generateRollNumber()));
+    setBatchId(stu.studentProfile?.batchId || (batches[0]?.id || ''));
+    setProvince(stu.studentProfile?.province || 'Bagmati');
+    setDistrict(stu.studentProfile?.district || 'Kathmandu');
+    setMunicipality(stu.studentProfile?.municipality || 'Kathmandu Metropolitan City');
+    setWardNumber(stu.studentProfile?.wardNumber || '04');
+    setParentPhone(stu.studentProfile?.parentPhone || '');
+    setAvatarUrl(stu.avatarUrl || '');
+    setFormStep('personal');
+    setIsModalOpen(true);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarUrl(reader.result as string);
+      setIsUploadingPhoto(false);
+    };
+    reader.onerror = () => {
+      alert('Failed to read image file');
+      setIsUploadingPhoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const finalRollNumber = rollNumber?.trim() || generateRollNumber();
+
     try {
       if (editingStudent) {
-        alert('Student profile updated!');
+        await api.put(`/users/students/${editingStudent.id}`, {
+          fullName,
+          phone,
+          email,
+          rollNumber: finalRollNumber,
+          batchId: batchId || undefined,
+          province,
+          district,
+          municipality,
+          wardNumber,
+          parentPhone,
+          avatarUrl,
+        });
+        alert('Student profile updated successfully!');
       } else {
         const res = await api.post('/users/students', {
           fullName,
           phone,
           email,
-          rollNumber,
-          batchId,
+          rollNumber: finalRollNumber,
+          batchId: batchId || undefined,
           province,
           district,
           municipality,
           wardNumber,
+          parentPhone,
+          avatarUrl,
         });
         alert(`Student enrolled! Temporary Password: ${res.data.rawPassword}`);
       }
@@ -143,107 +200,127 @@ export default function StudentsPage() {
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Enrolled Students Roster</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Full Student CRUD: 3-Step Enrollment Wizard, Nepal Cascade Address, 1-Click Block/Unblock, and Scorecards.
+            Full Student Management: Enrollment, Nepal Cascade Address, 1-Click Block/Unblock, and 360° Scorecards.
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
+          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" /> Enroll New Student (SCR-ADM-18)
+          <Plus className="w-4 h-4" /> Enroll New Student
         </button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by student name, roll number (e.g. 12A-034), or phone..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-          />
-        </div>
-      </div>
-
-      {/* Students Table */}
+      {/* Table Card */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Search Toolbar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by student name, roll number, or phone..."
+              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </div>
+          <span className="text-xs text-slate-500 font-medium">{students.length} Students Enrolled</span>
+        </div>
+
+        {/* Student Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
-                <th className="py-4 px-6">Student</th>
-                <th className="py-4 px-6">Roll No</th>
-                <th className="py-4 px-6">Batch</th>
-                <th className="py-4 px-6">Location (Nepal)</th>
-                <th className="py-4 px-6">Contact</th>
-                <th className="py-4 px-6">Status</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+              <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/50">
+                <th className="py-3 px-4">Student</th>
+                <th className="py-3 px-4">Roll No</th>
+                <th className="py-3 px-4">Batch</th>
+                <th className="py-3 px-4">Location</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {students.map((stu) => (
-                <tr key={stu.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-4 px-6">
-                    <Link href={`/students/${stu.id}`} className="flex items-center gap-3 group">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-xs flex items-center justify-center shadow-sm">
-                        {stu.fullName[0]}
-                      </div>
+                <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3.5 px-4">
+                    <div className="flex items-center gap-3">
+                      {stu.avatarUrl ? (
+                        <img
+                          src={stu.avatarUrl}
+                          alt={stu.fullName}
+                          className="w-9 h-9 rounded-xl object-cover border border-slate-200"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold flex items-center justify-center text-xs shadow-sm">
+                          {stu.fullName ? stu.fullName[0] : 'S'}
+                        </div>
+                      )}
                       <div>
-                        <span className="font-bold text-slate-900 block group-hover:text-brand-600 transition-colors">
+                        <Link href={`/students/${stu.id}`} className="font-bold text-slate-900 hover:text-brand-600">
                           {stu.fullName}
-                        </span>
-                        <span className="text-[10px] text-slate-400">{stu.email || 'No email set'}</span>
+                        </Link>
+                        <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                          <span>{stu.phone}</span>
+                          {stu.email && <span>• {stu.email}</span>}
+                        </div>
                       </div>
-                    </Link>
-                  </td>
-
-                  <td className="py-4 px-6 font-mono font-semibold text-brand-700">
-                    {stu.studentProfile?.rollNumber || stu.identifier}
-                  </td>
-
-                  <td className="py-4 px-6">
-                    <span className="px-2.5 py-1 bg-brand-50 border border-brand-200/60 text-brand-700 font-semibold rounded-lg text-[10px]">
-                      {stu.studentProfile?.batch?.name || 'CEE 2026 Batch A'}
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-6 text-slate-600">
-                    <div className="flex items-center gap-1.5 text-[11px]">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>
-                        {stu.studentProfile?.district || 'Kathmandu'}, {stu.studentProfile?.province || 'Bagmati'}
-                      </span>
                     </div>
                   </td>
 
-                  <td className="py-4 px-6 text-slate-600 font-mono text-[11px]">
-                    {stu.phone || '+9779876543210'}
+                  <td className="py-3.5 px-4 font-mono font-bold text-brand-700">
+                    {stu.studentProfile?.rollNumber || (stu.identifier && !stu.identifier.includes('@') ? stu.identifier : '-')}
                   </td>
 
-                  <td className="py-4 px-6">
-                    {stu.status === 'ACTIVE' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60">
-                        <CheckCircle2 className="w-3 h-3" /> Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200/60">
-                        <Lock className="w-3 h-3" /> Blocked
-                      </span>
-                    )}
+                  <td className="py-3.5 px-4">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
+                      {stu.studentProfile?.batch?.name || 'Unassigned'}
+                    </span>
                   </td>
 
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                    {stu.studentProfile?.district
+                      ? `${stu.studentProfile.district}, ${stu.studentProfile.province || ''}`
+                      : 'Nepal'}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        stu.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : stu.status === 'BLOCKED'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          stu.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
+                        }`}
+                      />
+                      {stu.status || 'ACTIVE'}
+                    </span>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Link
                         href={`/students/${stu.id}`}
-                        className="px-2.5 py-1 text-[11px] font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                        className="px-2.5 py-1 bg-brand-50 text-brand-700 hover:bg-brand-100 text-[11px] font-bold rounded-lg transition-colors"
                       >
-                        Scorecard
+                        360° View
                       </Link>
+
+                      <button
+                        onClick={() => handleOpenEdit(stu)}
+                        className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                        title="Edit Student"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
 
                       <button
                         onClick={() => handleToggleStatus(stu.id, stu.status)}
@@ -267,58 +344,82 @@ export default function StudentsPage() {
                   </td>
                 </tr>
               ))}
+
+              {students.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                    No students found. Click &quot;Enroll New Student&quot; to add one.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ── 3-STEP ENROLL STUDENT FORM MODAL (SCR-ADM-18) ── */}
+      {/* ── SCROLLABLE ENROLL & EDIT STUDENT MODAL (SCR-ADM-18) ── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  {editingStudent ? 'Edit Student Profile' : 'Add Student Form (SCR-ADM-18)'}
+                  {editingStudent ? `Edit Student: ${editingStudent.fullName}` : 'Enroll New Student'}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Personal details, Nepal address cascade & batch assignment.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Personal details, roll number, Nepal cascade & batch assignment.</p>
               </div>
 
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 3 Step Pills */}
-            <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
-              {[
-                { key: 'personal', label: '1. Personal' },
-                { key: 'academic', label: '2. Academic' },
-                { key: 'access', label: '3. Access' },
-              ].map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setFormStep(t.key as any)}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    formStep === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            {/* Step Pills */}
+            <div className="px-5 sm:px-6 pt-4 pb-2 shrink-0">
+              <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
+                {[
+                  { key: 'personal', label: '1. Personal & Roll No' },
+                  { key: 'academic', label: '2. Batch & Academic' },
+                  { key: 'access', label: '3. Credentials' },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setFormStep(t.key as any)}
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      formStep === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <form onSubmit={handleSaveStudent} className="space-y-4">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
               {/* ── TAB 1: PERSONAL & NEPAL CASCADE ── */}
               {formStep === 'personal' && (
                 <div className="space-y-4">
                   {/* Photo & Name */}
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-brand-500 cursor-pointer relative group">
-                      <Camera className="w-5 h-5 text-slate-400 group-hover:text-brand-600" />
-                      <span className="text-[9px] font-bold mt-1">Photo</span>
-                    </div>
+                    <label className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-brand-500 cursor-pointer relative group overflow-hidden shrink-0">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <>
+                          <Camera className="w-5 h-5 text-slate-400 group-hover:text-brand-600" />
+                          <span className="text-[9px] font-bold mt-1">Photo</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                      />
+                    </label>
 
                     <div className="flex-1">
                       <label className="block text-xs font-medium text-slate-700 mb-1">Full Name *</label>
@@ -333,16 +434,40 @@ export default function StudentsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Prominent Roll Number Field */}
+                  <div className="p-3.5 rounded-2xl bg-brand-50/50 border border-brand-200 flex items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-brand-900 mb-1">
+                        Student Roll Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={rollNumber}
+                        onChange={(e) => setRollNumber(e.target.value)}
+                        placeholder="e.g. 12A-034 or RN-10293"
+                        required
+                        className="w-full text-xs p-2.5 bg-white border border-brand-300 rounded-xl font-mono font-bold text-brand-700 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRollNumber(generateRollNumber())}
+                      className="mt-5 px-3 py-2 bg-brand-100 hover:bg-brand-200 text-brand-800 text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
+                    >
+                      🎲 Generate
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Phone Number (+977)</label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Phone Number (+977) *</label>
                       <input
                         type="text"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="98765 43210"
                         required
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                       />
                     </div>
                     <div>
@@ -354,30 +479,6 @@ export default function StudentsPage() {
                         placeholder="aarav@example.com"
                         className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                       />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Date of Birth</label>
-                      <input
-                        type="date"
-                        value={dob}
-                        onChange={(e) => setDob(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Gender</label>
-                      <select
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
                     </div>
                   </div>
 
@@ -432,33 +533,31 @@ export default function StudentsPage() {
               {/* ── TAB 2: ACADEMIC DETAILS ── */}
               {formStep === 'academic' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Assign Batch *</label>
-                      <select
-                        value={batchId}
-                        onChange={(e) => setBatchId(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                      >
-                        {batches.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.code})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Assign Batch *</label>
+                    <select
+                      value={batchId}
+                      onChange={(e) => setBatchId(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                    >
+                      <option value="">-- Select Academic Batch --</option>
+                      {batches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Roll Number *</label>
-                      <input
-                        type="text"
-                        value={rollNumber}
-                        onChange={(e) => setRollNumber(e.target.value)}
-                        placeholder="12A-034"
-                        required
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Guardian / Parent Phone</label>
+                    <input
+                      type="text"
+                      value={parentPhone}
+                      onChange={(e) => setParentPhone(e.target.value)}
+                      placeholder="+9779876512345"
+                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                    />
                   </div>
 
                   <div>
@@ -473,10 +572,10 @@ export default function StudentsPage() {
 
                   <div className="p-3.5 rounded-2xl bg-brand-50/40 border border-brand-200 text-xs text-brand-900 space-y-1">
                     <span className="font-bold flex items-center gap-1 text-[11px]">
-                      <BookOpen className="w-3.5 h-3.5 text-brand-600" /> Auto-Enrolled Subjects:
+                      <BookOpen className="w-3.5 h-3.5 text-brand-600" /> Automated Curriculum Mapping:
                     </span>
                     <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
-                      All curriculum subjects (Physics, Chemistry, Zoology, Botany) will be automatically mapped.
+                      All subjects and mock tests assigned to this batch will be instantly mapped to the student.
                     </p>
                   </div>
                 </div>
@@ -488,29 +587,30 @@ export default function StudentsPage() {
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                     <span className="text-xs font-bold text-slate-900 block">System Access & Login</span>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      A secure temporary password will be auto-generated and sent to the student via SMS / Email.
+                      A secure temporary password will be auto-generated for the student. They can log in using their Roll Number or Email.
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium">
-                    ✔ Single-Device Login Policy active (prevents unauthorized sharing)
+                    ✔ Single-Device Security Policy active
                   </div>
                 </div>
               )}
 
-              <div className="pt-3 flex gap-3">
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-100 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20"
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20 transition-all"
                 >
-                  Save & Enroll Student
+                  {editingStudent ? 'Save Changes' : 'Save & Enroll Student'}
                 </button>
               </div>
             </form>

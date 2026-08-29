@@ -74,4 +74,18 @@ export class SubjectsService {
       data: { status: RecordStatus.DELETED },
     });
   }
+
+  async getSubjectTests(subjectId: string) {
+    return this.prisma.test.findMany({
+      where: {
+        subjectId,
+        status: { not: RecordStatus.DELETED },
+      },
+      include: {
+        config: true,
+        _count: { select: { sections: true, attempts: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

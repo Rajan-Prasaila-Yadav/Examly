@@ -23,7 +23,7 @@ export default function TeacherDetailPage() {
   const params = useParams();
   const teacherId = params.id as string;
 
-  const [teacher, setTeacher] = useState<any>(null);
+  const [data360, setData360] = useState<any>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,11 +37,10 @@ export default function TeacherDetailPage() {
     'community.create': true,
   });
 
-  const fetchTeacher = async () => {
+  const fetchTeacher360 = async () => {
     try {
-      const res = await api.get('/users/teachers');
-      const found = res.data.find((t: any) => t.id === teacherId || t.identifier === teacherId);
-      setTeacher(found || res.data[0]);
+      const res = await api.get(`/users/teachers/${teacherId}/360`);
+      setData360(res.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -50,7 +49,9 @@ export default function TeacherDetailPage() {
   };
 
   useEffect(() => {
-    fetchTeacher();
+    if (teacherId) {
+      fetchTeacher360();
+    }
   }, [teacherId]);
 
   const handleToggle = (key: string) => {
@@ -70,6 +71,19 @@ export default function TeacherDetailPage() {
     );
   }
 
+  const teacher = data360?.user;
+
+  if (!teacher) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-sm text-slate-500">Teacher not found.</p>
+        <Link href="/teachers" className="text-brand-600 text-xs font-semibold mt-2 inline-block">
+          ← Back to Faculty Teachers
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <Link
@@ -84,24 +98,24 @@ export default function TeacherDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20">
-              {teacher?.fullName ? teacher.fullName[0] : 'T'}
+              {teacher.fullName ? teacher.fullName[0] : 'T'}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-extrabold text-slate-900">{teacher?.fullName || 'Dr. Arun Mehta'}</h1>
+                <h1 className="text-xl font-extrabold text-slate-900">{teacher.fullName}</h1>
                 <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-xs font-bold border border-purple-200">
-                  {teacher?.teacherProfile?.facultyCode || teacher?.identifier || 'TCH-014'}
+                  {teacher.teacherProfile?.facultyCode || (teacher.identifier && !teacher.identifier.includes('@') ? teacher.identifier : '-')}
                 </span>
               </div>
               <p className="text-xs text-brand-600 font-semibold mt-1">
-                {teacher?.teacherProfile?.designation || 'Senior Physics Faculty'}
+                {teacher.teacherProfile?.designation || 'Faculty Member'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Active Faculty
+              <CheckCircle2 className="w-3.5 h-3.5" /> {teacher.status || 'ACTIVE'}
             </span>
           </div>
         </div>
@@ -111,17 +125,17 @@ export default function TeacherDetailPage() {
           <div className="space-y-1.5">
             <span className="text-[10px] text-slate-400 font-medium block">Contact Info</span>
             <div className="flex items-center gap-2 text-slate-700 font-mono">
-              <Phone className="w-3.5 h-3.5 text-slate-400" /> {teacher?.phone || '+9779822222222'}
+              <Phone className="w-3.5 h-3.5 text-slate-400" /> {teacher.phone || '-'}
             </div>
             <div className="flex items-center gap-2 text-slate-700">
-              <Mail className="w-3.5 h-3.5 text-slate-400" /> {teacher?.email || 'arun.mehta@apexmedical.edu.np'}
+              <Mail className="w-3.5 h-3.5 text-slate-400" /> {teacher.email || '-'}
             </div>
           </div>
 
           <div className="space-y-1.5">
             <span className="text-[10px] text-slate-400 font-medium block">Specialization Areas</span>
             <div className="flex flex-wrap gap-1.5">
-              {(teacher?.teacherProfile?.specialization || ['Mechanics', 'Thermodynamics', 'Modern Physics']).map((s: string) => (
+              {(teacher.teacherProfile?.specialization || ['Curriculum Expert', 'Mock Evaluation']).map((s: string) => (
                 <span key={s} className="px-2.5 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-medium rounded-md">
                   {s}
                 </span>
@@ -132,14 +146,14 @@ export default function TeacherDetailPage() {
       </div>
 
       {/* Granular Permission Overrides Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-brand-600" /> Per-Teacher Permission Overrides
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Override base role rights specifically for {teacher?.fullName || 'this faculty'}.
+              Override base role rights specifically for {teacher.fullName}.
             </p>
           </div>
 

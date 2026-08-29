@@ -39,8 +39,73 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Wand2,
+  Bot,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
-import { renderMath } from '@/lib/render-math';
+import { QuestionSlotCard } from '@/components/question-slot-card';
+import { AiQuestionImportModal } from '@/components/ai-question-import-modal';
+import {
+  padSlots,
+  mergeParsedIntoSlots,
+  isSlotFilled,
+  lastJoinDate,
+  makeEmptySlot,
+  QuestionSlot,
+} from '@/lib/question-templates';
+
+function toLocalDateInput(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toLocalTimeInput(d: Date = new Date()): string {
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${min}`;
+}
+
+function parseSafeDateTime(dateStr: string, timeStr: string): Date {
+  if (!dateStr) return new Date();
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [h, min] = (timeStr || '00:00').split(':').map(Number);
+  const parsed = new Date(y, (m || 1) - 1, d || 1, h || 0, min || 0, 0);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatDeterministicDate(d: Date): string {
+  if (isNaN(d.getTime())) return '';
+  const dayName = DAYS[d.getDay()];
+  const monthName = MONTHS[d.getMonth()];
+  const date = d.getDate();
+  const year = d.getFullYear();
+  return `${dayName}, ${monthName} ${date}, ${year}`;
+}
+
+function formatDeterministicTime(d: Date): string {
+  if (isNaN(d.getTime())) return '';
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+function formatDeterministicDateTime(d: Date): string {
+  return `${formatDeterministicDate(d)} • ${formatDeterministicTime(d)}`;
+}
+
+function formatPrettyDateTime(dateStr: string, timeStr: string): string {
+  const dateObj = parseSafeDateTime(dateStr, timeStr);
+  return formatDeterministicDateTime(dateObj);
+}
 
 export default function CreateTestWizardPage() {
   const router = useRouter();
@@ -59,11 +124,14 @@ export default function CreateTestWizardPage() {
   const [batchId, setBatchId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [lessonId, setLessonId] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [startTime, setStartTime] = useState('07:00');
-  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-  const [endTime, setEndTime] = useState('08:00');
+
+  // Dynamic Date/Time initialized to current user time
   const [durationMinutes, setDurationMinutes] = useState(60);
+  const [startDate, setStartDate] = useState(() => toLocalDateInput(new Date()));
+  const [startTime, setStartTime] = useState(() => toLocalTimeInput(new Date()));
+  const [endDate, setEndDate] = useState(() => toLocalDateInput(new Date(Date.now() + 2 * 60 * 60 * 1000)));
+  const [endTime, setEndTime] = useState(() => toLocalTimeInput(new Date(Date.now() + 2 * 60 * 60 * 1000)));
+
   const [totalQuestions, setTotalQuestions] = useState(50);
   const [positiveMarkRate, setPositiveMarkRate] = useState(4.0);
   const [isNegativeEnabled, setIsNegativeEnabled] = useState(true);
@@ -101,32 +169,15 @@ export default function CreateTestWizardPage() {
   const [newSectionInput, setNewSectionInput] = useState('');
 
   // Authored questions list starts completely clean & empty!
-  const [authoredQuestions, setAuthoredQuestions] = useState<any[]>([]);
+  const [authoredQuestions, setAuthoredQuestions] = useState<QuestionSlot[]>(() =>
+    padSlots([], 50, 'sec-1', 4, 'SINGLE_CORRECT'),
+  );
+  const [expandedSlot, setExpandedSlot] = useState<number | null>(0);
+  const [aiToast, setAiToast] = useState('');
 
-  // Current question under edit in Step 3
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [currentQType, setCurrentQType] = useState('SINGLE_CORRECT');
-  const [currentStatement, setCurrentStatement] = useState('');
-  const [currentDiagramUrl, setCurrentDiagramUrl] = useState('');
-  const [currentMarksPos, setCurrentMarksPos] = useState(4.0);
-  const [currentMarksNeg, setCurrentMarksNeg] = useState(1.0);
-  const [currentOptions, setCurrentOptions] = useState([
-    { id: 'opt_1', optionLabel: 'A', contentHtml: '', isCorrect: true },
-    { id: 'opt_2', optionLabel: 'B', contentHtml: '', isCorrect: false },
-    { id: 'opt_3', optionLabel: 'C', contentHtml: '', isCorrect: false },
-    { id: 'opt_4', optionLabel: 'D', contentHtml: '', isCorrect: false },
-  ]);
-  const [currentHint, setCurrentHint] = useState('');
-  const [currentShortExp, setCurrentShortExp] = useState('');
-  const [currentStepSol, setCurrentStepSol] = useState('');
-
-  const [isHintOpen, setIsHintOpen] = useState(false);
-  const [isShortExpOpen, setIsShortExpOpen] = useState(false);
-  const [isStepSolOpen, setIsStepSolOpen] = useState(false);
-
-  // Bulk Upload Modal state (SCR-ADM-14)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Step 4: Publish mode selection
   const [publishAction, setPublishAction] = useState<'INSTANT' | 'SCHEDULED' | 'DRAFT'>('INSTANT');
@@ -140,22 +191,50 @@ export default function CreateTestWizardPage() {
     }).catch(console.error);
   }, []);
 
-  const totalCalculatedMarks =
-    authoredQuestions.length > 0
-      ? authoredQuestions.reduce((sum, q) => sum + (q.marksPositive !== undefined ? Number(q.marksPositive) : 4), 0)
-      : totalQuestions * positiveMarkRate;
+  const optionCountNum = optionsPerQuestion === 'Custom' ? 4 : Number(optionsPerQuestion) || 4;
+  const defaultQType = correctAnswerType === 'MULTIPLE' ? 'MULTIPLE_CORRECT' : 'SINGLE_CORRECT';
+  const negDefault = isNegativeEnabled ? Number(negativeMarkRate) : 0;
+
+  // Real-time Dynamic Date & Late Join Calculations
+  const startDateTime = new Date(`${startDate}T${startTime}:00`);
+  const endDateTime = new Date(`${endDate}T${endTime}:00`);
+  const validDurationMins = Math.max(1, Number(durationMinutes) || 1);
+  const windowDurationMs = endDateTime.getTime() - startDateTime.getTime();
+  const windowDurationMins = Math.max(0, Math.round(windowDurationMs / 60000));
+  const isWindowValid = windowDurationMs >= validDurationMins * 60 * 1000;
+  const lastJoin = new Date(endDateTime.getTime() - validDurationMins * 60 * 1000);
+
+  const handleSetStartToNow = () => {
+    const now = new Date();
+    setStartDate(toLocalDateInput(now));
+    setStartTime(toLocalTimeInput(now));
+    const autoEnd = new Date(now.getTime() + validDurationMins * 60 * 1000);
+    setEndDate(toLocalDateInput(autoEnd));
+    setEndTime(toLocalTimeInput(autoEnd));
+  };
+
+  const handleAutoExtendEnd = (extraMinutes: number) => {
+    const base = new Date(`${startDate}T${startTime}:00`);
+    const newEnd = new Date(base.getTime() + (validDurationMins + extraMinutes) * 60 * 1000);
+    setEndDate(toLocalDateInput(newEnd));
+    setEndTime(toLocalTimeInput(newEnd));
+  };
+
+  useEffect(() => {
+    setAuthoredQuestions((prev) =>
+      padSlots(prev, Number(totalQuestions) || 1, activeSectionId, optionCountNum, defaultQType),
+    );
+  }, [totalQuestions, optionCountNum, defaultQType]);
+
+  const filledCount = authoredQuestions.filter(isSlotFilled).length;
+
+  const totalCalculatedMarks = authoredQuestions.reduce((sum, q) => {
+    const marks = q.marksPositive != null ? Number(q.marksPositive) : Number(positiveMarkRate);
+    return sum + (isSlotFilled(q) ? marks : Number(positiveMarkRate));
+  }, 0);
 
   const calculatedPassMarks =
     passMarkType === 'PERCENTAGE' ? Math.round((passMarks / 100) * totalCalculatedMarks) : passMarks;
-
-  const cleanOptionText = (text: string) => {
-    if (!text) return '';
-    return text.replace(/^[A-Za-z0-9][\)\.\:\-]\s*/, '').trim();
-  };
-
-  const insertMathSnippet = (snippet: string) => {
-    setCurrentStatement((prev) => (prev ? prev + ` ${snippet} ` : `${snippet} `));
-  };
 
   const handleAddSection = () => {
     if (!newSectionInput.trim()) return;
@@ -166,123 +245,62 @@ export default function CreateTestWizardPage() {
     setNewSectionModal(false);
   };
 
-  const handleAddOption = () => {
-    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    const nextLetter = letters[currentOptions.length] || `Opt${currentOptions.length + 1}`;
-    setCurrentOptions([
-      ...currentOptions,
-      { id: `opt_${Date.now()}_${currentOptions.length}`, optionLabel: nextLetter, contentHtml: '', isCorrect: false },
-    ]);
-  };
-
-  const handleRemoveOption = (index: number) => {
-    if (currentOptions.length <= 2) return;
-    const updated = currentOptions.filter((_, i) => i !== index);
-    setCurrentOptions(updated);
-  };
-
-  const handleSaveCurrentQuestion = () => {
-    if (!currentStatement.trim()) {
-      alert('Please enter a question statement');
-      return;
-    }
-
-    const qObj = {
-      id: editingIndex !== null ? authoredQuestions[editingIndex].id : `q-${Date.now()}`,
-      sectionId: activeSectionId,
-      questionType: currentQType,
-      contentHtml: currentStatement.trim(),
-      diagramUrl: currentDiagramUrl.trim(),
-      marksPositive: Number(currentMarksPos) || 4,
-      marksNegative: Number(currentMarksNeg) || 1,
-      options: currentOptions.map((o) => ({ ...o, contentHtml: cleanOptionText(o.contentHtml) })),
-      hint: currentHint.trim(),
-      shortExplanation: currentShortExp.trim(),
-      stepByStepSolution: currentStepSol.trim(),
-    };
-
-    if (editingIndex !== null) {
-      const updated = [...authoredQuestions];
-      updated[editingIndex] = qObj;
-      setAuthoredQuestions(updated);
-      setEditingIndex(null);
-    } else {
-      setAuthoredQuestions((prev) => [...prev, qObj]);
-    }
-
-    // Reset editor for next question
-    setCurrentStatement('');
-    setCurrentDiagramUrl('');
-    setCurrentOptions([
-      { id: `opt_${Date.now()}_1`, optionLabel: 'A', contentHtml: '', isCorrect: true },
-      { id: `opt_${Date.now()}_2`, optionLabel: 'B', contentHtml: '', isCorrect: false },
-      { id: `opt_${Date.now()}_3`, optionLabel: 'C', contentHtml: '', isCorrect: false },
-      { id: `opt_${Date.now()}_4`, optionLabel: 'D', contentHtml: '', isCorrect: false },
-    ]);
-    setCurrentHint('');
-    setCurrentShortExp('');
-    setCurrentStepSol('');
-    setIsHintOpen(false);
-    setIsShortExpOpen(false);
-    setIsStepSolOpen(false);
-  };
-
-  const handleEditQuestion = (index: number) => {
-    const q = authoredQuestions[index];
-    setEditingIndex(index);
-    setActiveSectionId(q.sectionId || sections[0].id);
-    setCurrentQType(q.questionType || 'SINGLE_CORRECT');
-    setCurrentStatement(q.contentHtml || '');
-    setCurrentDiagramUrl(q.diagramUrl || '');
-    setCurrentMarksPos(q.marksPositive || 4);
-    setCurrentMarksNeg(q.marksNegative || 1);
-    setCurrentOptions(q.options || []);
-    setCurrentHint(q.hint || '');
-    setCurrentShortExp(q.shortExplanation || '');
-    setCurrentStepSol(q.stepByStepSolution || '');
-    if (q.hint) setIsHintOpen(true);
-    if (q.shortExplanation) setIsShortExpOpen(true);
-    if (q.stepByStepSolution) setIsStepSolOpen(true);
+  const handleAddQuestionSlot = () => {
+    setTotalQuestions((n) => Number(n) + 1);
+    setExpandedSlot(authoredQuestions.length);
   };
 
   const handleDeleteQuestion = (index: number) => {
-    setAuthoredQuestions((prev) => prev.filter((_, i) => i !== index));
-    if (editingIndex === index) {
-      setEditingIndex(null);
-      setCurrentStatement('');
-    }
+    setAuthoredQuestions((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      const fallback = next.length
+        ? next
+        : [makeEmptySlot({ sectionId: activeSectionId, optionCount: optionCountNum, questionType: defaultQType })];
+      setTotalQuestions(fallback.length);
+      return fallback;
+    });
   };
 
   const handleBulkImportCSV = () => {
     if (!csvText.trim()) return;
-    const lines = csvText.split('\n').filter((l) => l.trim().length > 0);
     const parsed: any[] = [];
-
-    lines.forEach((line, idx) => {
+    csvText.split('\n').filter((l) => l.trim().length > 0).forEach((line) => {
       const parts = line.split(',').map((p) => p.trim());
       if (parts.length >= 6) {
         const [statement, optA, optB, optC, optD, correctKey, sol] = parts;
         parsed.push({
-          id: `bulk-q-${Date.now()}-${idx}`,
-          sectionId: activeSectionId,
           questionType: 'SINGLE_CORRECT',
           contentHtml: statement,
-          marksPositive: positiveMarkRate,
-          marksNegative: negativeMarkRate,
           options: [
-            { id: `b-opt-1-${idx}`, optionLabel: 'A', contentHtml: optA, isCorrect: correctKey.toUpperCase() === 'A' },
-            { id: `b-opt-2-${idx}`, optionLabel: 'B', contentHtml: optB, isCorrect: correctKey.toUpperCase() === 'B' },
-            { id: `b-opt-3-${idx}`, optionLabel: 'C', contentHtml: optC, isCorrect: correctKey.toUpperCase() === 'C' },
-            { id: `b-opt-4-${idx}`, optionLabel: 'D', contentHtml: optD, isCorrect: correctKey.toUpperCase() === 'D' },
+            { optionLabel: 'A', contentHtml: optA, isCorrect: correctKey.toUpperCase() === 'A' },
+            { optionLabel: 'B', contentHtml: optB, isCorrect: correctKey.toUpperCase() === 'B' },
+            { optionLabel: 'C', contentHtml: optC, isCorrect: correctKey.toUpperCase() === 'C' },
+            { optionLabel: 'D', contentHtml: optD, isCorrect: correctKey.toUpperCase() === 'D' },
           ],
           stepByStepSolution: sol || '',
         });
       }
     });
-
-    setAuthoredQuestions((prev) => [...prev, ...parsed]);
+    applyParsedQuestions(parsed);
     setIsBulkModalOpen(false);
     setCsvText('');
+  };
+
+  const applyParsedQuestions = (parsed: any[]) => {
+    if (!parsed.length) return;
+    setAuthoredQuestions((prev) => {
+      const merged = mergeParsedIntoSlots(
+        prev,
+        parsed,
+        activeSectionId,
+        optionCountNum,
+        { marksPositive: Number(positiveMarkRate), marksNegative: negDefault },
+      );
+      setTotalQuestions(merged.length);
+      return merged;
+    });
+    setAiToast(`${parsed.length} question${parsed.length === 1 ? '' : 's'} filled from your material.`);
+    setTimeout(() => setAiToast(''), 5000);
   };
 
   const handleFinalLaunch = async () => {
@@ -290,6 +308,7 @@ export default function CreateTestWizardPage() {
     try {
       const startDateTime = new Date(`${startDate}T${startTime}:00`);
       const endDateTime = new Date(`${endDate}T${endTime}:00`);
+      const filled = authoredQuestions.filter(isSlotFilled);
 
       const payload = {
         title: title || 'Examination Mock Test',
@@ -300,40 +319,40 @@ export default function CreateTestWizardPage() {
         testType: testScope,
         totalMarks: Number(totalCalculatedMarks),
         passMarks: Number(calculatedPassMarks),
-        negativeMarkRate: isNegativeEnabled ? Number(negativeMarkRate) : 0,
+        negativeMarkRate: negDefault,
         durationMinutes: Number(durationMinutes),
         startDateTime: startDateTime.toISOString(),
         endDateTime: endDateTime.toISOString(),
+        publishAction,
         isPublished: publishAction === 'INSTANT',
+        publishAt: publishAction === 'SCHEDULED' ? startDateTime.toISOString() : undefined,
         antiCheatLevel: Number(antiCheatLevel),
         shuffleQuestions,
         shuffleOptions,
         resultPublishMode,
         submitUnlockMinutes: Number(submitUnlockMinutes),
         questionsPerScreen: questionsPerScreen === '1 at a time' ? 1 : Number(questionsPerScreen) || 1,
+        oneQuestionAtATime: questionsPerScreen === '1 at a time',
+        totalQuestions: authoredQuestions.length,
+        optionsCount: optionCountNum,
+        correctAnswerType,
+        defaultPositiveMarks: Number(positiveMarkRate),
+        defaultNegativeMarks: negDefault,
+        questions: filled.map((q) => ({
+          questionType: q.questionType || defaultQType,
+          contentHtml: q.contentHtml,
+          diagramUrl: q.diagramUrl || undefined,
+          marksPositive: q.marksPositive != null ? q.marksPositive : Number(positiveMarkRate),
+          marksNegative: q.marksNegative != null ? q.marksNegative : negDefault,
+          options: q.options,
+          hint: q.hint || undefined,
+          shortExplanation: q.shortExplanation || undefined,
+          stepByStepSolution: q.stepByStepSolution || undefined,
+        })),
       };
 
       const res = await api.post('/tests', payload);
-      const newTestId = res.data.id;
-
-      // Add all authored questions to the test
-      if (authoredQuestions.length > 0) {
-        for (const q of authoredQuestions) {
-          await api.post(`/tests/${newTestId}/questions`, {
-            questionType: q.questionType || 'SINGLE_CORRECT',
-            contentHtml: q.contentHtml,
-            diagramUrl: q.diagramUrl || undefined,
-            marksPositive: q.marksPositive || 4,
-            marksNegative: q.marksNegative || 1,
-            options: q.options,
-            hint: q.hint || undefined,
-            shortExplanation: q.shortExplanation || undefined,
-            stepByStepSolution: q.stepByStepSolution || undefined,
-          }).catch(console.error);
-        }
-      }
-
-      router.push(`/tests/${newTestId}`);
+      router.push(`/tests/${res.data.id}`);
     } catch (e: any) {
       alert(e.response?.data?.message || 'Failed to create test');
       setIsSubmitting(false);
@@ -491,52 +510,171 @@ export default function CreateTestWizardPage() {
           </div>
 
           {/* Schedule Window & Timing */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date & Time *</label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-2/3 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                />
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-1/3 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-800">Test Schedule & Timing Window</span>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={handleSetStartToNow}
+                  className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold rounded-lg border border-brand-200/60 transition-colors"
+                >
+                  ⚡ Start Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAutoExtendEnd(0)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors"
+                >
+                  ⏱️ Match Duration
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAutoExtendEnd(60)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors"
+                >
+                  +1 hr Window
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAutoExtendEnd(1440)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors"
+                >
+                  24 hrs
+                </button>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">End Date & Time *</label>
-              <div className="flex gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Start Date & Time */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800">Start Date & Time *</label>
+                  <span className="text-[10px] font-mono text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200">Start</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5">Date</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5">Time (HH:MM)</span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-mono font-medium focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-600 pt-1 flex items-center gap-1">
+                  <span>🗓️</span>
+                  <span className="truncate">{formatPrettyDateTime(startDate, startTime)}</span>
+                </div>
+              </div>
+
+              {/* End Date & Time */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800">End Date & Time *</label>
+                  <span className="text-[10px] font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">End</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5">Date</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-0.5">Time (HH:MM)</span>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-mono font-medium focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-600 pt-1 flex items-center gap-1">
+                  <span>🏁</span>
+                  <span className="truncate">{formatPrettyDateTime(endDate, endTime)}</span>
+                </div>
+              </div>
+
+              {/* Duration & Presets */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800">Test Duration *</label>
+                  <span className="text-[10px] font-mono text-slate-500">{validDurationMins} minutes</span>
+                </div>
                 <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-2/3 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  type="number"
+                  min="1"
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-slate-900 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
                 />
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-1/3 text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                />
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {[30, 45, 60, 90, 120, 180].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setDurationMinutes(mins)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border transition-all ${
+                        durationMinutes === mins
+                          ? 'bg-slate-900 text-white border-slate-900'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
+                      }`}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Duration (Mins) *</label>
-              <input
-                type="number"
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold"
-              />
-            </div>
+            {/* Dynamic Real-Time Timing & Cutoff Banner */}
+            {!isWindowValid ? (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">End time is too early for this duration!</strong>
+                  <span>
+                    The total window is currently {windowDurationMins} minutes, but the test requires {validDurationMins} minutes. Please increase the end date/time or reduce the duration.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/90 to-orange-50/70 border border-amber-200/80 text-xs text-amber-950 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-bold text-amber-900">
+                    <Clock className="w-4 h-4 text-amber-700" />
+                    <span>Live Window Analysis ({windowDurationMins} mins total window)</span>
+                  </div>
+                  <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-amber-800">
+                    Required: {validDurationMins} mins
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-amber-900 leading-relaxed" suppressHydrationWarning>
+                  Students require the full <strong>{validDurationMins} minutes</strong> to complete the exam.
+                  The strict last start allowed is: <strong className="text-rose-700 underline font-mono">{formatDeterministicDateTime(lastJoin)}</strong>.
+                </div>
+
+                <div className="text-[10px] text-amber-800/80 pt-1 border-t border-amber-200/50">
+                  ⚡ <em>Publish policy:</em> Choosing <strong>Instant Live</strong> in Step 4 starts the test immediately at the current time and runs for {validDurationMins} minutes. Choosing <strong>Schedule</strong> enforces this window.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Questions Count & Marking Rates */}
@@ -817,507 +955,88 @@ export default function CreateTestWizardPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════════ */}
-      {/* STEP 3: QUESTION BUILDER (SCR-ADM-12: admin-08-question-builder - Copy.png) */}
-      {/* ══════════════════════════════════════════════════════════════════════════════ */}
+      {/* STEP 3: QUESTION BUILDER (SCR-ADM-12) */}
       {currentStep === 3 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-brand-600" /> Step 3: Question Authoring & Section Management
+              <Calculator className="w-4 h-4 text-brand-600" /> Step 3: Question templates
             </h2>
-            <span className="text-xs text-slate-400 font-mono font-medium">SCR-ADM-12</span>
+            <span className="text-xs font-bold font-mono text-purple-700 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200">
+              {filledCount} filled / {authoredQuestions.length} templates
+            </span>
           </div>
 
-          {/* Top Action Bar: [☁ Bulk Upld], [📄 Q Template], [+ Add Section] */}
+          {aiToast && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
+              {aiToast}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(true)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-              >
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setIsBulkModalOpen(true)} className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center gap-1.5">
                 <Upload className="w-3.5 h-3.5 text-brand-600" /> Bulk Upload (CSV)
               </button>
-
-              <button
-                type="button"
-                onClick={() => alert('Template format:\nQuestion, Option A, Option B, Option C, Option D, CorrectKey, Optional Solution')}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Q Template
+              <button type="button" onClick={() => setIsAiModalOpen(true)} className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 border border-violet-300 text-violet-800 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                <Wand2 className="w-3.5 h-3.5" /> Fill with Gemini
               </button>
-
-              <button
-                type="button"
-                onClick={() => setNewSectionModal(true)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5 text-purple-600" /> + Add Section
+              <button type="button" onClick={() => setNewSectionModal(true)} className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-purple-600" /> Add Section
               </button>
-            </div>
-
-            <div className="text-xs font-bold font-mono text-purple-700 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200">
-              {authoredQuestions.length} Questions in Exam
+              <button type="button" onClick={handleAddQuestionSlot} className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5" /> Add question template
+              </button>
             </div>
           </div>
 
-          {/* Section Selection Bar */}
           <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
             {sections.map((sec) => (
               <button
                 key={sec.id}
                 type="button"
                 onClick={() => setActiveSectionId(sec.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold ${
                   activeSectionId === sec.id
-                    ? 'bg-purple-50 text-purple-800 border border-purple-300 ring-2 ring-purple-500/10'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-purple-50 text-purple-800 border border-purple-300'
+                    : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                <span>SECTION: {sec.name}</span>
-                <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px]">
-                  {authoredQuestions.filter((q) => q.sectionId === sec.id).length}
-                </span>
+                {sec.name} ({authoredQuestions.filter((q) => q.sectionId === sec.id && q.contentHtml.trim()).length})
               </button>
             ))}
           </div>
 
-          {/* Active Question Editor Card */}
-          <div className="bg-slate-50/80 rounded-3xl border border-slate-200 p-6 space-y-4">
-            {/* Toolbar Ribbon */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-1.5">
-                <span className="px-3 py-1 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center">
-                  {editingIndex !== null ? `Editing Q${editingIndex + 1}` : `New Q${authoredQuestions.length + 1}`}
-                </span>
-                <select
-                  value={currentQType}
-                  onChange={(e) => setCurrentQType(e.target.value)}
-                  className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none"
-                >
-                  <option value="SINGLE_CORRECT">1. Single Correct MCQ</option>
-                  <option value="MULTIPLE_CORRECT">2. Multiple Correct MCQ</option>
-                  <option value="NUMERICAL">3. Numerical Value</option>
-                  <option value="ASSERTION_REASON">4. Assertion & Reason</option>
-                  <option value="FILL_IN_BLANK">5. Fill in the Blank</option>
-                  <option value="MATRIX_MATCH">6. Matrix Match</option>
-                  <option value="TRUE_FALSE">7. True / False</option>
-                  <option value="DESCRIPTIVE">8. Descriptive</option>
-                </select>
-              </div>
+          <p className="text-[11px] text-slate-500">
+            Templates match Total Questions from settings. Empty marks use +{positiveMarkRate} / -{negDefault}. Extra templates increase the total.
+          </p>
 
-              {/* KaTeX Symbol Ribbon */}
-              <div className="flex flex-wrap gap-1">
-                {[
-                  { label: 'Fraction', snip: '$\\frac{a}{b}$' },
-                  { label: 'Sqrt', snip: '$\\sqrt{x}$' },
-                  { label: 'Pow', snip: '$x^2$' },
-                  { label: 'Sub', snip: '$x_1$' },
-                  { label: 'Omega', snip: '$\\Omega$' },
-                  { label: 'Integral', snip: '$\\int f(x)dx$' },
-                  { label: 'Delta', snip: '$\\Delta$' },
-                  { label: 'Theta', snip: '$\\theta$' },
-                  { label: 'Block Formula', snip: '$$\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$' },
-                ].map((s) => (
-                  <button
-                    key={s.label}
-                    type="button"
-                    onClick={() => insertMathSnippet(s.snip)}
-                    className="px-2 py-1 bg-white hover:bg-brand-50 hover:text-brand-700 border border-slate-200 rounded-lg text-[10px] font-mono transition-colors"
-                  >
-                    {s.snip}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Per-Question Marks & Section Assignment */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-slate-200">
-              <div>
-                <label className="block text-[11px] font-bold text-emerald-700 mb-1">
-                  + Marks per Correct
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={currentMarksPos}
-                  onChange={(e) => setCurrentMarksPos(Number(e.target.value))}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-emerald-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-rose-700 mb-1">
-                  - Penalty Rate (Negative)
-                </label>
-                <input
-                  type="number"
-                  step="0.25"
-                  value={currentMarksNeg}
-                  onChange={(e) => setCurrentMarksNeg(Number(e.target.value))}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-rose-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Assign Section
-                </label>
-                <select
-                  value={activeSectionId}
-                  onChange={(e) => setActiveSectionId(e.target.value)}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none"
-                >
-                  {sections.map((sec) => (
-                    <option key={sec.id} value={sec.id}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Accumulated Test Marks
-                </label>
-                <div className="text-xs font-mono font-bold p-2 bg-brand-50 text-brand-900 rounded-xl border border-brand-200 truncate">
-                  Total: {authoredQuestions.reduce((acc, q) => acc + (q.marksPositive !== undefined ? Number(q.marksPositive) : 4), 0) + Number(currentMarksPos)} M
-                </div>
-              </div>
-            </div>
-
-            {/* Question Statement Input */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-800">
-                  Question Statement <span className="text-rose-500">*</span>
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">Supports $inline$ and $$block$$ LaTeX formulas</span>
-              </div>
-              <textarea
-                rows={3}
-                value={currentStatement}
-                onChange={(e) => setCurrentStatement(e.target.value)}
-                placeholder="Paste or type your question statement here with formulas like $E = mc^2$..."
-                className="w-full text-xs p-3 bg-white border border-slate-200 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          <div className="space-y-2">
+            {authoredQuestions.map((q, idx) => (
+              <QuestionSlotCard
+                key={q.id}
+                index={idx}
+                question={q}
+                expanded={expandedSlot === idx}
+                sections={sections}
+                defaultPos={Number(positiveMarkRate)}
+                defaultNeg={negDefault}
+                onToggle={() => setExpandedSlot(expandedSlot === idx ? null : idx)}
+                onChange={(next) => {
+                  const copy = [...authoredQuestions];
+                  copy[idx] = next;
+                  setAuthoredQuestions(copy);
+                }}
+                onDelete={() => handleDeleteQuestion(idx)}
               />
-            </div>
-
-            {/* Diagram URL */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-1">
-                <ImageIcon className="w-3.5 h-3.5 text-brand-600" /> Optional Diagram / Image URL
-              </label>
-              <input
-                type="text"
-                value={currentDiagramUrl}
-                onChange={(e) => setCurrentDiagramUrl(e.target.value)}
-                placeholder="https://pub-mock.r2.dev/diagrams/kinematics.png"
-                className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg font-mono focus:outline-none"
-              />
-            </div>
-
-            {/* ── LIVE PREVIEW BOX (Statement & Diagram) ── */}
-            <div className="p-4 rounded-2xl bg-white border border-brand-200 shadow-sm space-y-2">
-              <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider block">
-                ✨ Live Question Statement Preview:
-              </span>
-              <div className="text-xs text-slate-800 leading-relaxed font-sans min-h-[2rem]">
-                {currentStatement.trim() ? (
-                  renderMath(currentStatement)
-                ) : (
-                  <span className="text-slate-400 italic">Type or paste text above to see live formula rendering...</span>
-                )}
-              </div>
-              {currentDiagramUrl && (
-                <div className="pt-2">
-                  <img
-                    src={currentDiagramUrl}
-                    alt="Question Diagram"
-                    className="max-h-48 rounded-xl border border-slate-200 object-contain mx-auto"
-                    onError={(e) => {
-                      (e.target as any).style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Options List with Correct Key Selector */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800">
-                  Option Choices (Click letter to toggle correct answer key):
-                </span>
-                <button
-                  type="button"
-                  onClick={handleAddOption}
-                  className="text-[11px] font-bold text-brand-700 hover:text-brand-600 flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" /> Add Option
-                </button>
-              </div>
-
-              {currentOptions.map((opt, idx) => (
-                <div key={opt.id || idx} className="space-y-1.5">
-                  <div
-                    className={`p-3 rounded-2xl border flex items-center gap-3 transition-all ${
-                      opt.isCorrect
-                        ? 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-500/20'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (currentQType === 'SINGLE_CORRECT') {
-                          setCurrentOptions(currentOptions.map((o, i) => ({ ...o, isCorrect: i === idx })));
-                        } else {
-                          setCurrentOptions(currentOptions.map((o, i) => (i === idx ? { ...o, isCorrect: !o.isCorrect } : o)));
-                        }
-                      }}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-colors shadow-sm ${
-                        opt.isCorrect ? 'bg-emerald-600 text-white ring-2 ring-emerald-300' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                      }`}
-                    >
-                      {opt.optionLabel}
-                    </button>
-
-                    <input
-                      type="text"
-                      value={opt.contentHtml}
-                      onChange={(e) => {
-                        const updated = [...currentOptions];
-                        updated[idx].contentHtml = e.target.value;
-                        setCurrentOptions(updated);
-                      }}
-                      placeholder={`Type Option ${opt.optionLabel} text or $KaTeX$...`}
-                      className="flex-1 text-xs bg-transparent border-none focus:outline-none font-mono"
-                    />
-
-                    {opt.isCorrect && (
-                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <Check className="w-3 h-3" /> Correct Key
-                      </span>
-                    )}
-
-                    {currentOptions.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOption(idx)}
-                        className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Option Live Preview if contains formula */}
-                  {opt.contentHtml.includes('$') && (
-                    <div className="pl-12 text-[11px] text-slate-700 font-sans">
-                      <span className="text-[10px] text-slate-400 font-mono mr-1">Preview:</span>
-                      {renderMath(opt.contentHtml)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* 3-Tier Optional Solutions: Hint, Short Exp, Step-by-Step */}
-            <div className="space-y-2.5 pt-3 border-t border-slate-200">
-              <span className="text-xs font-bold text-slate-800 block">
-                3-Tier Solution & Hints <span className="text-[11px] font-normal text-slate-400">(Optional — unlocks for students after test)</span>
-              </span>
-
-              {/* 💡 Hint (Optional) */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setIsHintOpen(!isHintOpen)}
-                  className="flex items-center justify-between w-full text-xs font-bold text-amber-900"
-                >
-                  <span className="flex items-center gap-1.5">
-                    💡 Hint <span className="text-[10px] font-normal text-amber-600">(Optional)</span>
-                  </span>
-                  <span className="text-slate-400 font-mono text-[10px]">{isHintOpen ? '▲ Hide' : '▼ Add / Edit'}</span>
-                </button>
-                {isHintOpen && (
-                  <div className="space-y-1.5 pt-1">
-                    <input
-                      type="text"
-                      value={currentHint}
-                      onChange={(e) => setCurrentHint(e.target.value)}
-                      placeholder="Short conceptual hint..."
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-sans"
-                    />
-                    {currentHint && (
-                      <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-200/60 text-xs text-amber-950">
-                        {renderMath(currentHint)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 💬 Short Explanation (Optional) */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setIsShortExpOpen(!isShortExpOpen)}
-                  className="flex items-center justify-between w-full text-xs font-bold text-blue-900"
-                >
-                  <span className="flex items-center gap-1.5">
-                    💬 Short Explanation <span className="text-[10px] font-normal text-blue-600">(Optional)</span>
-                  </span>
-                  <span className="text-slate-400 font-mono text-[10px]">{isShortExpOpen ? '▲ Hide' : '▼ Add / Edit'}</span>
-                </button>
-                {isShortExpOpen && (
-                  <div className="space-y-1.5 pt-1">
-                    <input
-                      type="text"
-                      value={currentShortExp}
-                      onChange={(e) => setCurrentShortExp(e.target.value)}
-                      placeholder="1-line summary of key formula or concept..."
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-sans"
-                    />
-                    {currentShortExp && (
-                      <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-200/60 text-xs text-blue-950">
-                        {renderMath(currentShortExp)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 📋 Step-by-Step Solution (Optional) */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setIsStepSolOpen(!isStepSolOpen)}
-                  className="flex items-center justify-between w-full text-xs font-bold text-purple-900"
-                >
-                  <span className="flex items-center gap-1.5">
-                    📋 Step-by-Step Solution <span className="text-[10px] font-normal text-purple-600">(Optional with $KaTeX$)</span>
-                  </span>
-                  <span className="text-slate-400 font-mono text-[10px]">{isStepSolOpen ? '▲ Hide' : '▼ Add / Edit'}</span>
-                </button>
-                {isStepSolOpen && (
-                  <div className="space-y-1.5 pt-1">
-                    <textarea
-                      rows={3}
-                      value={currentStepSol}
-                      onChange={(e) => setCurrentStepSol(e.target.value)}
-                      placeholder="Step-by-step mathematical derivation using $KaTeX$ formulas..."
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
-                    />
-                    {currentStepSol && (
-                      <div className="p-2 rounded-lg bg-purple-50/60 border border-purple-200/60 text-xs text-purple-950">
-                        {renderMath(currentStepSol)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Save Question Button */}
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={handleSaveCurrentQuestion}
-                disabled={!currentStatement.trim()}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
-              >
-                <Plus className="w-4 h-4" /> {editingIndex !== null ? 'Update Question' : 'Save & Add Next Question'}
-              </button>
-            </div>
+            ))}
           </div>
 
-          {/* Authored Questions List Preview */}
-          {authoredQuestions.length > 0 && (
-            <div className="space-y-3 pt-4 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-900 block">
-                Authored Questions Roster ({authoredQuestions.length}):
-              </span>
-
-              <div className="space-y-2.5">
-                {authoredQuestions.map((q, idx) => (
-                  <div
-                    key={q.id || idx}
-                    className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 transition-all space-y-2 shadow-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-lg bg-slate-900 text-white text-[11px] font-bold font-mono">
-                          Q{idx + 1}
-                        </span>
-                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
-                          {sections.find((s) => s.id === q.sectionId)?.name || 'General'}
-                        </span>
-                        <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          +{q.marksPositive || 4} / -{q.marksNegative || 1}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleEditQuestion(idx)}
-                          className="p-1.5 text-slate-500 hover:text-brand-600 rounded-lg hover:bg-slate-100"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteQuestion(idx)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-slate-100"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-slate-800 font-sans">
-                      {renderMath(q.contentHtml)}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
-                      {q.options?.map((opt: any) => (
-                        <div
-                          key={opt.optionLabel}
-                          className={`p-2 rounded-xl text-[11px] border flex items-center gap-1.5 ${
-                            opt.isCorrect ? 'bg-emerald-50 border-emerald-300 font-bold text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          <span className="font-bold">{opt.optionLabel}.</span>
-                          <span className="truncate">{renderMath(opt.contentHtml || '')}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Show step solution if present */}
-                    {q.stepByStepSolution && (
-                      <div className="text-[10px] text-purple-800 bg-purple-50/60 p-2 rounded-lg mt-1 font-sans">
-                        <span className="font-bold mr-1">Solution:</span> {renderMath(q.stepByStepSolution)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="pt-3 flex justify-between">
-            <button
-              onClick={() => setCurrentStep(2)}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
-            >
+            <button onClick={() => setCurrentStep(2)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">
               ← Back
             </button>
-            <button
-              onClick={() => setCurrentStep(4)}
-              className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md"
-            >
+            <button onClick={() => setCurrentStep(4)} className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md">
               Next: Review & Launch →
             </button>
           </div>
@@ -1358,7 +1077,7 @@ export default function CreateTestWizardPage() {
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
               <span className="text-[10px] text-slate-400 block">Questions Authored</span>
               <span className="font-bold text-purple-700 font-mono text-sm block mt-0.5">
-                {authoredQuestions.length} Questions ({sections.length} Sections)
+                {filledCount} filled of {authoredQuestions.length} templates ({sections.length} sections)
               </span>
             </div>
           </div>
@@ -1387,6 +1106,32 @@ export default function CreateTestWizardPage() {
                   <span className="text-[10px] text-slate-500 mt-1 block leading-tight">{act.desc}</span>
                 </button>
               ))}
+            </div>
+
+            {/* Dynamic Launch Info */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1" suppressHydrationWarning>
+              <span className="font-bold text-slate-900 block">
+                {publishAction === 'INSTANT' && '🚀 Instant Live Mode Details'}
+                {publishAction === 'SCHEDULED' && '📅 Scheduled Window Details'}
+                {publishAction === 'DRAFT' && '📝 Draft Mode Details'}
+              </span>
+              {publishAction === 'INSTANT' && (
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  The test will start immediately upon submission. Students can join from right now. Test will run for a full <strong>{validDurationMins} minutes</strong> until <strong>{formatDeterministicTime(new Date(Date.now() + validDurationMins * 60 * 1000))}</strong>.
+                </p>
+              )}
+              {publishAction === 'SCHEDULED' && (
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Test starts on <strong>{formatDeterministicDateTime(startDateTime)}</strong> and closes on <strong>{formatDeterministicDateTime(endDateTime)}</strong>.
+                  <br />
+                  Students must join by <strong className="text-rose-700 underline font-mono">{formatDeterministicDateTime(lastJoin)}</strong> to receive their full {validDurationMins} minutes.
+                </p>
+              )}
+              {publishAction === 'DRAFT' && (
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Saved privately in your test catalog. No students can see or take this exam until you open it or schedule it.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1501,6 +1246,12 @@ export default function CreateTestWizardPage() {
           </div>
         </div>
       )}
+
+      <AiQuestionImportModal
+        open={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        onApply={applyParsedQuestions}
+      />
     </div>
   );
 }

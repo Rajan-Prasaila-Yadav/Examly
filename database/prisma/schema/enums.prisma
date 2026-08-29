@@ -27,6 +27,20 @@ enum TestType {
   LESSON_LEVEL
 }
 
+// Draft = still editing; SCHEDULED = will auto-live at publishAt; LIVE = open for attempts; CLOSED = ended/manually closed
+enum TestStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  CLOSED
+}
+
+enum CorrectAnswerType {
+  SINGLE
+  MULTIPLE
+  DOUBLE
+}
+
 enum QuestionType {
   SINGLE_CORRECT
   MULTIPLE_CORRECT

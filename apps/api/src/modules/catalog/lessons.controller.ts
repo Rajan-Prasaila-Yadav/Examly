@@ -5,6 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { LessonsService } from './lessons.service';
 import { PermissionGuard } from '@/platform/rbac/guards/permission.guard';
 import { RequirePermission } from '@/platform/rbac/decorators/require-permission.decorator';
+import { CurrentUser } from '@/platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('Academic Catalog - Lessons & Content')
 @ApiBearerAuth()
@@ -93,5 +94,60 @@ export class LessonsController {
   @ApiOperation({ summary: 'Delete resource node' })
   async deleteResourceNode(@Param('nodeId') nodeId: string) {
     return this.lessonsService.deleteResourceNode(nodeId);
+  }
+
+  @Get(':id/tests')
+  @ApiOperation({ summary: 'Get lesson / chapter tests' })
+  @RequirePermission('lessons', 'read')
+  async getLessonTests(@Param('id') id: string) {
+    return this.lessonsService.getLessonTests(id);
+  }
+
+  // ──────────────────────────────────────────────
+  // Real Video Reactions & Doubt Comments
+  // ──────────────────────────────────────────────
+
+  @Get('videos/:videoId/reactions')
+  @ApiOperation({ summary: 'Get video reactions count and user state' })
+  async getVideoReactions(
+    @Param('videoId') videoId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.getVideoReactions(videoId, user?.userId);
+  }
+
+  @Post('videos/:videoId/reactions')
+  @ApiOperation({ summary: 'Toggle video reaction (LIKE, HELPFUL, BRAVO, LOVE, CELEBRATE)' })
+  async toggleVideoReaction(
+    @Param('videoId') videoId: string,
+    @Body() body: { reactionType: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.toggleVideoReaction(videoId, user.userId, body.reactionType as any);
+  }
+
+  @Get('videos/:videoId/comments')
+  @ApiOperation({ summary: 'Get video discussion / doubt comments' })
+  async getVideoComments(@Param('videoId') videoId: string) {
+    return this.lessonsService.getVideoComments(videoId);
+  }
+
+  @Post('videos/:videoId/comments')
+  @ApiOperation({ summary: 'Add a video discussion comment or reply' })
+  async addVideoComment(
+    @Param('videoId') videoId: string,
+    @Body() body: { content: string; parentId?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.addVideoComment(videoId, user.userId, body.content, body.parentId);
+  }
+
+  @Delete('videos/comments/:commentId')
+  @ApiOperation({ summary: 'Delete video comment' })
+  async deleteVideoComment(
+    @Param('commentId') commentId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.deleteVideoComment(commentId, user.userId, user.roleCode);
   }
 }

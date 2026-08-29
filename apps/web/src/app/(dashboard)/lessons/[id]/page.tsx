@@ -52,11 +52,15 @@ export default function LessonDetailPage() {
   const [noteFileUrl, setNoteFileUrl] = useState('');
   const [deletingNote, setDeletingNote] = useState<any | null>(null);
 
-  // Resource Node Modal
+  // Resource Node Modal & Hierarchical Navigation
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [resourceTitle, setResourceTitle] = useState('');
   const [isFolder, setIsFolder] = useState(false);
   const [resourceFileUrl, setResourceFileUrl] = useState('');
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [folderBreadcrumbs, setFolderBreadcrumbs] = useState<{ id: string | null; title: string }[]>([
+    { id: null, title: 'Root Library' },
+  ]);
 
   // Lesson Edit Modal
   const [isLessonEditOpen, setIsLessonEditOpen] = useState(false);
@@ -166,6 +170,7 @@ export default function LessonDetailPage() {
       await api.post(`/lessons/${lessonId}/resources`, {
         title: resourceTitle,
         isFolder,
+        parentId: currentFolderId || null,
         fileUrl: isFolder ? undefined : resourceFileUrl || 'https://pub-2df0d2ec62c04b949be7927811dc3911.r2.dev/sample.pdf',
         fileType: isFolder ? 'folder' : 'pdf',
       });
@@ -484,7 +489,26 @@ export default function LessonDetailPage() {
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-sm font-bold text-slate-900">Resource Folder Tree</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Organize supplementary files and folders in this lesson.</p>
+              {/* Breadcrumbs */}
+              <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-slate-600">
+                {folderBreadcrumbs.map((crumb, idx) => (
+                  <React.Fragment key={crumb.id || 'root'}>
+                    {idx > 0 && <span className="text-slate-300">/</span>}
+                    <button
+                      onClick={() => {
+                        const targetIdx = folderBreadcrumbs.findIndex((b) => b.id === crumb.id);
+                        setCurrentFolderId(crumb.id);
+                        setFolderBreadcrumbs(folderBreadcrumbs.slice(0, targetIdx + 1));
+                      }}
+                      className={`hover:text-brand-600 transition-colors ${
+                        idx === folderBreadcrumbs.length - 1 ? 'text-brand-700 font-bold' : ''
+                      }`}
+                    >
+                      {crumb.title}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
 
             <button
@@ -496,49 +520,125 @@ export default function LessonDetailPage() {
           </div>
 
           <div className="space-y-2">
-            {(lesson.resources || []).map((resNode: any) => (
-              <div
-                key={resNode.id}
-                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between hover:bg-slate-100/70 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  {resNode.isFolder ? (
-                    <Folder className="w-5 h-5 text-amber-500 fill-amber-500/20" />
-                  ) : (
-                    <File className="w-5 h-5 text-brand-600" />
-                  )}
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 block">{resNode.title}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {resNode.isFolder ? 'Directory Folder' : 'Attachment File'}
+            {(lesson.resources || [])
+              .filter((r: any) => (currentFolderId ? r.parentId === currentFolderId : !r.parentId))
+              .map((resNode: any) => (
+                <div
+                  key={resNode.id}
+                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between hover:bg-slate-100/70 transition-all"
+                >
+                  <div
+                    className={`flex items-center gap-3 ${resNode.isFolder ? 'cursor-pointer' : ''}`}
+                    onClick={() => {
+                      if (resNode.isFolder) {
+                        setCurrentFolderId(resNode.id);
+                        setFolderBreadcrumbs((prev) => [...prev, { id: resNode.id, title: resNode.title }]);
+                      }
+                    }}
+                  >
+                    {resNode.isFolder ? (
+                      <Folder className="w-5 h-5 text-amber-500 fill-amber-500/20" />
+                    ) : (
+                      <File className="w-5 h-5 text-brand-600" />
+                    )}
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block hover:text-brand-600">
+                        {resNode.title}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {resNode.isFolder ? 'Click to open folder' : 'Attachment File'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {resNode.fileUrl && (
+                      <a
+                        href={resNode.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-brand-600 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </a>
+                    )}
+                    <button
+                      onClick={() => handleDeleteResource(resNode.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+            {(lesson.resources || []).filter((r: any) =>
+              currentFolderId ? r.parentId === currentFolderId : !r.parentId
+            ).length === 0 && (
+              <div className="py-8 text-center text-xs text-slate-400">
+                {currentFolderId
+                  ? 'This folder is empty. Click "+ Add Resource / Folder" to add items here.'
+                  : 'No folders or resources added yet. Click "+ Add Resource / Folder".'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Chapter Tests */}
+      {activeTab === 'tests' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Chapter Quizzes & Concept Tests ({lesson.tests?.length || 0})</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Quick tests and past-year drills attached to this chapter.</p>
+            </div>
+            <Link
+              href={`/tests/create?lessonId=${lessonId}`}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Chapter Test
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(lesson.tests || []).map((t: any) => (
+              <div key={t.id} className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between hover:border-brand-300 transition-all">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      CHAPTER TEST
                     </span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      t.testStatus === 'LIVE'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {t.testStatus || 'DRAFT'}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{t.title}</h3>
+                  <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500 font-mono">
+                    <span>⏳ {t.durationMinutes}m</span>
+                    <span>🎯 {t.totalMarks} Marks</span>
+                    <span>📝 {t.passMarks} Pass</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {resNode.fileUrl && (
-                    <a
-                      href={resNode.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-brand-600 hover:underline flex items-center gap-1"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
-                  )}
-                  <button
-                    onClick={() => handleDeleteResource(resNode.id)}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
+                  <Link
+                    href={`/tests/${t.id}`}
+                    className="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    Take / View Test <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </div>
             ))}
 
-            {(!lesson.resources || lesson.resources.length === 0) && (
-              <div className="py-8 text-center text-xs text-slate-400">
-                No folders or resources added yet. Click "+ Add Resource / Folder".
+            {(!lesson.tests || lesson.tests.length === 0) && (
+              <div className="col-span-full text-center py-10 text-slate-400 text-xs">
+                No chapter tests attached to this lesson yet. Click &quot;Create Chapter Test&quot; to build a quiz.
               </div>
             )}
           </div>

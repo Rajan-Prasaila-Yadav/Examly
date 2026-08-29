@@ -7,6 +7,10 @@ import { RoleType, RecordStatus } from '@prisma/client';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
+  // In-memory permission cache for lightning-fast sub-millisecond responses
+  private static permissionCache = new Map<string, { isAllowed: boolean; cachedAt: number }>();
+  private static readonly TTL_MS = 60 * 1000; // 60 seconds
+
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
@@ -29,12 +33,36 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('User is not authenticated');
     }
 
-    // 1. Super Admin bypasses all checks
-    if (user.roleCode === RoleType.SUPER_ADMIN) {
+    const roleCode = user.roleCode || '';
+
+    // 1. Super Admin, Institute Admin, and Branch Admin bypass all permission checks
+    if (
+      roleCode === RoleType.SUPER_ADMIN ||
+      roleCode === RoleType.ADMIN ||
+      roleCode === 'SUPER_ADMIN' ||
+      roleCode === 'ADMIN' ||
+      roleCode === 'BRANCH_ADMIN' ||
+      roleCode === 'DIRECTOR'
+    ) {
       return true;
     }
 
-    // 2. Fetch user's status and custom overrides
+    // 2. Taking / previewing / reviewing tests is accessible to all authenticated roles (Admin, Teacher, Student)
+    if (required.resource === 'tests' && (required.action === 'take' || required.action === 'read')) {
+      return true;
+    }
+
+    // 3. Check in-memory permission cache
+    const cacheKey = `${user.userId}:${required.resource}:${required.action}`;
+    const cached = PermissionGuard.permissionCache.get(cacheKey);
+    if (cached && Date.now() - cached.cachedAt < PermissionGuard.TTL_MS) {
+      if (!cached.isAllowed) {
+        throw new ForbiddenException(`Permission denied for ${required.resource}.${required.action}`);
+      }
+      return true;
+    }
+
+    // 4. Fetch user's status and custom overrides from database
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.userId },
       include: {
@@ -56,19 +84,22 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('Your account is blocked or inactive');
     }
 
-    // 3. Check for explicit per-user grant override
+    // 5. Check for explicit per-user grant override
     const explicitGrant = dbUser.permissionGrants[0];
     if (explicitGrant !== undefined) {
+      PermissionGuard.permissionCache.set(cacheKey, { isAllowed: explicitGrant.isAllowed, cachedAt: Date.now() });
       if (!explicitGrant.isAllowed) {
         throw new ForbiddenException(`Permission denied for ${required.resource}.${required.action}`);
       }
       return true;
     }
 
-    // 4. Check base role permissions
-    const hasRolePermission = dbUser.role.permissions.some(
+    // 6. Check base role permissions
+    const hasRolePermission = dbUser.role?.permissions?.some(
       (p) => p.resource === required.resource && p.action === required.action,
     );
+
+    PermissionGuard.permissionCache.set(cacheKey, { isAllowed: !!hasRolePermission, cachedAt: Date.now() });
 
     if (!hasRolePermission) {
       throw new ForbiddenException(`Permission denied for ${required.resource}.${required.action}`);
