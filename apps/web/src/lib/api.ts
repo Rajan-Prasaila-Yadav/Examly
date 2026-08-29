@@ -1,7 +1,12 @@
 // apps/web/src/lib/api.ts
 import axios from 'axios';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const rawUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').trim();
+export const API_BASE_URL = rawUrl.endsWith('/api/v1')
+  ? rawUrl
+  : rawUrl.endsWith('/')
+  ? `${rawUrl}api/v1`
+  : `${rawUrl}/api/v1`;
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
