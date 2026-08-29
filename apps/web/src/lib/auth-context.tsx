@@ -9,10 +9,14 @@ export interface User {
   fullName: string;
   email: string;
   identifier: string;
+  phone?: string;
   avatarUrl?: string;
   role: string;
   instituteId?: string;
   instituteName?: string;
+  studentProfile?: any;
+  teacherProfile?: any;
+  batch?: any;
 }
 
 interface AuthContextType {

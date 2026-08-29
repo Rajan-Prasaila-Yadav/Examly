@@ -23,6 +23,9 @@ import {
   Calendar,
   ChevronRight,
   Eye,
+  X,
+  ArrowRight,
+  Layers,
 } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth-context';
@@ -41,33 +44,46 @@ export default function StudentDetailPage() {
   const [data360, setData360] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Batch assignment modal for Super Admin / Admin
+  const [batches, setBatches] = useState<any[]>([]);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [targetBatchId, setTargetBatchId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
   const fetchStudent360 = async () => {
     try {
       const targetId = studentId || authUser?.id || 'me';
-      const res = await api.get(`/users/students/${targetId}/360`).catch(async () => {
-        // Fallback: fetch current logged in profile
-        const meRes = await api.get('/auth/me');
-        if (meRes.data) {
-          return {
-            data: {
-              user: meRes.data,
-              studentProfile: meRes.data.studentProfile,
-              metrics: {
-                totalAttempts: meRes.data.testAttempts?.length || 0,
-                bestPercentage: 0,
-                avgPercentage: 0,
-                passedCount: 0,
-                failedCount: 0,
-                passRate: 0,
+      const [res, batchesRes] = await Promise.all([
+        api.get(`/users/students/${targetId}/360`).catch(async () => {
+          // Fallback: fetch current logged in profile
+          const meRes = await api.get('/auth/me');
+          if (meRes.data) {
+            return {
+              data: {
+                user: meRes.data,
+                studentProfile: meRes.data.studentProfile,
+                metrics: {
+                  totalAttempts: meRes.data.testAttempts?.length || 0,
+                  bestPercentage: 0,
+                  avgPercentage: 0,
+                  passedCount: 0,
+                  failedCount: 0,
+                  passRate: 0,
+                },
+                recentAttempts: meRes.data.testAttempts || [],
               },
-              recentAttempts: meRes.data.testAttempts || [],
-            },
-          };
-        }
-        return null;
-      });
+            };
+          }
+          return null;
+        }),
+        !isStudent ? api.get('/batches').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+      ]);
+
       if (res?.data) {
         setData360(res.data);
+      }
+      if (batchesRes?.data) {
+        setBatches(batchesRes.data);
       }
     } catch (e) {
       console.error(e);
@@ -83,6 +99,21 @@ export default function StudentDetailPage() {
       setIsLoading(false);
     }
   }, [studentId, authUser?.id]);
+
+  const handleConfirmBatchChange = async () => {
+    if (!targetBatchId || !user?.id) return;
+    try {
+      setIsAssigning(true);
+      await api.put(`/users/students/${user.id}/batch`, { batchId: targetBatchId });
+      alert('Student assigned to batch successfully!');
+      setIsBatchModalOpen(false);
+      fetchStudent360();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Failed to update batch');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -147,12 +178,22 @@ export default function StudentDetailPage() {
                   {rollNumber}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Enrolled in{' '}
-                <span className="font-semibold text-brand-600">
-                  {batchName}
-                </span>
-              </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-xs text-slate-500">
+                  Enrolled in <span className="font-semibold text-brand-600">{batchName}</span>
+                </p>
+                {!isStudent && (
+                  <button
+                    onClick={() => {
+                      setTargetBatchId(studentProfile?.batchId || batches[0]?.id || '');
+                      setIsBatchModalOpen(true);
+                    }}
+                    className="px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 text-[10px] font-bold border border-brand-200 transition-colors flex items-center gap-1"
+                  >
+                    <Layers className="w-3 h-3 text-brand-600" /> Assign / Change Batch
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -230,6 +271,82 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── SUPERADMIN / ADMIN ASSIGN BATCH MODAL ── */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Assign / Change Batch</h3>
+                  <p className="text-[11px] text-slate-500">{user.fullName} • Roll: {rollNumber}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsBatchModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl bg-slate-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-700">Select Active Academic Batch *</label>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {batches.map((b) => {
+                  const isSelected = targetBatchId === b.id;
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => setTargetBatchId(b.id)}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'border-brand-500 bg-brand-50/70 ring-2 ring-brand-500/20 shadow-sm'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900">{b.name}</span>
+                          <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-mono font-bold">
+                            {b.code}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{b.description || 'Full syllabus batch'}</p>
+                      </div>
+
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                        isSelected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white'
+                      }`}>
+                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBatchModalOpen(false)}
+                className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!targetBatchId || isAssigning}
+                onClick={handleConfirmBatchChange}
+                className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 disabled:opacity-50 rounded-xl shadow-md shadow-brand-600/20 transition-all flex items-center justify-center gap-1.5"
+              >
+                {isAssigning ? 'Assigning...' : 'Confirm Assignment'} <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Examination History & Scorecards */}
       <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">

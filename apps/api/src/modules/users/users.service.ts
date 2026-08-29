@@ -202,6 +202,52 @@ export class UsersService {
     return updated;
   }
 
+  async assignStudentBatch(userIdOrProfileId: string, batchId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: userIdOrProfileId },
+          { studentProfile: { id: userIdOrProfileId } },
+          { identifier: userIdOrProfileId },
+        ],
+      },
+      include: { studentProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const batch = await this.prisma.batch.findUnique({
+      where: { id: batchId },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('Target batch not found');
+    }
+
+    const updatedProfile = await this.prisma.studentProfile.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        rollNumber: user.identifier && !user.identifier.includes('@') ? user.identifier : `RN-${Math.floor(10000 + Math.random() * 90000)}`,
+        batchId: batch.id,
+      },
+      update: {
+        batchId: batch.id,
+      },
+      include: {
+        batch: true,
+      },
+    });
+
+    return {
+      message: `Student successfully assigned to batch "${batch.name}"`,
+      studentProfile: updatedProfile,
+      batch,
+    };
+  }
+
   async createTeacher(instituteId: string | undefined, dto: CreateTeacherDto) {
     const teacherRole = await this.prisma.role.findFirst({
       where: {

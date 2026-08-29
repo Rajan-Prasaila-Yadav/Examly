@@ -66,6 +66,16 @@ export class UsersController {
     return this.usersService.updateStudent(id, dto);
   }
 
+  @Put('students/:id/batch')
+  @ApiOperation({ summary: 'Assign or transfer student to any active batch (Super Admin / Admin)' })
+  @RequirePermission('students', 'update')
+  async assignStudentBatch(
+    @Param('id') id: string,
+    @Body() body: { batchId: string },
+  ) {
+    return this.usersService.assignStudentBatch(id, body.batchId);
+  }
+
   @Post('teachers')
   @ApiOperation({ summary: 'Onboard new faculty teacher (Admin)' })
   @RequirePermission('teachers', 'create')
