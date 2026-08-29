@@ -119,9 +119,27 @@ export default function LiveTestRunnerPage() {
         if (keyRes?.data?.answerKey) {
           setAnswerKeyData(keyRes.data.answerKey);
         }
+        if (keyRes?.data?.questions && keyRes.data.questions.length > 0) {
+          setQuestions(keyRes.data.questions);
+        }
         if (keyRes?.data?.result) {
           setPastAttempt(keyRes.data.result);
           setSubmitResult(keyRes.data.result);
+        }
+
+        // Restore user answers from evaluation so question palette and filters work
+        const restored: Record<string, { selectedOptionIds: string[]; isMarkedForReview: boolean }> = {};
+        (keyRes?.data?.questions || keyRes?.data?.answerKey || []).forEach((q: any) => {
+          const sIds = q.selectedOptionIds || (q.options || []).filter((o: any) => o.isSelected).map((o: any) => o.id) || [];
+          if (sIds.length > 0 || q.isMarkedForReview) {
+            restored[q.id || q.questionId] = {
+              selectedOptionIds: sIds,
+              isMarkedForReview: !!q.isMarkedForReview,
+            };
+          }
+        });
+        if (Object.keys(restored).length > 0) {
+          setUserAnswers(restored);
         }
 
         // Direct view requested via URL (e.g. ?view=REVIEW or ?view=ANSWER_KEY)
@@ -639,6 +657,14 @@ export default function LiveTestRunnerPage() {
       return { qId, hasAns, isCorrect, isReview, selectedIds, correctOpts };
     };
 
+    const countCorrect = questions.filter((q) => getQuestionStatus(q).isCorrect).length;
+    const countWrong = questions.filter((q) => {
+      const s = getQuestionStatus(q);
+      return s.hasAns && !s.isCorrect;
+    }).length;
+    const countUnanswered = questions.filter((q) => !getQuestionStatus(q).hasAns).length;
+    const countMarked = questions.filter((q) => getQuestionStatus(q).isReview).length;
+
     const filteredQs = questions.filter((q) => {
       const { hasAns, isCorrect, isReview } = getQuestionStatus(q);
       if (reviewFilter === 'CORRECT') return isCorrect;
@@ -653,19 +679,39 @@ export default function LiveTestRunnerPage() {
 
     return (
       <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <button
-            onClick={() => setPhase('RESULT')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm self-start sm:self-auto"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Scorecard
-          </button>
-          <div className="text-left sm:text-right">
-            <span className="text-xs font-bold text-slate-900 block">
-              Check Answers ({filteredQs.length > 0 ? reviewIndex + 1 : 0} of {filteredQs.length})
-            </span>
-            <span className="text-[10px] text-slate-400">Reviewing answers with step solutions</span>
+        {/* Top Header & Tab Mode Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setPhase('REVIEW')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                phase === 'REVIEW'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" /> Solutions & Review
+            </button>
+            <button
+              onClick={() => setPhase('ANSWER_KEY')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key & Calculation
+            </button>
+            <button
+              onClick={() => setPhase('RESULT')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+            >
+              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
+            </button>
           </div>
+
+          <button
+            onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors self-end sm:self-auto"
+          >
+            ← Exit Test
+          </button>
         </div>
 
         {/* Interactive Question Palette Quick-Bar */}
@@ -712,10 +758,10 @@ export default function LiveTestRunnerPage() {
         <div className="flex flex-wrap gap-2">
           {[
             { key: 'ALL', label: `All (${questions.length})` },
-            { key: 'CORRECT', label: `Correct (${submitResult?.totalCorrect || 0})` },
-            { key: 'WRONG', label: `Wrong (${submitResult?.totalWrong || 0})` },
-            { key: 'UNANSWERED', label: `Unanswered (${submitResult?.totalUnanswered || 0})` },
-            { key: 'REVIEW', label: `Marked (${reviewCount})` },
+            { key: 'CORRECT', label: `Correct (${countCorrect})` },
+            { key: 'WRONG', label: `Wrong (${countWrong})` },
+            { key: 'UNANSWERED', label: `Unanswered (${countUnanswered})` },
+            { key: 'REVIEW', label: `Marked (${countMarked})` },
           ].map((f) => (
             <button
               key={f.key}
@@ -887,35 +933,84 @@ export default function LiveTestRunnerPage() {
   // PHASE 5: ANSWER KEY & CALCULATION BREAKDOWN TABLE (SCR-STU-16)
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'ANSWER_KEY') {
+    const dataList = answerKeyData.length > 0 ? answerKeyData : questions;
+    const calcCorrect = dataList.filter((a: any) => a.status === 'CORRECT' || a.isCorrect).length;
+    const calcWrong = dataList.filter((a: any) => (a.status === 'WRONG' || (a.selectedOptionIds?.length > 0 && !a.isCorrect))).length;
+    const calcUnanswered = dataList.length - (calcCorrect + calcWrong);
+
     return (
       <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <button
-            onClick={() => setPhase('RESULT')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3 py-1.5 rounded-xl border border-slate-200 self-start sm:self-auto"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Result Summary
-          </button>
+        {/* Top Header & Tab Mode Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
-              className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-rose-200"
+              onClick={() => setPhase('REVIEW')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
             >
-              <FileText className="w-3.5 h-3.5" /> Answer Key (PDF)
+              <Eye className="w-3.5 h-3.5" /> Solutions & Review
+            </button>
+            <button
+              onClick={() => setPhase('ANSWER_KEY')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Answer Key & Calculation
+            </button>
+            <button
+              onClick={() => setPhase('RESULT')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+            >
+              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            <button
+              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
+              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-rose-200"
+            >
+              <FileText className="w-3.5 h-3.5" /> PDF
             </button>
             <button
               onClick={() => downloadFile(`/tests/${testId}/export/answer-key/excel`, `answer-key-${testId}.xlsx`)}
-              className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-emerald-200"
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-emerald-200"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Answer Key (Excel)
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
             </button>
+          </div>
+        </div>
+
+        {/* Calculation Metrics Overview Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
+          <div className="p-3 rounded-2xl bg-brand-50/50 border border-brand-100">
+            <span className="text-[10px] text-brand-600 block font-medium">Final Score</span>
+            <span className="text-lg font-extrabold text-brand-700 font-mono">
+              {submitResult?.totalScore ?? 0} / {test?.totalMarks || 200}
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+            <span className="text-[10px] text-emerald-600 block font-medium">Correct (+Marks)</span>
+            <span className="text-lg font-extrabold text-emerald-700 font-mono">
+              {calcCorrect} Qs
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-rose-50/50 border border-rose-100">
+            <span className="text-[10px] text-rose-600 block font-medium">Wrong (-Negative)</span>
+            <span className="text-lg font-extrabold text-rose-700 font-mono">
+              {calcWrong} Qs
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] text-slate-500 block font-medium">Percentage</span>
+            <span className="text-lg font-extrabold text-slate-800 font-mono">
+              {submitResult?.percentage ?? 0}%
+            </span>
           </div>
         </div>
 
         {/* Answer Key Grid (SCR-STU-16 Table) */}
         <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-6">
           <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Answer Key & Question Evaluation
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Answer Key & Question Evaluation Table
           </h2>
 
           <div className="overflow-x-auto">

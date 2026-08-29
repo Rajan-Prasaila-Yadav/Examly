@@ -1069,102 +1069,145 @@ export class TestsService {
   // Answer Key (SCR-STU-16)
   // ──────────────────────────────────────────────
 
-  async getAnswerKey(testId: string, studentId: string) {
-    const attempt = await this.prisma.testAttempt.findFirst({
-      where: { testId, studentId, submittedAt: { not: null } },
+  async getAnswerKey(testId: string, studentId?: string) {
+    const test = await this.prisma.test.findUnique({
+      where: { id: testId },
       include: {
-        result: true,
-        answers: true,
-        test: {
+        sections: {
           include: {
-            sections: {
+            questions: {
               include: {
-                questions: {
-                  include: {
-                    options: { orderBy: { sortOrder: 'asc' } },
-                  },
-                  orderBy: { sortOrder: 'asc' },
-                },
+                options: { orderBy: { sortOrder: 'asc' } },
+                solution: true,
               },
               orderBy: { sortOrder: 'asc' },
             },
           },
+          orderBy: { sortOrder: 'asc' },
         },
       },
     });
 
-    if (!attempt) {
-      throw new NotFoundException('No submitted attempt found for this test');
+    if (!test) {
+      throw new NotFoundException('Test not found');
     }
 
-    const answersMap = new Map(attempt.answers.map((a) => [a.questionId, a]));
+    // Find student's latest submitted attempt if studentId is provided
+    let latestAttempt: any = studentId
+      ? await this.prisma.testAttempt.findFirst({
+          where: {
+            testId,
+            studentId,
+            submittedAt: { not: null },
+          },
+          include: {
+            result: true,
+            answers: true,
+          },
+          orderBy: { submittedAt: 'desc' },
+        })
+      : null;
+
+    if (!latestAttempt && studentId) {
+      latestAttempt = await this.prisma.testAttempt.findFirst({
+        where: { testId, studentId },
+        include: { result: true, answers: true },
+        orderBy: { startedAt: 'desc' },
+      });
+    }
+
+    const answersMap = new Map(latestAttempt?.answers?.map((a: any) => [a.questionId, a]) || []);
     let questionNumber = 0;
 
-    const answerKey = attempt.test.sections.flatMap((section) =>
+    const answerKey = test.sections.flatMap((section) =>
       section.questions.map((q) => {
         questionNumber++;
-        const answer = answersMap.get(q.id);
-        const correctOptions = q.options.filter((o) => o.isCorrect);
-        const correctLabels = correctOptions.map((o) => o.optionLabel).join(', ');
+        const answer: any = answersMap.get(q.id);
+        const correctOpts = q.options.filter((o) => o.isCorrect);
+        const correctLabels = correctOpts.map((o) => o.optionLabel).join(', ');
+        const correctText = correctOpts.map((o) => `${o.optionLabel}. ${o.contentHtml.replace(/<[^>]*>?/gm, '')}`).join('; ');
 
-        let yourAnswer = '-';
-        let status: 'CORRECT' | 'WRONG' | 'UNANSWERED' = 'UNANSWERED';
-        let marks = 0;
-        let negative = 0;
+        const selectedOptionIds = answer?.selectedOptionIds || [];
+        const selectedOpts = q.options.filter((o) => selectedOptionIds.includes(o.id));
+        const yourLabels = selectedOpts.map((o) => o.optionLabel).join(', ') || '—';
+        const yourText = selectedOpts.map((o) => `${o.optionLabel}. ${o.contentHtml.replace(/<[^>]*>?/gm, '')}`).join('; ') || 'Unanswered';
 
-        if (answer && answer.selectedOptionIds.length > 0) {
-          const selectedOptions = q.options.filter((o) => answer.selectedOptionIds.includes(o.id));
-          yourAnswer = selectedOptions.map((o) => o.optionLabel).join(', ');
+        const hasAnswered = selectedOptionIds.length > 0;
+        const isCorrect =
+          hasAnswered &&
+          correctOpts.length > 0 &&
+          correctOpts.length === selectedOptionIds.length &&
+          correctOpts.every((o) => selectedOptionIds.includes(o.id));
 
-          if (answer.awardedMarks !== null && answer.awardedMarks > 0) {
+        let status = 'UNANSWERED';
+        let awardedMarks = 0;
+        if (hasAnswered) {
+          if (isCorrect) {
             status = 'CORRECT';
-            marks = answer.awardedMarks;
-          } else if (answer.awardedMarks !== null && answer.awardedMarks < 0) {
-            status = 'WRONG';
-            negative = answer.awardedMarks;
+            awardedMarks = q.marksPositive;
           } else {
-            // Check manually
-            const correctIds = correctOptions.map((o) => o.id);
-            const isCorrect = correctIds.length === answer.selectedOptionIds.length &&
-              correctIds.every((id) => answer.selectedOptionIds.includes(id));
-            status = isCorrect ? 'CORRECT' : 'WRONG';
-            marks = isCorrect ? q.marksPositive : 0;
-            negative = isCorrect ? 0 : -q.marksNegative;
+            status = 'WRONG';
+            awardedMarks = -q.marksNegative;
           }
         }
 
         return {
-          questionNumber,
+          id: q.id,
           questionId: q.id,
+          questionNumber,
           sectionName: section.name,
-          correctAnswer: correctLabels,
-          yourAnswer,
+          questionType: q.questionType,
+          contentHtml: q.contentHtml,
+          diagramUrl: q.diagramUrl,
+          correctAnswer: correctLabels || 'A',
+          correctAnswerText: correctText,
+          yourAnswer: yourLabels,
+          yourAnswerText: yourText,
           status,
-          marks,
-          negative,
-          timeSpentSeconds: answer?.timeSpentSeconds || 0,
+          isCorrect,
+          marks: q.marksPositive,
+          negative: q.marksNegative,
+          marksPositive: q.marksPositive,
+          marksNegative: q.marksNegative,
+          awardedMarks,
+          selectedOptionIds,
+          isMarkedForReview: answer?.isMarkedForReview || false,
+          solution: q.solution,
+          options: q.options.map((o) => ({
+            ...o,
+            isSelected: selectedOptionIds.includes(o.id),
+          })),
         };
       }),
     );
 
+    const totalCorrect = answerKey.filter((a) => a.status === 'CORRECT').length;
+    const totalWrong = answerKey.filter((a) => a.status === 'WRONG').length;
+    const totalUnanswered = answerKey.filter((a) => a.status === 'UNANSWERED').length;
+    const totalScore = latestAttempt?.result?.totalScore ?? answerKey.reduce((sum, a) => sum + a.awardedMarks, 0);
+    const percentage = latestAttempt?.result?.percentage ?? (test.totalMarks > 0 ? Math.round((Math.max(0, totalScore) / test.totalMarks) * 10000) / 100 : 0);
+
     return {
       test: {
-        id: attempt.test.id,
-        title: attempt.test.title,
-        totalMarks: attempt.test.totalMarks,
+        id: test.id,
+        title: test.title,
+        totalMarks: test.totalMarks,
+        passMarks: test.passMarks,
+        durationMinutes: test.durationMinutes,
       },
-      result: attempt.result,
+      attemptId: latestAttempt?.id || null,
+      result: {
+        totalScore,
+        totalMarks: test.totalMarks,
+        percentage,
+        isPassed: latestAttempt?.result?.isPassed ?? (percentage >= (test.passMarks ? (test.passMarks / test.totalMarks) * 100 : 50)),
+        totalCorrect,
+        totalWrong,
+        totalUnanswered,
+        accuracy: (totalCorrect + totalWrong) > 0 ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 10000) / 100 : 0,
+      },
       answerKey,
-      scoreBreakdown: {
-        totalQuestions: answerKey.length,
-        totalCorrect: attempt.result?.totalCorrect || 0,
-        totalWrong: attempt.result?.totalWrong || 0,
-        totalUnanswered: attempt.result?.totalUnanswered || 0,
-        totalScore: attempt.result?.totalScore || 0,
-        maxMarks: attempt.test.totalMarks,
-        percentage: attempt.result?.percentage || 0,
-        isPassed: attempt.result?.isPassed || false,
-      },
+      questions: answerKey,
     };
   }
 
