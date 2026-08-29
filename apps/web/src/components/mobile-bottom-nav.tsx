@@ -39,6 +39,7 @@ export function MobileBottomNav() {
     (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
 
   const moreItems = [
+    { name: 'My 360 Profile', href: user?.id ? `/students/${user.id}` : '/students', icon: Users, desc: 'Your scores, profile & history', show: isStudent },
     { name: 'Curriculum Tree', href: '/curriculum', icon: FolderTree, desc: 'Subjects, lessons & videos', show: true },
     { name: 'Students Roster', href: '/students', icon: Users, desc: 'Enrolled student directory', show: !isStudent },
     { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts', show: !isStudent },

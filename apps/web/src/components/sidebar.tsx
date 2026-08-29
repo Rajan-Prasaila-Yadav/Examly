@@ -43,6 +43,7 @@ export function Sidebar() {
     { name: isStudent ? 'My Batches' : 'Batches & Classes', href: '/batches', icon: GraduationCap, desc: 'Academic batches & groups', show: true },
     { name: 'Curriculum & Content', href: '/curriculum', icon: FolderTree, desc: '4-tier academic tree', show: true },
     { name: isStudent ? 'My Mock Tests' : 'Test Suite & Builder', href: isStudent ? '/tests' : '/tests/builder', icon: FileCheck2, highlight: !isStudent, desc: isStudent ? 'Take & review tests' : 'Split-pane KaTeX question creator', show: true },
+    { name: 'My 360 Profile', href: user?.id ? `/students/${user.id}` : '/students', icon: Users, desc: 'Your scores, profile & history', show: isStudent },
     { name: 'Students', href: '/students', icon: Users, desc: 'Enrolled student roster', show: !isStudent },
     { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts', show: !isStudent },
     { name: 'Community Wall', href: '/community', icon: MessageSquare, desc: 'Announcements & batch polls', show: true },

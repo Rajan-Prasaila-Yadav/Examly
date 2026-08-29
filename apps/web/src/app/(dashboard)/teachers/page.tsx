@@ -1,9 +1,10 @@
-// apps/web/src/app/(dashboard)/teachers/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import {
   UserSquare2,
   Plus,
@@ -23,6 +24,19 @@ import {
 } from 'lucide-react';
 
 export default function TeachersPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
+  useEffect(() => {
+    if (isStudent) {
+      router.replace('/');
+    }
+  }, [isStudent, router]);
+
   const [teachers, setTeachers] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);

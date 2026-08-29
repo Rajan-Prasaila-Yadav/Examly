@@ -1,9 +1,10 @@
-// apps/web/src/app/(dashboard)/tests/builder/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import {
   Sparkles,
   Save,
@@ -28,6 +29,19 @@ import {
 import { renderMath } from '@/lib/render-math';
 
 export default function SplitPaneQuestionBuilderPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
+  useEffect(() => {
+    if (isStudent) {
+      router.replace('/tests');
+    }
+  }, [isStudent, router]);
+
   const [activeView, setActiveView] = useState<'tests' | 'authoring'>('tests');
   const [tests, setTests] = useState<any[]>([]);
 

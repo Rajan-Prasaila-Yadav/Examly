@@ -29,6 +29,20 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
 });
 
+function normalizeUserRole(rawUser: any) {
+  if (!rawUser) return rawUser;
+  let roleCode = 'STUDENT';
+  if (typeof rawUser.role === 'string') {
+    roleCode = rawUser.role.toUpperCase();
+  } else if (typeof rawUser.role === 'object' && rawUser.role !== null) {
+    roleCode = (rawUser.role.code || rawUser.role.name || 'STUDENT').toUpperCase();
+  }
+  return {
+    ...rawUser,
+    role: roleCode,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,11 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         try {
           const res = await api.get('/auth/me');
-          const userData = res.data;
-          if (userData && typeof userData.role === 'object') {
-            userData.role = userData.role.name || userData.role.code || 'SUPER_ADMIN';
-          }
-          setUser(userData);
+          setUser(normalizeUserRole(res.data));
         } catch (e) {
           localStorage.removeItem('examly_access_token');
           localStorage.removeItem('examly_refresh_token');
@@ -58,11 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (data: { accessToken: string; refreshToken: string; user: any }) => {
     localStorage.setItem('examly_access_token', data.accessToken);
     localStorage.setItem('examly_refresh_token', data.refreshToken);
-    const userData = data.user;
-    if (userData && typeof userData.role === 'object') {
-      userData.role = userData.role.name || userData.role.code || 'SUPER_ADMIN';
-    }
-    setUser(userData);
+    setUser(normalizeUserRole(data.user));
   };
 
   const logout = () => {

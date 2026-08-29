@@ -1,9 +1,10 @@
-// apps/web/src/app/(dashboard)/students/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import {
   Users,
   Plus,
@@ -27,6 +28,19 @@ import {
 } from 'lucide-react';
 
 export default function StudentsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
+  useEffect(() => {
+    if (isStudent && user?.id) {
+      router.replace(`/students/${user.id}`);
+    }
+  }, [isStudent, user?.id, router]);
+
   const [students, setStudents] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [search, setSearch] = useState('');
