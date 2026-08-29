@@ -34,7 +34,7 @@ export default function BatchDetailPage() {
   const batchId = params.id as string;
 
   const [batch, setBatch] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'subjects' | 'students' | 'tests' | 'settings'>('subjects');
+  const [activeTab, setActiveTab] = useState<'subjects' | 'students' | 'tests' | 'teachers' | 'settings'>('subjects');
   const [isLoading, setIsLoading] = useState(true);
 
   // Subject Modals (Create & Edit)
