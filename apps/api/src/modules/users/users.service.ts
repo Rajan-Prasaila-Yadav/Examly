@@ -410,6 +410,46 @@ export class UsersService {
     const passedCount = completedAttempts.filter((a) => a.result?.isPassed || (a.result?.percentage || 0) >= 50).length;
     const failedCount = totalAttempts - passedCount;
 
+    let studentProfile = user.studentProfile;
+    if (!studentProfile || !studentProfile.batch) {
+      const defaultBatch = await this.prisma.batch.findFirst({
+        where: {
+          status: RecordStatus.ACTIVE,
+          ...(user.instituteId ? { instituteId: user.instituteId } : {}),
+        },
+        include: {
+          subjects: {
+            where: { status: { not: RecordStatus.DELETED } },
+            include: {
+              _count: { select: { lessons: true, tests: true } },
+            },
+          },
+        },
+        orderBy: { sortOrder: 'asc' },
+      });
+
+      if (defaultBatch) {
+        if (!studentProfile) {
+          studentProfile = {
+            id: 'profile-' + user.id,
+            userId: user.id,
+            rollNumber: user.identifier && !user.identifier.includes('@') ? user.identifier : 'STU-2026',
+            batchId: defaultBatch.id,
+            batch: defaultBatch,
+            parentPhone: null,
+            province: 'Bagmati',
+            district: 'Kathmandu',
+            municipality: 'Kathmandu Metropolitan City',
+            wardNumber: '04',
+            isTrialActive: false,
+            trialExpiresAt: null,
+          } as any;
+        } else {
+          studentProfile = { ...studentProfile, batch: defaultBatch };
+        }
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -422,7 +462,7 @@ export class UsersService {
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
       },
-      studentProfile: user.studentProfile,
+      studentProfile,
       metrics: {
         totalAttempts,
         bestPercentage,

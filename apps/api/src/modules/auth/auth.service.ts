@@ -386,6 +386,29 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    if (user.role?.code === 'STUDENT' || (user.role as any)?.name === 'Student') {
+      if (!user.studentProfile || !user.studentProfile.batch) {
+        const defaultBatch = await this.prisma.batch.findFirst({
+          where: {
+            status: RecordStatus.ACTIVE,
+            ...(user.instituteId ? { instituteId: user.instituteId } : {}),
+          },
+          orderBy: { sortOrder: 'asc' },
+        });
+        if (defaultBatch) {
+          if (!user.studentProfile) {
+            (user as any).studentProfile = {
+              rollNumber: user.identifier || 'STU-2026',
+              batchId: defaultBatch.id,
+              batch: defaultBatch,
+            };
+          } else {
+            (user.studentProfile as any).batch = defaultBatch;
+          }
+        }
+      }
+    }
+
     return user;
   }
 
