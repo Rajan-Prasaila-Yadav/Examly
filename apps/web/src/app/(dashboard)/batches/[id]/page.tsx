@@ -27,8 +27,15 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export default function BatchDetailPage() {
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const params = useParams();
   const router = useRouter();
   const batchId = params.id as string;
@@ -288,24 +295,26 @@ export default function BatchDetailPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsEditBatchModalOpen(true)}
-                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
-              >
-                <Edit2 className="w-3.5 h-3.5" /> Edit Batch
-              </button>
-              <button
-                onClick={() => {
-                  setEditingSubject(null);
-                  setSubjectName('');
-                  setIsSubjectModalOpen(true);
-                }}
-                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Add Subject
-              </button>
-            </div>
+            {!isStudent && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsEditBatchModalOpen(true)}
+                  className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit Batch
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingSubject(null);
+                    setSubjectName('');
+                    setIsSubjectModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Add Subject
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Quick Metrics Bar */}
@@ -335,33 +344,35 @@ export default function BatchDetailPage() {
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 p-1.5 bg-slate-200/70 rounded-2xl w-fit">
         {[
-          { key: 'subjects', label: 'Subjects & Lessons', icon: BookOpen, count: batch.subjects?.length || 0 },
-          { key: 'students', label: 'Enrolled Students', icon: Users, count: students.length },
-          { key: 'tests', label: 'Batch & Chapter Tests', icon: FileCheck2, count: batchTests.length },
-          { key: 'teachers', label: 'Assigned Teachers', icon: GraduationCap, count: teachers.length },
-          { key: 'settings', label: 'Batch Settings', icon: Settings },
-        ].map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                activeTab === t.key
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{t.label}</span>
-              {t.count !== undefined && (
-                <span className="px-1.5 py-0.2 bg-slate-100 text-[10px] rounded-full text-slate-600 font-mono">
-                  {t.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+          { key: 'subjects', label: 'Subjects & Lessons', icon: BookOpen, count: batch.subjects?.length || 0, show: true },
+          { key: 'students', label: 'Enrolled Students', icon: Users, count: students.length, show: !isStudent },
+          { key: 'tests', label: 'Batch & Chapter Tests', icon: FileCheck2, count: batchTests.length, show: true },
+          { key: 'teachers', label: 'Assigned Teachers', icon: GraduationCap, count: teachers.length, show: true },
+          { key: 'settings', label: 'Batch Settings', icon: Settings, show: !isStudent },
+        ]
+          .filter((t) => t.show)
+          .map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key as any)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeTab === t.key
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{t.label}</span>
+                {t.count !== undefined && (
+                  <span className="px-1.5 py-0.2 bg-slate-100 text-[10px] rounded-full text-slate-600 font-mono">
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
       </div>
 
       {/* Tab 1: Subjects & Lessons Grid */}
@@ -377,40 +388,42 @@ export default function BatchDetailPage() {
                   <h3 className="text-sm font-bold text-slate-900">{sub.name}</h3>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      setEditingSubject(sub);
-                      setSubjectName(sub.name);
-                      setIsSubjectModalOpen(true);
-                    }}
-                    className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
-                    title="Edit Subject"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
+                {!isStudent && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingSubject(sub);
+                        setSubjectName(sub.name);
+                        setIsSubjectModalOpen(true);
+                      }}
+                      className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
+                      title="Edit Subject"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
 
-                  <button
-                    onClick={() => setDeletingSubject(sub)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                    title="Delete Subject"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      onClick={() => setDeletingSubject(sub)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                      title="Delete Subject"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
 
-                  <button
-                    onClick={() => {
-                      setSelectedSubjectId(sub.id);
-                      setEditingLesson(null);
-                      setLessonName('');
-                      setLessonDescription('');
-                      setIsLessonModalOpen(true);
-                    }}
-                    className="ml-1 text-brand-600 hover:text-brand-700 text-xs font-semibold flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Lesson
-                  </button>
-                </div>
+                    <button
+                      onClick={() => {
+                        setSelectedSubjectId(sub.id);
+                        setEditingLesson(null);
+                        setLessonName('');
+                        setLessonDescription('');
+                        setIsLessonModalOpen(true);
+                      }}
+                      className="ml-1 text-brand-600 hover:text-brand-700 text-xs font-semibold flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Lesson
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Lessons List */}
@@ -435,27 +448,31 @@ export default function BatchDetailPage() {
                     </Link>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setSelectedSubjectId(sub.id);
-                          setEditingLesson(les);
-                          setLessonName(les.name);
-                          setLessonDescription(les.description || '');
-                          setIsLessonModalOpen(true);
-                        }}
-                        className="p-1 text-slate-400 hover:text-brand-600 rounded-md"
-                        title="Edit Lesson"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                      {!isStudent && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedSubjectId(sub.id);
+                              setEditingLesson(les);
+                              setLessonName(les.name);
+                              setLessonDescription(les.description || '');
+                              setIsLessonModalOpen(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-brand-600 rounded-md"
+                            title="Edit Lesson"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
 
-                      <button
-                        onClick={() => setDeletingLesson(les)}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
-                        title="Delete Lesson"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                          <button
+                            onClick={() => setDeletingLesson(les)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                            title="Delete Lesson"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
 
                       <Link href={`/lessons/${les.id}`}>
                         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 ml-1" />
@@ -555,12 +572,14 @@ export default function BatchDetailPage() {
               <h2 className="text-sm font-bold text-slate-900">Batch Live Exams & Chapter Tests ({batchTests.length})</h2>
               <p className="text-xs text-slate-500 mt-0.5">Examinations scheduled or active for students in this batch.</p>
             </div>
-            <Link
-              href={`/tests/create?batchId=${batchId}`}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" /> Create Batch Test
-            </Link>
+            {!isStudent && (
+              <Link
+                href={`/tests/create?batchId=${batchId}`}
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" /> Create Batch Test
+              </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

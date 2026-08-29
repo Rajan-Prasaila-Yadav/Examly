@@ -36,8 +36,15 @@ import {
   History,
 } from 'lucide-react';
 import katex from 'katex';
+import { useAuth } from '@/lib/auth-context';
 
 export default function TestDetailPage() {
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const params = useParams();
   const router = useRouter();
   const testId = params.id as string;
@@ -47,7 +54,9 @@ export default function TestDetailPage() {
   const [selectedStudentAttempts, setSelectedStudentAttempts] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [attempts, setAttempts] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'questions' | 'analytics' | 'leaderboard' | 'attempts' | 'settings'>('questions');
+  const [activeTab, setActiveTab] = useState<'questions' | 'analytics' | 'leaderboard' | 'attempts' | 'settings'>(
+    isStudent ? 'attempts' : 'questions',
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // Edit Test Modal
@@ -404,29 +413,33 @@ export default function TestDetailPage() {
 
             {/* Actions Bar */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleTogglePublish}
-                className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all ${
-                  test.isPublished
-                    ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
-                }`}
-              >
-                {test.isPublished ? 'Unpublish' : 'Publish Test Live'}
-              </button>
+              {!isStudent && (
+                <>
+                  <button
+                    onClick={handleTogglePublish}
+                    className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all ${
+                      test.isPublished
+                        ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
+                    }`}
+                  >
+                    {test.isPublished ? 'Unpublish' : 'Publish Test Live'}
+                  </button>
 
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
-              >
-                <Edit2 className="w-3.5 h-3.5" /> Edit
-              </button>
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                  </button>
+                </>
+              )}
 
               <Link
                 href={`/tests/${test.id}/runner`}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
+                className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
               >
-                <Play className="w-3.5 h-3.5 fill-white" /> Take Test (Student View)
+                <Play className="w-3.5 h-3.5 fill-white" /> Start / Retake Test
               </Link>
             </div>
           </div>
@@ -459,27 +472,29 @@ export default function TestDetailPage() {
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex gap-2">
           {[
-            { key: 'questions', label: `Questions (${allQuestions.length})`, icon: Layers },
-            { key: 'analytics', label: 'Analytics & Accuracy', icon: BarChart3 },
-            { key: 'attempts', label: `Attempts (${attempts?.totalAttempts ?? 0})`, icon: Clock },
-            { key: 'leaderboard', label: `Leaderboard (${leaderboard.length})`, icon: Award },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                  activeTab === tab.key
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+            { key: 'questions', label: `Questions (${allQuestions.length})`, icon: Layers, show: !isStudent },
+            { key: 'attempts', label: `My Attempts (${attempts?.totalAttempts ?? 0})`, icon: Clock, show: true },
+            { key: 'leaderboard', label: `Leaderboard (${leaderboard.length})`, icon: Award, show: true },
+            { key: 'analytics', label: 'Analytics & Accuracy', icon: BarChart3, show: !isStudent },
+          ]
+            .filter((t) => t.show)
+            .map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    activeTab === tab.key
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
         </div>
 
         {activeTab === 'questions' && (

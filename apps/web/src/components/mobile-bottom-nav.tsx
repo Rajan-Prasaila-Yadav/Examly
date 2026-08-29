@@ -33,14 +33,19 @@ export function MobileBottomNav() {
     { name: 'Community', href: '/community', icon: MessageSquare },
   ];
 
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const moreItems = [
-    { name: 'Students Roster', href: '/students', icon: Users, desc: 'Enrolled student directory' },
-    { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts' },
-    { name: 'Curriculum Tree', href: '/curriculum', icon: FolderTree, desc: 'Subjects, lessons & videos' },
-    { name: 'Test Builder', href: '/tests/builder', icon: Sparkles, desc: 'KaTeX Question Creator' },
-    { name: 'Roles & Permissions', href: '/settings/roles', icon: ShieldCheck, desc: 'RBAC Access Matrix' },
-    { name: 'Institute Settings', href: '/settings', icon: Settings, desc: 'Branding & preferences' },
-  ];
+    { name: 'Curriculum Tree', href: '/curriculum', icon: FolderTree, desc: 'Subjects, lessons & videos', show: true },
+    { name: 'Students Roster', href: '/students', icon: Users, desc: 'Enrolled student directory', show: !isStudent },
+    { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts', show: !isStudent },
+    { name: 'Test Builder', href: '/tests/builder', icon: Sparkles, desc: 'KaTeX Question Creator', show: !isStudent },
+    { name: 'Roles & Permissions', href: '/settings/roles', icon: ShieldCheck, desc: 'RBAC Access Matrix', show: !isStudent },
+    { name: 'Institute Settings', href: '/settings', icon: Settings, desc: 'Branding & preferences', show: !isStudent },
+  ].filter((item) => item.show);
 
   const roleDisplayName =
     typeof user?.role === 'object' && user?.role !== null

@@ -26,8 +26,15 @@ import {
   AlertTriangle,
   File,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LessonDetailPage() {
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const params = useParams();
   const router = useRouter();
   const lessonId = params.id as string;
@@ -251,43 +258,47 @@ export default function LessonDetailPage() {
               </div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{lesson.name}</h1>
-                <button
-                  onClick={() => setIsLessonEditOpen(true)}
-                  className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
-                  title="Edit Lesson"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                {!isStudent && (
+                  <button
+                    onClick={() => setIsLessonEditOpen(true)}
+                    className="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors"
+                    title="Edit Lesson"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
                 {lesson.description || 'Chapter learning materials, video lectures, and PDF downloads.'}
               </p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <button
-                onClick={() => {
-                  setEditingVideo(null);
-                  setVideoTitle('');
-                  setVideoUrl('');
-                  setIsVideoModalOpen(true);
-                }}
-                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-purple-600/20 flex items-center gap-2 transition-all"
-              >
-                <Video className="w-4 h-4" /> + Video Lecture
-              </button>
-              <button
-                onClick={() => {
-                  setEditingNote(null);
-                  setNoteTitle('');
-                  setNoteFileUrl('');
-                  setIsNoteModalOpen(true);
-                }}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
-              >
-                <FileText className="w-4 h-4" /> + PDF Note
-              </button>
-            </div>
+            {!isStudent && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => {
+                    setEditingVideo(null);
+                    setVideoTitle('');
+                    setVideoUrl('');
+                    setIsVideoModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-purple-600/20 flex items-center gap-2 transition-all"
+                >
+                  <Video className="w-4 h-4" /> + Video Lecture
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingNote(null);
+                    setNoteTitle('');
+                    setNoteFileUrl('');
+                    setIsNoteModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
+                >
+                  <FileText className="w-4 h-4" /> + PDF Note
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -377,30 +388,32 @@ export default function LessonDetailPage() {
                     Watch Lecture <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setEditingVideo(v);
-                        setVideoTitle(v.title);
-                        setVideoUrl(v.videoUrl);
-                        setDurationMinutes(Math.floor(v.durationSeconds / 60).toString());
-                        setIsFreePreview(v.isFreePreview);
-                        setIsVideoModalOpen(true);
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                      title="Edit Video"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                  {!isStudent && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingVideo(v);
+                          setVideoTitle(v.title);
+                          setVideoUrl(v.videoUrl);
+                          setDurationMinutes(Math.floor(v.durationSeconds / 60).toString());
+                          setIsFreePreview(v.isFreePreview);
+                          setIsVideoModalOpen(true);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                        title="Edit Video"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => setDeletingVideo(v)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Delete Video"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => setDeletingVideo(v)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete Video"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -410,7 +423,7 @@ export default function LessonDetailPage() {
             <div className="col-span-full bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
               <Video className="w-10 h-10 text-slate-400 mx-auto mb-2" />
               <h3 className="text-sm font-bold text-slate-800">No video lectures attached yet</h3>
-              <p className="text-xs text-slate-500 mt-1">Paste any YouTube URL or Cloudflare R2 MP4 video link.</p>
+              <p className="text-xs text-slate-500 mt-1">Video lectures will appear here once published by faculty.</p>
             </div>
           )}
         </div>
@@ -437,27 +450,29 @@ export default function LessonDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      setEditingNote(n);
-                      setNoteTitle(n.title);
-                      setNoteFileUrl(n.fileUrl);
-                      setIsNoteModalOpen(true);
-                    }}
-                    className="p-1 text-slate-400 hover:text-brand-600 rounded-md"
-                    title="Edit Note"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setDeletingNote(n)}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
-                    title="Delete Note"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {!isStudent && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingNote(n);
+                        setNoteTitle(n.title);
+                        setNoteFileUrl(n.fileUrl);
+                        setIsNoteModalOpen(true);
+                      }}
+                      className="p-1 text-slate-400 hover:text-brand-600 rounded-md"
+                      title="Edit Note"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeletingNote(n)}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                      title="Delete Note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -511,12 +526,14 @@ export default function LessonDetailPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => setIsResourceModalOpen(true)}
-              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Resource / Folder
-            </button>
+            {!isStudent && (
+              <button
+                onClick={() => setIsResourceModalOpen(true)}
+                className="px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Resource / Folder
+              </button>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -562,12 +579,14 @@ export default function LessonDetailPage() {
                         <Download className="w-3.5 h-3.5" /> Download
                       </a>
                     )}
-                    <button
-                      onClick={() => handleDeleteResource(resNode.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {!isStudent && (
+                      <button
+                        onClick={() => handleDeleteResource(resNode.id)}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -577,8 +596,8 @@ export default function LessonDetailPage() {
             ).length === 0 && (
               <div className="py-8 text-center text-xs text-slate-400">
                 {currentFolderId
-                  ? 'This folder is empty. Click "+ Add Resource / Folder" to add items here.'
-                  : 'No folders or resources added yet. Click "+ Add Resource / Folder".'}
+                  ? 'This folder is empty.'
+                  : 'No folders or resources added yet.'}
               </div>
             )}
           </div>
@@ -593,12 +612,14 @@ export default function LessonDetailPage() {
               <h2 className="text-sm font-bold text-slate-900">Chapter Quizzes & Concept Tests ({lesson.tests?.length || 0})</h2>
               <p className="text-xs text-slate-500 mt-0.5">Quick tests and past-year drills attached to this chapter.</p>
             </div>
-            <Link
-              href={`/tests/create?lessonId=${lessonId}`}
-              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" /> Create Chapter Test
-            </Link>
+            {!isStudent && (
+              <Link
+                href={`/tests/create?lessonId=${lessonId}`}
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" /> Create Chapter Test
+              </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

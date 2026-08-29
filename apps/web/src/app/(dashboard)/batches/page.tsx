@@ -21,8 +21,15 @@ import {
   ChevronRight,
   AlertTriangle,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export default function BatchesPage() {
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const [batches, setBatches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -131,18 +138,24 @@ export default function BatchesPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Batches & Academic Classes</h1>
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            {isStudent ? 'My Enrolled Batches' : 'Batches & Academic Classes'}
+          </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Full CRUD: Create, Edit details, Hide/Unhide, Manage Curriculum, and Enroll students.
+            {isStudent
+              ? 'Browse your assigned classes, subjects, notes, and examinations.'
+              : 'Full CRUD: Create, Edit details, Hide/Unhide, Manage Curriculum, and Enroll students.'}
           </p>
         </div>
 
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Create New Batch
-        </button>
+        {!isStudent && (
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" /> Create New Batch
+          </button>
+        )}
       </div>
 
       {/* Batch Cards Grid */}
@@ -171,30 +184,34 @@ export default function BatchesPage() {
                     </span>
                   )}
 
-                  {/* Edit & Delete Quick Actions */}
-                  <button
-                    onClick={() => handleOpenEdit(b)}
-                    className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
-                    title="Edit Batch"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Edit & Delete Quick Actions (Admins & Faculty only) */}
+                  {!isStudent && (
+                    <>
+                      <button
+                        onClick={() => handleOpenEdit(b)}
+                        className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
+                        title="Edit Batch"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
 
-                  <button
-                    onClick={() => handleToggleHide(b)}
-                    className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                    title={b.status === 'HIDDEN' ? 'Unhide Batch' : 'Hide Batch'}
-                  >
-                    {b.status === 'HIDDEN' ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                  </button>
+                      <button
+                        onClick={() => handleToggleHide(b)}
+                        className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                        title={b.status === 'HIDDEN' ? 'Unhide Batch' : 'Hide Batch'}
+                      >
+                        {b.status === 'HIDDEN' ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      </button>
 
-                  <button
-                    onClick={() => setDeletingBatch(b)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                    title="Delete Batch"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                      <button
+                        onClick={() => setDeletingBatch(b)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                        title="Delete Batch"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

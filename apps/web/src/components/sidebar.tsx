@@ -33,16 +33,21 @@ export function Sidebar() {
 
   const sidebarRef = useRef<HTMLDivElement>(null);
 
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const navigation = [
-    { name: 'Overview', href: '/', icon: LayoutDashboard, desc: 'Dashboard & live stats' },
-    { name: 'Batches & Classes', href: '/batches', icon: GraduationCap, desc: 'Academic batches & groups' },
-    { name: 'Curriculum & Content', href: '/curriculum', icon: FolderTree, desc: '4-tier academic tree' },
-    { name: 'Test Builder', href: '/tests/builder', icon: FileCheck2, highlight: true, desc: 'Split-pane KaTeX question creator' },
-    { name: 'Students', href: '/students', icon: Users, desc: 'Enrolled student roster' },
-    { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts' },
-    { name: 'Community Wall', href: '/community', icon: MessageSquare, desc: 'Announcements & batch polls' },
-    { name: 'Role & Permissions', href: '/settings/roles', icon: ShieldCheck, desc: 'Dynamic RBAC matrix' },
-  ];
+    { name: 'Overview', href: '/', icon: LayoutDashboard, desc: 'Dashboard & live stats', show: true },
+    { name: isStudent ? 'My Batches' : 'Batches & Classes', href: '/batches', icon: GraduationCap, desc: 'Academic batches & groups', show: true },
+    { name: 'Curriculum & Content', href: '/curriculum', icon: FolderTree, desc: '4-tier academic tree', show: true },
+    { name: isStudent ? 'My Mock Tests' : 'Test Suite & Builder', href: isStudent ? '/tests' : '/tests/builder', icon: FileCheck2, highlight: !isStudent, desc: isStudent ? 'Take & review tests' : 'Split-pane KaTeX question creator', show: true },
+    { name: 'Students', href: '/students', icon: Users, desc: 'Enrolled student roster', show: !isStudent },
+    { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts', show: !isStudent },
+    { name: 'Community Wall', href: '/community', icon: MessageSquare, desc: 'Announcements & batch polls', show: true },
+    { name: 'Role & Permissions', href: '/settings/roles', icon: ShieldCheck, desc: 'Dynamic RBAC matrix', show: !isStudent },
+  ].filter((item) => item.show);
 
   // Dragging logic to resize sidebar
   const handleMouseDown = (e: React.MouseEvent) => {
