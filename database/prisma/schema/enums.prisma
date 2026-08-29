@@ -1,0 +1,70 @@
+// database/prisma/schema/enums.prisma
+// Global System Enums for Examly Platform
+
+enum RecordStatus {
+  ACTIVE
+  HIDDEN
+  BLOCKED
+  LOCKED
+  DELETED
+}
+
+enum RoleType {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum PermissionScope {
+  INSTITUTE
+  ASSIGNED_ONLY
+}
+
+enum TestType {
+  BATCH_LEVEL
+  SUBJECT_LEVEL
+  LESSON_LEVEL
+}
+
+enum QuestionType {
+  SINGLE_CORRECT
+  MULTIPLE_CORRECT
+  NUMERICAL
+  FILL_BLANK
+  ASSERTION_REASON
+  MATRIX_MATCH
+  TRUE_FALSE
+  DESCRIPTIVE
+}
+
+enum ResultPublishMode {
+  IMMEDIATE
+  AFTER_TEST_END
+  MANUAL_BY_ADMIN
+  SCHEDULED
+}
+
+enum VideoProvider {
+  YOUTUBE
+  DIRECT_MP4
+  CLOUDFLARE_STREAM
+  MUX
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  HELPFUL
+  BRAVO
+  CELEBRATE
+}
+
+enum NotificationType {
+  TEST_PUBLISHED
+  TEST_RESULT_READY
+  NEW_VIDEO_UPLOADED
+  ACCOUNT_BLOCKED
+  COMMUNITY_ANNOUNCEMENT
+  SYSTEM_ALERT
+}

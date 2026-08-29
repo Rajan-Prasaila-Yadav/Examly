@@ -1,0 +1,156 @@
+// database/prisma/schema/identity.prisma
+// Identity, Multi-Tenancy, 4-Role RBAC & Authentication Models
+
+model Institute {
+  id              String          @id @default(cuid())
+  name            String          // e.g., "Apex Medical Academy"
+  slug            String          @unique // e.g., "apex-medical"
+  logoUrl         String?
+  customDomain    String?         @unique
+  contactEmail    String?
+  contactPhone    String?
+  subscriptionTier String         @default("STARTER") // STARTER, PRO, ENTERPRISE
+  maxStudents     Int             @default(500)
+  status          RecordStatus    @default(ACTIVE)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  users           User[]
+  roles           Role[]
+  batches         Batch[]
+  tests           Test[]
+  posts           CommunityPost[]
+  settings        InstituteSetting?
+}
+
+model InstituteSetting {
+  id                    String      @id @default(cuid())
+  instituteId           String      @unique
+  allowSingleDeviceOnly Boolean     @default(true)
+  dailyMessageLimit     Int         @default(20)
+  dailyImageLimit       Int         @default(20)
+  dailyPdfLimit         Int         @default(20)
+  maxFileSizeMb         Int         @default(15)
+  defaultTestPassPercent Float      @default(40.0)
+  antiCheatDefaultLevel Int         @default(3) // 3 strikes
+
+  institute             Institute   @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id              String          @id @default(cuid())
+  instituteId     String?
+  roleId          String
+  email           String?         @unique
+  phone           String?         @unique
+  identifier      String          @unique // Roll Number, Admin ID, or Teacher ID
+  fullName        String
+  passwordHash    String?         // Nullable for OAuth-only users
+  googleId        String?         @unique
+  avatarUrl       String?
+  status          RecordStatus    @default(ACTIVE)
+  lastLoginAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+
+  institute       Institute?      @relation(fields: [instituteId], references: [id])
+  role            Role            @relation(fields: [roleId], references: [id])
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  permissionGrants PermissionGrant[]
+  testAttempts    TestAttempt[]
+  sessions        UserSession[]
+  sentMessages    ChatMessage[]   @relation("SentMessages")
+  receivedMessages ChatMessage[]  @relation("ReceivedMessages")
+  posts           CommunityPost[]
+  comments        PostComment[]
+  reactions       PostReaction[]
+  auditLogs       AuditLog[]
+
+  @@index([instituteId, status])
+  @@index([identifier])
+}
+
+model Role {
+  id              String          @id @default(cuid())
+  instituteId     String?
+  name            String
+  code            RoleType
+  description     String?
+  isSystem        Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+
+  institute       Institute?      @relation(fields: [instituteId], references: [id])
+  permissions     RolePermission[]
+  users           User[]
+
+  @@unique([instituteId, code])
+}
+
+model RolePermission {
+  id              String          @id @default(cuid())
+  roleId          String
+  resource        String          // 'batches', 'subjects', 'lessons', 'tests', 'students', 'videos'
+  action          String          // 'create', 'read', 'update', 'delete', 'publish'
+  scope           PermissionScope @default(INSTITUTE)
+
+  role            Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource, action])
+}
+
+model PermissionGrant {
+  id              String          @id @default(cuid())
+  userId          String
+  resource        String
+  action          String
+  isAllowed       Boolean         @default(true) // Explicit ALLOW or DENY override
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, action])
+}
+
+model StudentProfile {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  rollNumber      String
+  batchId         String?
+  parentPhone     String?
+  province        String?
+  district        String?
+  municipality    String?
+  wardNumber      String?
+  isTrialActive   Boolean         @default(false)
+  trialExpiresAt  DateTime?
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch           Batch?          @relation(fields: [batchId], references: [id])
+}
+
+model TeacherProfile {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  facultyCode     String
+  designation     String          // e.g. "Senior Physics Faculty"
+  specialization  String[]
+  assignedBatchIds String[]
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSession {
+  id              String          @id @default(cuid())
+  userId          String
+  refreshTokenHash String
+  deviceInfo      String?         // Device model, OS, browser
+  ipAddress       String?
+  isActive        Boolean         @default(true)
+  expiresAt       DateTime
+  createdAt       DateTime        @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}

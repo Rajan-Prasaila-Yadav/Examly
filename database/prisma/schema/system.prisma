@@ -1,0 +1,32 @@
+// database/prisma/schema/system.prisma
+// System Notifications, Audit Logs & Platform Telemetry
+
+model Notification {
+  id              String            @id @default(cuid())
+  userId          String
+  title           String
+  body            String
+  type            NotificationType  @default(SYSTEM_ALERT)
+  deepLink        String?           // e.g. "/tests/mock-04" or "/videos/kinematics"
+  isRead          Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+model AuditLog {
+  id              String            @id @default(cuid())
+  userId          String?
+  instituteId     String?
+  action          String            // e.g., 'BATCH_CREATED', 'STUDENT_BLOCKED', 'TEST_PUBLISHED'
+  resourceType    String            // 'Batch', 'Test', 'User'
+  resourceId      String?
+  detailsJson     String?           // Metadata & previous values
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime          @default(now())
+
+  user            User?             @relation(fields: [userId], references: [id])
+
+  @@index([instituteId, action, createdAt])
+}

@@ -1,0 +1,22 @@
+{
+  "name": "examly-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Examly Multi-Tenant Learning & Examination Platform Monorepo",
+  "workspaces": [
+    "apps/*",
+    "database"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@examly/api",
+    "dev:web": "npm run dev --workspace=@examly/web",
+    "build:api": "npm run build --workspace=@examly/api",
+    "build:web": "npm run build --workspace=@examly/web",
+    "build": "npm run build --workspaces --if-present",
+    "db:push": "npm run db:push --workspace=@examly/database",
+    "db:migrate": "npm run db:migrate --workspace=@examly/database",
+    "db:generate": "npm run db:generate --workspace=@examly/database",
+    "db:seed": "npm run db:seed --workspace=@examly/database",
+    "db:studio": "npm run db:studio --workspace=@examly/database"
+  }
+}

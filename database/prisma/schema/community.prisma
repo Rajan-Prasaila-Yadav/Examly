@@ -1,0 +1,110 @@
+// database/prisma/schema/community.prisma
+// In-App Community Announcements, Batch Polls & 1-on-1 Doubt Messaging
+
+model CommunityPost {
+  id              String            @id @default(cuid())
+  instituteId     String
+  batchId         String?           // Nullable = All Students; Set = Specific Batch
+  authorId        String
+  title           String
+  contentHtml     String            // Rich text HTML + KaTeX
+  imageUrls       String[]          // Multi-image gallery
+  pdfAttachmentUrl String?
+  isPinned        Boolean           @default(false)
+  allowComments   Boolean           @default(true)
+  scheduledFor    DateTime?
+  publishedAt     DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+
+  institute       Institute         @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch           Batch?            @relation(fields: [batchId], references: [id])
+  author          User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  poll            BatchPoll?
+  comments        PostComment[]
+  reactions       PostReaction[]
+
+  @@index([instituteId, batchId, publishedAt])
+}
+
+model BatchPoll {
+  id              String            @id @default(cuid())
+  postId          String            @unique
+  question        String
+  isMultiChoice   Boolean           @default(false)
+  expiresAt       DateTime?
+  createdAt       DateTime          @default(now())
+
+  post            CommunityPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options         PollOption[]
+  votes           PollVote[]
+}
+
+model PollOption {
+  id              String            @id @default(cuid())
+  pollId          String
+  optionText      String
+  sortOrder       Int               @default(0)
+
+  poll            BatchPoll         @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes           PollVote[]
+}
+
+model PollVote {
+  id              String            @id @default(cuid())
+  pollId          String
+  optionId        String
+  userId          String
+  votedAt         DateTime          @default(now())
+
+  poll            BatchPoll         @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option          PollOption        @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId, optionId])
+}
+
+model PostReaction {
+  id              String            @id @default(cuid())
+  postId          String
+  userId          String
+  reactionType    ReactionType      @default(LIKE)
+  createdAt       DateTime          @default(now())
+
+  post            CommunityPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId]) // 1 reaction per user
+}
+
+model PostComment {
+  id              String            @id @default(cuid())
+  postId          String
+  userId          String
+  parentId        String?           // Threaded replies
+  content         String
+  isPinned        Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+
+  post            CommunityPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent          PostComment?      @relation("ThreadedComment", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         PostComment[]     @relation("ThreadedComment")
+
+  @@index([postId, parentId])
+}
+
+model ChatMessage {
+  id              String            @id @default(cuid())
+  senderId        String
+  receiverId      String
+  content         String?
+  imageUrl        String?
+  pdfUrl          String?
+  pdfAnnotationsJson String?        // Serialized highlights, sketches, and notes
+  isRead          Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+
+  sender          User              @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver        User              @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+}
