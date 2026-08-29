@@ -43,9 +43,30 @@ async function createNestServer(expressInstance: Express) {
 }
 
 export default async function handler(req: any, res: any) {
+  // 1. Immediate HTTP 200 OK Preflight response for CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', req.headers?.origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    return res.end();
+  }
+
+  // 2. Ensure req.url matches NestJS global prefix (/api/v1)
+  if (req.url && !req.url.startsWith('/api/v1')) {
+    req.url = '/api/v1' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+
+  // 3. Lazy initialize NestJS Express instance
   if (!isInitialized) {
     await createNestServer(server);
     isInitialized = true;
   }
+
   server(req, res);
 }
