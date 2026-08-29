@@ -63,7 +63,16 @@ export default function LiveTestRunnerPage() {
   };
 
   // Phase: 'RULES' -> 'RUNNING' -> 'RESULT' | 'REVIEW' | 'ANSWER_KEY'
-  const [phase, setPhase] = useState<'RULES' | 'RUNNING' | 'RESULT' | 'REVIEW' | 'ANSWER_KEY'>('RULES');
+  const [phase, setPhase] = useState<'RULES' | 'RUNNING' | 'RESULT' | 'REVIEW' | 'ANSWER_KEY'>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const v = urlParams.get('view');
+      if (v === 'REVIEW') return 'REVIEW';
+      if (v === 'ANSWER_KEY') return 'ANSWER_KEY';
+      if (v === 'RESULT') return 'RESULT';
+    }
+    return 'RULES';
+  });
   const [hasAgreedRules, setHasAgreedRules] = useState(false);
 
   // Test & Attempt State
@@ -103,6 +112,13 @@ export default function LiveTestRunnerPage() {
     (testPayload?.sections || []).flatMap((sec: any) =>
       (sec.questions || []).map((q: any) => ({ ...q, sectionName: sec.name })),
     );
+
+  // Keep phase in sync with view query parameter changes
+  useEffect(() => {
+    if (viewParam === 'REVIEW') setPhase('REVIEW');
+    else if (viewParam === 'ANSWER_KEY') setPhase('ANSWER_KEY');
+    else if (viewParam === 'RESULT') setPhase('RESULT');
+  }, [viewParam]);
 
   // Load Test metadata & past evaluation (if student previously submitted)
   useEffect(() => {
@@ -147,6 +163,11 @@ export default function LiveTestRunnerPage() {
           setPhase('REVIEW');
         } else if (viewParam === 'ANSWER_KEY') {
           setPhase('ANSWER_KEY');
+        } else if (viewParam === 'RESULT') {
+          setPhase('RESULT');
+        } else if (keyRes?.data?.result && phase === 'RULES') {
+          // If no query parameter given but user has already submitted, show results
+          setPhase('RESULT');
         }
       } catch (e) {
         console.error(e);

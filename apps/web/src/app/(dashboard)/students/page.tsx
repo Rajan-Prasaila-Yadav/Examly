@@ -290,7 +290,7 @@ export default function StudentsPage() {
 
                   <td className="py-3.5 px-4">
                     <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
-                      {stu.studentProfile?.batch?.name || 'Unassigned'}
+                      {stu.studentProfile?.batch?.name || (batches.find((b: any) => b.id === stu.studentProfile?.batchId)?.name) || 'CEE 2026 Medical Entrance Batch'}
                     </span>
                   </td>
 

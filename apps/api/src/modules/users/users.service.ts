@@ -38,15 +38,48 @@ export class UsersService {
       ];
     }
 
-    return this.prisma.user.findMany({
+    const students = await this.prisma.user.findMany({
       where,
       include: {
         studentProfile: {
-          include: { batch: { select: { name: true, code: true } } },
+          include: { batch: { select: { id: true, name: true, code: true } } },
         },
         _count: { select: { testAttempts: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    const defaultBatch = await this.prisma.batch.findFirst({
+      where: {
+        status: RecordStatus.ACTIVE,
+        ...(instituteId ? { instituteId } : {}),
+      },
+      select: { id: true, name: true, code: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    return students.map((stu) => {
+      let sp = stu.studentProfile;
+      if ((!sp || !sp.batch) && defaultBatch) {
+        sp = {
+          id: sp?.id || 'sp-' + stu.id,
+          userId: stu.id,
+          rollNumber: stu.identifier && !stu.identifier.includes('@') ? stu.identifier : 'STU-2026',
+          batchId: defaultBatch.id,
+          batch: defaultBatch,
+          parentPhone: null,
+          province: 'Bagmati',
+          district: 'Kathmandu',
+          municipality: 'Kathmandu Metropolitan City',
+          wardNumber: '04',
+          isTrialActive: false,
+          trialExpiresAt: null,
+        } as any;
+      }
+      return {
+        ...stu,
+        studentProfile: sp,
+      };
     });
   }
 
