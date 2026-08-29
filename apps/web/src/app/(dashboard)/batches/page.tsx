@@ -20,6 +20,8 @@ import {
   Search,
   ChevronRight,
   AlertTriangle,
+  FileCheck2,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -226,16 +228,37 @@ export default function BatchesPage() {
               </p>
 
               {/* Meta Stats */}
-              <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600">
-                <div className="flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-brand-500" />
-                  <span>{b.subjects?.length || 0} Subjects</span>
+              {isStudent ? (
+                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-brand-500" />
+                    <span>{b.subjects?.length || b._count?.subjects || 0} Subjects</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{(b._count?.tests || 0) + (b.subjects?.reduce((acc: number, s: any) => acc + (s._count?.tests || 0), 0) || 0)} Mock Tests</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-purple-500" />
+                    <span>{b.subjects?.reduce((acc: number, s: any) => acc + (s._count?.lessons || 0), 0) || 0} Lessons</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{b._count?.notes || b.subjects?.length || 0} Notes & PDFs</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-accent-indigo" />
-                  <span>{b._count?.students || 0} Students</span>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-brand-500" />
+                    <span>{b.subjects?.length || 0} Subjects</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-accent-indigo" />
+                    <span>{b._count?.students || 0} Students</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -250,7 +273,7 @@ export default function BatchesPage() {
                 href={`/batches/${b.id}`}
                 className="px-3.5 py-1.5 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 text-xs font-semibold rounded-xl transition-all"
               >
-                Manage Class →
+                {isStudent ? 'View Curriculum →' : 'Manage Class →'}
               </Link>
             </div>
           </div>

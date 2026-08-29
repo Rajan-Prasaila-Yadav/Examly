@@ -384,10 +384,10 @@ export default function TestDetailPage() {
       {/* Header Bar */}
       <div>
         <Link
-          href="/tests/builder"
+          href={isStudent ? '/tests' : '/tests/builder'}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-3"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Test Suite
+          <ArrowLeft className="w-3.5 h-3.5" /> {isStudent ? 'Back to My Mock Tests' : 'Back to Test Suite'}
         </Link>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-4">
@@ -413,7 +413,7 @@ export default function TestDetailPage() {
 
             {/* Actions Bar */}
             <div className="flex flex-wrap items-center gap-2">
-              {!isStudent && (
+              {!isStudent ? (
                 <>
                   <button
                     onClick={handleTogglePublish}
@@ -433,13 +433,28 @@ export default function TestDetailPage() {
                     <Edit2 className="w-3.5 h-3.5" /> Edit
                   </button>
                 </>
+              ) : (
+                <>
+                  <Link
+                    href={`/tests/${test.id}/runner?view=REVIEW`}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-brand-600" /> Review Solutions
+                  </Link>
+                  <Link
+                    href={`/tests/${test.id}/runner?view=ANSWER_KEY`}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key
+                  </Link>
+                </>
               )}
 
               <Link
                 href={`/tests/${test.id}/runner`}
                 className="px-5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
               >
-                <Play className="w-3.5 h-3.5 fill-white" /> Start / Retake Test
+                <Play className="w-3.5 h-3.5 fill-white" /> {isStudent ? 'Start / Retake Test' : 'Preview Test Mode'}
               </Link>
             </div>
           </div>

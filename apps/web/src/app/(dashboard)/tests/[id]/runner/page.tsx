@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import {
@@ -42,6 +42,8 @@ export default function LiveTestRunnerPage() {
 
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get('view'); // 'REVIEW' | 'ANSWER_KEY' | 'RESULT'
   const testId = params.id as string;
 
   const downloadFile = async (path: string, filename: string) => {
@@ -67,6 +69,7 @@ export default function LiveTestRunnerPage() {
   // Test & Attempt State
   const [test, setTest] = useState<any>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [pastAttempt, setPastAttempt] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -101,22 +104,41 @@ export default function LiveTestRunnerPage() {
       (sec.questions || []).map((q: any) => ({ ...q, sectionName: sec.name })),
     );
 
-  // Load Test metadata (rules screen). Live paper comes from POST /start so keys stay hidden.
+  // Load Test metadata & past evaluation (if student previously submitted)
   useEffect(() => {
-    const fetchTest = async () => {
+    const fetchTestAndEvaluation = async () => {
       try {
-        const res = await api.get(`/tests/${testId}`);
-        setTest(res.data);
-        setQuestions(flattenQuestions(res.data));
+        const [testRes, keyRes] = await Promise.all([
+          api.get(`/tests/${testId}`),
+          api.get(`/tests/${testId}/answer-key`).catch(() => null),
+        ]);
+        setTest(testRes.data);
+        const baseQuestions = flattenQuestions(testRes.data);
+        setQuestions(baseQuestions);
+
+        if (keyRes?.data?.answerKey) {
+          setAnswerKeyData(keyRes.data.answerKey);
+        }
+        if (keyRes?.data?.result) {
+          setPastAttempt(keyRes.data.result);
+          setSubmitResult(keyRes.data.result);
+        }
+
+        // Direct view requested via URL (e.g. ?view=REVIEW or ?view=ANSWER_KEY)
+        if (viewParam === 'REVIEW') {
+          setPhase('REVIEW');
+        } else if (viewParam === 'ANSWER_KEY') {
+          setPhase('ANSWER_KEY');
+        }
       } catch (e) {
         console.error(e);
       }
     };
 
     if (testId) {
-      fetchTest();
+      fetchTestAndEvaluation();
     }
-  }, [testId]);
+  }, [testId, viewParam]);
 
   // Anti-Cheat & Screen Protection (doc 9.5 & doc 22.2)
   useEffect(() => {
@@ -371,12 +393,12 @@ export default function LiveTestRunnerPage() {
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RULES') {
     return (
-      <div className="max-w-2xl mx-auto py-6 space-y-6">
+      <div className="max-w-2xl mx-auto py-6 px-3 sm:px-6 space-y-6">
         <Link
-          href="/tests/builder"
+          href={isStudent ? '/tests' : '/tests/builder'}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Test Suite
+          <ArrowLeft className="w-3.5 h-3.5" /> {isStudent ? 'Back to My Mock Tests' : 'Back to Test Suite'}
         </Link>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6 text-center">
@@ -390,6 +412,37 @@ export default function LiveTestRunnerPage() {
               Please read all rules, anti-cheat policies, and scoring instructions carefully before starting.
             </p>
           </div>
+
+          {/* Previous Attempt Review Banner */}
+          {pastAttempt && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-brand-500/10 to-purple-500/10 border border-emerald-300 text-left space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Completed Attempt Available
+                </span>
+                <span className="text-xs font-bold font-mono text-emerald-700">
+                  Last Score: {pastAttempt.totalScore ?? 0} / {test?.totalMarks || 200} ({pastAttempt.percentage ?? 0}%)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600">
+                You can review your verified answers, step solutions, and calculation tables anytime!
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  onClick={() => setPhase('REVIEW')}
+                  className="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Review Answers & Step Solutions
+                </button>
+                <button
+                  onClick={() => setPhase('ANSWER_KEY')}
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200 shadow-sm flex items-center gap-1.5 transition-all"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> View Answer Key Table
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Key Metrics Chips (SCR-STU-10) */}
           <div className="grid grid-cols-4 gap-2 text-center text-xs">

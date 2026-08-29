@@ -63,7 +63,7 @@ export default function StudentDetailPage() {
     failedCount: 0,
     passRate: 0,
   };
-  const attempts = data360?.attempts || [];
+  const attempts = data360?.recentAttempts || data360?.attempts || [];
 
   if (!user) {
     return (
@@ -204,49 +204,59 @@ export default function StudentDetailPage() {
                 <th className="pb-3 text-center">Percentage</th>
                 <th className="pb-3 text-center">Status</th>
                 <th className="pb-3 text-right">Submitted Date</th>
+                <th className="pb-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {attempts.map((att: any) => (
-                <tr key={att.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">
-                    <Link href={`/tests/${att.test?.id}`} className="hover:text-brand-600">
-                      {att.test?.title || 'Examination Test'}
-                    </Link>
-                    <span className="block text-[10px] font-normal text-slate-400">
-                      {att.test?.durationMinutes}m • Total: {att.test?.totalMarks} Marks
-                    </span>
-                  </td>
-                  <td className="py-3.5 text-center font-mono font-bold text-brand-700">
-                    {att.score} / {att.totalMarks}
-                  </td>
-                  <td className="py-3.5 text-center">
-                    <span className={`font-bold font-mono ${
-                      (att.percentage || 0) >= 50 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}>
-                      {Math.round(att.percentage || 0)}%
-                    </span>
-                  </td>
-                  <td className="py-3.5 text-center">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      att.status === 'PASSED'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : att.status === 'FAILED'
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {att.status || 'EVALUATED'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 text-right text-slate-400 font-mono text-[11px]">
-                    {att.submittedAt ? new Date(att.submittedAt).toLocaleDateString() : '-'}
-                  </td>
-                </tr>
-              ))}
+              {attempts.map((att: any) => {
+                const targetTestId = att.testId || att.test?.id;
+                return (
+                  <tr key={att.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3.5 font-bold text-slate-900">
+                      <Link href={`/tests/${targetTestId}`} className="hover:text-brand-600">
+                        {att.testTitle || att.test?.title || 'Examination Test'}
+                      </Link>
+                      <span className="block text-[10px] font-normal text-slate-400">
+                        Attempt #{att.attemptNumber || 1} • Total: {att.totalMarks || att.test?.totalMarks || 200} Marks
+                      </span>
+                    </td>
+                    <td className="py-3.5 text-center font-mono font-bold text-brand-700">
+                      {att.score} / {att.totalMarks || att.test?.totalMarks || 200}
+                    </td>
+                    <td className="py-3.5 text-center">
+                      <span className={`font-bold font-mono ${
+                        (att.percentage || 0) >= 50 ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {Math.round(att.percentage || 0)}%
+                      </span>
+                    </td>
+                    <td className="py-3.5 text-center">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        att.isPassed || att.status === 'PASSED'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {att.isPassed || att.status === 'PASSED' ? '✔ PASSED' : '✖ FAILED'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 text-right text-slate-400 font-mono text-[11px]">
+                      {att.submittedAt ? new Date(att.submittedAt).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="py-3.5 text-right">
+                      <Link
+                        href={`/tests/${targetTestId}/runner?view=REVIEW`}
+                        className="px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold text-[11px] border border-brand-200 inline-flex items-center gap-1 transition-colors"
+                      >
+                        Review Solutions
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {attempts.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
                     No mock tests taken by this student yet.
                   </td>
                 </tr>
