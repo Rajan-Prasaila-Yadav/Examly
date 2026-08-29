@@ -30,9 +30,12 @@ export class UsersController {
 
   @Get('students/:id/360')
   @ApiOperation({ summary: 'Get 360-degree student profile analytics' })
-  @RequirePermission('students', 'read')
-  async getStudent360(@Param('id') id: string) {
-    return this.usersService.getStudent360(id);
+  async getStudent360(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+  ) {
+    const targetId = !id || id === 'me' || id === 'undefined' ? user.userId : id;
+    return this.usersService.getStudent360(targetId);
   }
 
   @Get('teachers')

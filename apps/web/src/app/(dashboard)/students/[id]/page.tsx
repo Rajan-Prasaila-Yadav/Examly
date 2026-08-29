@@ -22,17 +22,50 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { useAuth } from '@/lib/auth-context';
+
 export default function StudentDetailPage() {
   const params = useParams();
-  const studentId = params.id as string;
+  const { user: authUser } = useAuth();
+  const rawId = params.id as string;
+  const isStudent =
+    authUser?.role === 'STUDENT' ||
+    authUser?.role === 'Student' ||
+    (typeof authUser?.role === 'object' && ((authUser.role as any)?.name === 'STUDENT' || (authUser.role as any)?.code === 'STUDENT'));
+
+  const studentId = (!rawId || rawId === 'me' || rawId === 'undefined') ? authUser?.id : rawId;
 
   const [data360, setData360] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchStudent360 = async () => {
     try {
-      const res = await api.get(`/users/students/${studentId}/360`);
-      setData360(res.data);
+      const targetId = studentId || authUser?.id || 'me';
+      const res = await api.get(`/users/students/${targetId}/360`).catch(async () => {
+        // Fallback: fetch current logged in profile
+        const meRes = await api.get('/auth/me');
+        if (meRes.data) {
+          return {
+            data: {
+              user: meRes.data,
+              studentProfile: meRes.data.studentProfile,
+              metrics: {
+                totalAttempts: meRes.data.testAttempts?.length || 0,
+                bestPercentage: 0,
+                avgPercentage: 0,
+                passedCount: 0,
+                failedCount: 0,
+                passRate: 0,
+              },
+              recentAttempts: meRes.data.testAttempts || [],
+            },
+          };
+        }
+        return null;
+      });
+      if (res?.data) {
+        setData360(res.data);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -41,10 +74,12 @@ export default function StudentDetailPage() {
   };
 
   useEffect(() => {
-    if (studentId) {
+    if (studentId || authUser?.id) {
       fetchStudent360();
+    } else if (!authUser && !studentId) {
+      setIsLoading(false);
     }
-  }, [studentId]);
+  }, [studentId, authUser?.id]);
 
   if (isLoading) {
     return (
@@ -54,7 +89,7 @@ export default function StudentDetailPage() {
     );
   }
 
-  const user = data360?.user;
+  const user = data360?.user || authUser;
   const metrics = data360?.metrics || {
     totalAttempts: 0,
     bestPercentage: 0,
@@ -69,8 +104,8 @@ export default function StudentDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-sm text-slate-500">Student not found.</p>
-        <Link href="/students" className="text-brand-600 text-xs font-semibold mt-2 inline-block">
-          ← Back to Students Roster
+        <Link href={isStudent ? '/' : '/students'} className="text-brand-600 text-xs font-semibold mt-2 inline-block">
+          ← {isStudent ? 'Back to Dashboard' : 'Back to Students Roster'}
         </Link>
       </div>
     );
@@ -81,10 +116,10 @@ export default function StudentDetailPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <Link
-        href="/students"
+        href={isStudent ? '/' : '/students'}
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Students Roster
+        <ArrowLeft className="w-3.5 h-3.5" /> {isStudent ? 'Back to Learning Dashboard' : 'Back to Students Roster'}
       </Link>
 
       {/* Profile Card */}

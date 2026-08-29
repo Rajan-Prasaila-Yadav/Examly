@@ -357,9 +357,16 @@ export class UsersService {
   // 360° Profile Analytics
   // ──────────────────────────────────────────────
 
-  async getStudent360(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async getStudent360(userIdOrProfileId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: userIdOrProfileId },
+          { studentProfile: { id: userIdOrProfileId } },
+          { identifier: userIdOrProfileId },
+          { email: userIdOrProfileId },
+        ],
+      },
       include: {
         role: true,
         studentProfile: {
@@ -377,9 +384,8 @@ export class UsersService {
           },
         },
         testAttempts: {
-          where: { submittedAt: { not: null } },
           include: {
-            test: { select: { id: true, title: true, totalMarks: true, passMarks: true } },
+            test: { select: { id: true, title: true, totalMarks: true, passMarks: true, durationMinutes: true } },
             result: true,
           },
           orderBy: { submittedAt: 'desc' },
@@ -391,17 +397,17 @@ export class UsersService {
       throw new NotFoundException('Student user not found');
     }
 
-    const attempts = user.testAttempts.filter((a) => a.result);
-    const totalAttempts = attempts.length;
-    const scores = attempts.map((a) => a.result!.totalScore);
-    const percentages = attempts.map((a) => a.result!.percentage);
+    const attempts = user.testAttempts || [];
+    const completedAttempts = attempts.filter((a) => a.submittedAt || a.result);
+    const totalAttempts = completedAttempts.length;
+    const percentages = completedAttempts.map((a) => a.result?.percentage ?? (a.test.totalMarks > 0 ? ((a.result?.totalScore || 0) / a.test.totalMarks) * 100 : 0));
 
     const bestPercentage = percentages.length > 0 ? Math.max(...percentages) : 0;
     const avgPercentage =
       percentages.length > 0
         ? Math.round((percentages.reduce((a, b) => a + b, 0) / percentages.length) * 100) / 100
         : 0;
-    const passedCount = attempts.filter((a) => a.result!.isPassed).length;
+    const passedCount = completedAttempts.filter((a) => a.result?.isPassed || (a.result?.percentage || 0) >= 50).length;
     const failedCount = totalAttempts - passedCount;
 
     return {
@@ -425,7 +431,7 @@ export class UsersService {
         failedCount,
         passRate: totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0,
       },
-      recentAttempts: user.testAttempts.map((a) => ({
+      recentAttempts: completedAttempts.map((a) => ({
         id: a.id,
         testId: a.testId,
         testTitle: a.test.title,
@@ -435,8 +441,8 @@ export class UsersService {
         cheatStrikes: a.cheatStrikes,
         score: a.result?.totalScore ?? 0,
         totalMarks: a.test.totalMarks,
-        percentage: a.result?.percentage ?? 0,
-        isPassed: a.result?.isPassed ?? false,
+        percentage: a.result?.percentage ?? (a.test.totalMarks > 0 ? ((a.result?.totalScore || 0) / a.test.totalMarks) * 100 : 0),
+        isPassed: a.result?.isPassed ?? (a.result?.percentage || 0) >= 50,
         correct: a.result?.totalCorrect ?? 0,
         wrong: a.result?.totalWrong ?? 0,
       })),
