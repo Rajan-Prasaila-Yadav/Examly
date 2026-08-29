@@ -31,8 +31,15 @@ import {
   Loader2,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LiveTestRunnerPage() {
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
   const params = useParams();
   const router = useRouter();
   const testId = params.id as string;
@@ -481,49 +488,49 @@ export default function LiveTestRunnerPage() {
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RESULT') {
     return (
-      <div className="max-w-2xl mx-auto py-8 space-y-6">
-        <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-            <Award className="w-8 h-8" />
+      <div className="max-w-2xl mx-auto py-6 sm:py-8 px-3 sm:px-6 space-y-6">
+        <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm text-center space-y-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+            <Award className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
 
           <div>
             <span className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
-              {submitResult?.isPassed ? '✔ PASSED' : '✖ ATTEMPT RECORDED'}
+              {submitResult?.isPassed ? '✔ PASSED' : '✔ ATTEMPT RECORDED'}
             </span>
-            <h1 className="text-2xl font-extrabold text-slate-900 mt-2">{test?.title || 'Mock Examination'}</h1>
-            <p className="text-xs text-slate-500 mt-1">Your answers have been recorded securely.</p>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">{test?.title || 'Mock Examination'}</h1>
+            <p className="text-xs text-slate-500 mt-1">Your examination answers have been recorded securely.</p>
           </div>
 
           {/* Scorecard Hero */}
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-brand-600 to-accent-indigo text-white shadow-xl space-y-2">
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-brand-600 to-accent-indigo text-white shadow-xl space-y-2">
             <span className="text-xs font-medium text-brand-200">Final Score</span>
-            <div className="text-4xl font-extrabold font-mono">
-              {submitResult?.totalScore || 148} <span className="text-lg font-normal text-brand-200">/ {test?.totalMarks || 200}</span>
+            <div className="text-3xl sm:text-4xl font-extrabold font-mono">
+              {submitResult?.totalScore ?? 0} <span className="text-base sm:text-lg font-normal text-brand-200">/ {test?.totalMarks || 200}</span>
             </div>
-            <p className="text-xs text-brand-100 font-medium pt-2">
-              Time Taken: <strong>{formatTimer(elapsedSeconds)}</strong> • Percentage: <strong>{submitResult?.percentage || 74.0}%</strong>
+            <p className="text-xs text-brand-100 font-medium pt-1 sm:pt-2">
+              Time Taken: <strong>{formatTimer(elapsedSeconds)}</strong> • Percentage: <strong>{submitResult?.percentage ?? 0}%</strong>
             </p>
           </div>
 
           {/* Breakdown Grid */}
-          <div className="grid grid-cols-3 gap-3 text-xs">
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 text-xs">
+            <div className="p-3 sm:p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col justify-center">
               <span className="text-[10px] text-emerald-700 block font-medium">Correct</span>
-              <span className="text-lg font-bold text-emerald-800 font-mono">
-                {submitResult?.totalCorrect || 38} Questions
+              <span className="text-base sm:text-lg font-bold text-emerald-800 font-mono">
+                {submitResult?.totalCorrect ?? 0} <span className="text-[10px] font-normal hidden sm:inline">Questions</span>
               </span>
             </div>
-            <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200">
+            <div className="p-3 sm:p-4 bg-rose-50 rounded-2xl border border-rose-200 flex flex-col justify-center">
               <span className="text-[10px] text-rose-700 block font-medium">Wrong (-ve)</span>
-              <span className="text-lg font-bold text-rose-800 font-mono">
-                {submitResult?.totalWrong || 4} Questions
+              <span className="text-base sm:text-lg font-bold text-rose-800 font-mono">
+                {submitResult?.totalWrong ?? 0} <span className="text-[10px] font-normal hidden sm:inline">Questions</span>
               </span>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="p-3 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-center">
               <span className="text-[10px] text-slate-600 block font-medium">Unanswered</span>
-              <span className="text-lg font-bold text-slate-700 font-mono">
-                {submitResult?.totalUnanswered || 8}
+              <span className="text-base sm:text-lg font-bold text-slate-700 font-mono">
+                {submitResult?.totalUnanswered ?? 0}
               </span>
             </div>
           </div>
@@ -545,10 +552,10 @@ export default function LiveTestRunnerPage() {
             </button>
 
             <button
-              onClick={() => router.push('/tests/builder')}
+              onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
               className="w-full py-2.5 text-slate-500 hover:text-slate-800 text-xs font-semibold"
             >
-              Back to Test Suite
+              {isStudent ? '← Back to My Mock Tests' : '← Back to Test Builder'}
             </button>
           </div>
         </div>
@@ -592,15 +599,15 @@ export default function LiveTestRunnerPage() {
     const activeStatus = getQuestionStatus(activeReviewQ);
 
     return (
-      <div className="max-w-4xl mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <button
             onClick={() => setPhase('RESULT')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm self-start sm:self-auto"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Scorecard
           </button>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="text-xs font-bold text-slate-900 block">
               Check Answers ({filteredQs.length > 0 ? reviewIndex + 1 : 0} of {filteredQs.length})
             </span>
@@ -609,7 +616,7 @@ export default function LiveTestRunnerPage() {
         </div>
 
         {/* Interactive Question Palette Quick-Bar */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3">
+        <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-900">Question Palette Navigator</h3>
             <span className="text-[11px] text-slate-500">Tap any question number to view answers & solution</span>
@@ -828,15 +835,15 @@ export default function LiveTestRunnerPage() {
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'ANSWER_KEY') {
     return (
-      <div className="max-w-4xl mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <button
             onClick={() => setPhase('RESULT')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3 py-1.5 rounded-xl border border-slate-200"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3 py-1.5 rounded-xl border border-slate-200 self-start sm:self-auto"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Result Summary
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
               className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-rose-200"
@@ -853,8 +860,8 @@ export default function LiveTestRunnerPage() {
         </div>
 
         {/* Answer Key Grid (SCR-STU-16 Table) */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+        <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-6">
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
             <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Answer Key & Question Evaluation
           </h2>
 

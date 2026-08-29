@@ -517,7 +517,15 @@ export class TestsService {
 
   async getAttemptsLeaderboard(testId: string) {
     const attempts = await this.prisma.testAttempt.findMany({
-      where: { testId, submittedAt: { not: null } },
+      where: {
+        testId,
+        submittedAt: { not: null },
+        student: {
+          role: {
+            name: { notIn: ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'] },
+          },
+        },
+      },
       include: {
         student: {
           select: {
@@ -568,7 +576,15 @@ export class TestsService {
 
   async getTestAttempts(testId: string) {
     const attempts = await this.prisma.testAttempt.findMany({
-      where: { testId, submittedAt: { not: null } },
+      where: {
+        testId,
+        submittedAt: { not: null },
+        student: {
+          role: {
+            name: { notIn: ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'] },
+          },
+        },
+      },
       include: {
         student: {
           select: {
@@ -1249,7 +1265,14 @@ export class TestsService {
           },
         },
         attempts: {
-          where: { submittedAt: { not: null } },
+          where: {
+            submittedAt: { not: null },
+            student: {
+              role: {
+                name: { notIn: ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'] },
+              },
+            },
+          },
           include: { result: true },
         },
       },

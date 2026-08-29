@@ -115,8 +115,12 @@ export function MobileBottomNav() {
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-sm flex items-center justify-center shadow-md">
-                  {user?.fullName ? user.fullName[0] : 'U'}
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-sm flex items-center justify-center shadow-md overflow-hidden">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
+                  ) : (
+                    user?.fullName ? user.fullName[0] : 'U'
+                  )}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 leading-tight">

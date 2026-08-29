@@ -91,8 +91,12 @@ export default function StudentDetailPage() {
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20">
-              {user.fullName ? user.fullName[0] : 'S'}
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.fullName || 'Student'} className="w-full h-full object-cover" />
+              ) : (
+                user.fullName ? user.fullName[0] : 'S'
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">

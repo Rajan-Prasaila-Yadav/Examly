@@ -36,8 +36,12 @@ export function Navbar() {
 
         {/* User Mini Avatar */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-xs flex items-center justify-center shadow-sm">
-            {user?.fullName ? user.fullName[0] : 'A'}
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-xs flex items-center justify-center shadow-sm overflow-hidden">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
+            ) : (
+              user?.fullName ? user.fullName[0] : 'A'
+            )}
           </div>
         </div>
       </div>

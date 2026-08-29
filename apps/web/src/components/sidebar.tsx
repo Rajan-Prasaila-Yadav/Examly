@@ -187,8 +187,12 @@ export function Sidebar() {
       <div className="p-2.5 border-t border-slate-800">
         <div className="p-2 rounded-xl bg-slate-800/50 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-brand-700 flex items-center justify-center font-bold text-xs uppercase text-white shrink-0">
-              {user?.fullName ? user.fullName[0] : 'R'}
+            <div className="w-8 h-8 rounded-lg bg-brand-700 flex items-center justify-center font-bold text-xs uppercase text-white shrink-0 overflow-hidden">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
+              ) : (
+                user?.fullName ? user.fullName[0] : 'R'
+              )}
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
