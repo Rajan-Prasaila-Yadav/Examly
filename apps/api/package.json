@@ -8,8 +8,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "vercel-build": "prisma generate --schema=../../database/prisma/schema/base.prisma && nest build",
-    "postinstall": "prisma generate --schema=../../database/prisma/schema/base.prisma",
+    "vercel-build": "npx prisma@5.17.0 generate --schema=../../database/prisma/schema && nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

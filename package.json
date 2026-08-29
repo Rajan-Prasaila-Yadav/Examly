@@ -17,7 +17,6 @@
     "db:migrate": "npm run db:migrate --workspace=@examly/database",
     "db:generate": "npm run db:generate --workspace=@examly/database",
     "db:seed": "npm run db:seed --workspace=@examly/database",
-    "db:studio": "npm run db:studio --workspace=@examly/database",
-    "postinstall": "npm run db:generate --if-present"
+    "db:studio": "npm run db:studio --workspace=@examly/database"
   }
 }
