@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function CurriculumPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const isStudent =
     user?.role === 'STUDENT' ||
@@ -29,6 +31,11 @@ export default function CurriculumPage() {
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
 
   useEffect(() => {
+    if (isStudent) {
+      router.replace('/batches');
+      return;
+    }
+
     const fetchBatches = async () => {
       try {
         const res = await api.get('/batches');
@@ -43,7 +50,7 @@ export default function CurriculumPage() {
     };
 
     fetchBatches();
-  }, []);
+  }, [isStudent, router]);
 
   const handleSelectBatch = async (batchId: string) => {
     try {

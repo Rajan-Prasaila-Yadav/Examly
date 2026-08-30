@@ -309,7 +309,7 @@ export default function LessonDetailPage() {
           {[
             { key: 'videos', label: 'Video Lectures', icon: Video, count: lesson.videos?.length || 0 },
             { key: 'notes', label: 'PDF Notes & Handouts', icon: FileText, count: lesson.notes?.length || 0 },
-            { key: 'resources', label: 'Resource Folder Tree', icon: FolderTree, count: lesson.resources?.length || 0 },
+            ...(!isStudent ? [{ key: 'resources', label: 'Resource Folder Tree', icon: FolderTree, count: lesson.resources?.length || 0 }] : []),
             { key: 'tests', label: 'Chapter Tests', icon: FileCheck2, count: lesson.tests?.length || 0 },
           ].map((t) => {
             const Icon = t.icon;
@@ -502,7 +502,7 @@ export default function LessonDetailPage() {
       )}
 
       {/* Tab 3: Resource Folder Tree Manager */}
-      {activeTab === 'resources' && (
+      {activeTab === 'resources' && !isStudent && (
         <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
