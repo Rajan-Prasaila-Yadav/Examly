@@ -41,7 +41,11 @@ export function AiQuestionImportModal({ open, onClose, onApply }: Props) {
       setParsed(res.data.parsedQuestions || []);
     } catch (e: any) {
       const msg = e.response?.data?.message;
-      setError(Array.isArray(msg) ? msg.join(' ') : msg || 'AI parsing failed. Check GEMINI_API_KEY and restart the API.');
+      setError(
+        Array.isArray(msg)
+          ? msg.join(' ')
+          : msg || 'AI parsing failed. Please verify your GEMINI_API_KEY or GROQ_API_KEY in .env.',
+      );
     } finally {
       setIsParsing(false);
     }
@@ -52,7 +56,7 @@ export function AiQuestionImportModal({ open, onClose, onApply }: Props) {
       <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Wand2 className="w-5 h-5 text-violet-600" /> Fill questions with Gemini
+            <Wand2 className="w-5 h-5 text-violet-600" /> AI Question Assistant (Gemini & Groq)
           </h3>
           <button
             onClick={() => {
@@ -66,9 +70,8 @@ export function AiQuestionImportModal({ open, onClose, onApply }: Props) {
         </div>
 
         <p className="text-xs text-slate-500 leading-relaxed">
-          Paste broken/copied text, or upload a PDF and photos of the paper. Gemini only structures{' '}
-          <strong>your</strong> questions (statement, options, correct key, hint, explanation, step solution) and
-          repairs LaTeX. It does not add extra questions.
+          Paste copied or broken text (Math, Physics, Chemistry), or upload PDF/images. AI extracts{' '}
+          <strong>your</strong> questions (statement, options, correct key, hint, step-by-step solution) and automatically repairs LaTeX KaTeX formulas ($...$).
         </p>
 
         <textarea
@@ -107,7 +110,7 @@ export function AiQuestionImportModal({ open, onClose, onApply }: Props) {
           className="w-full py-2.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {isParsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-          {isParsing ? 'Parsing with Gemini…' : 'Parse into question templates'}
+          {isParsing ? 'Extracting & formatting questions with AI…' : 'Parse into question templates'}
         </button>
 
         {parsed && (

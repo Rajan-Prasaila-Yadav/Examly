@@ -145,6 +145,19 @@ export class TestsService {
       : null;
     const isPublished = isInstant;
 
+    const sectionsToCreate =
+      Array.isArray(data.sections) && data.sections.length > 0
+        ? data.sections.map((s: any, idx: number) => ({
+            name: s.name || `Section ${idx + 1}`,
+            sortOrder: s.sortOrder != null ? Number(s.sortOrder) : idx + 1,
+          }))
+        : [
+            {
+              name: data.sectionTitle || 'General Section',
+              sortOrder: 1,
+            },
+          ];
+
     const created = await this.prisma.test.create({
       data: {
         instituteId: resolvedInstituteId!,
@@ -184,24 +197,35 @@ export class TestsService {
           },
         },
         sections: {
-          create: [
-            {
-              name: data.sectionTitle || 'General Section',
-              sortOrder: 1,
-            },
-          ],
+          create: sectionsToCreate,
         },
       },
       include: {
         config: true,
-        sections: true,
+        sections: { orderBy: { sortOrder: 'asc' } },
       },
     });
 
     if (Array.isArray(data.questions) && data.questions.length > 0) {
       const filled = data.questions.filter((q: any) => q?.contentHtml && String(q.contentHtml).trim());
       if (filled.length > 0) {
-        await this.bulkImportQuestions(created.id, filled);
+        // Map any client-side temporary section IDs to the newly created DB section IDs
+        const sectionMap: Record<string, string> = {};
+        if (Array.isArray(data.sections) && data.sections.length > 0) {
+          data.sections.forEach((clientSec: any, idx: number) => {
+            const dbSec = created.sections[idx] || created.sections[0];
+            if (clientSec?.id && dbSec) {
+              sectionMap[clientSec.id] = dbSec.id;
+            }
+          });
+        }
+
+        const remappedQuestions = filled.map((q: any) => ({
+          ...q,
+          sectionId: (q.sectionId && sectionMap[q.sectionId]) ? sectionMap[q.sectionId] : created.sections[0]?.id,
+        }));
+
+        await this.bulkImportQuestions(created.id, remappedQuestions);
         return this.findOne(created.id, resolvedInstituteId);
       }
     }
@@ -370,7 +394,11 @@ export class TestsService {
     stepByStepSolution?: string;
   }) {
     let sectionId = data.sectionId;
-    if (!sectionId) {
+    const existingSection = sectionId
+      ? await this.prisma.section.findFirst({ where: { id: sectionId, testId } })
+      : null;
+
+    if (!existingSection) {
       const firstSection = await this.prisma.section.findFirst({ where: { testId } });
       if (!firstSection) {
         const newSec = await this.prisma.section.create({
@@ -380,6 +408,8 @@ export class TestsService {
       } else {
         sectionId = firstSection.id;
       }
+    } else {
+      sectionId = existingSection.id;
     }
 
     const questionCount = await this.prisma.question.count({ where: { sectionId } });
@@ -491,23 +521,77 @@ export class TestsService {
     marksNegative?: number;
     options: { optionLabel: string; contentHtml: string; isCorrect: boolean }[];
     solutionText?: string;
+    hint?: string;
+    shortExplanation?: string;
+    stepByStepSolution?: string;
   }[]) {
-    const results = [];
-    for (const q of questions) {
-      const result = await this.addQuestion(testId, {
-        sectionId: q.sectionId,
-        questionType: (q.questionType as QuestionType) || QuestionType.SINGLE_CORRECT,
-        contentHtml: q.contentHtml,
-        marksPositive: q.marksPositive,
-        marksNegative: q.marksNegative,
-        options: q.options,
-        solutionText: q.solutionText,
-        hint: (q as any).hint,
-        shortExplanation: (q as any).shortExplanation,
-        stepByStepSolution: (q as any).stepByStepSolution,
-      });
-      results.push(result);
+    if (!questions.length) return { imported: 0, questions: [] };
+
+    // 1. Fetch test config and sections once
+    const [testConfig, sections] = await Promise.all([
+      this.prisma.testConfig.findUnique({ where: { testId } }),
+      this.prisma.section.findMany({ where: { testId }, orderBy: { sortOrder: 'asc' } }),
+    ]);
+
+    const defaultSectionId =
+      sections[0]?.id ||
+      (
+        await this.prisma.section.create({
+          data: { testId, name: 'General Section', sortOrder: 1 },
+        })
+      ).id;
+
+    const defaultPos = testConfig?.defaultPositiveMarks ?? 4.0;
+    const defaultNeg = testConfig?.defaultNegativeMarks ?? 1.0;
+
+    // 2. Process questions in parallel concurrency chunks
+    const chunkSize = 15;
+    const results: any[] = [];
+
+    for (let i = 0; i < questions.length; i += chunkSize) {
+      const slice = questions.slice(i, i + chunkSize);
+      const batchResults = await Promise.all(
+        slice.map(async (q, idx) => {
+          const sectionId = q.sectionId || defaultSectionId;
+          const hasSolution = q.solutionText || q.hint || q.shortExplanation || q.stepByStepSolution;
+          const solutionCreate = hasSolution
+            ? {
+                create: {
+                  hintHtml: q.hint || null,
+                  shortExplanation: q.shortExplanation || null,
+                  stepByStepHtml: q.stepByStepSolution || q.solutionText || null,
+                },
+              }
+            : undefined;
+
+          return this.prisma.question.create({
+            data: {
+              sectionId,
+              questionType: (q.questionType as QuestionType) || QuestionType.SINGLE_CORRECT,
+              contentHtml: q.contentHtml,
+              marksPositive: q.marksPositive != null ? q.marksPositive : defaultPos,
+              marksNegative: q.marksNegative != null ? q.marksNegative : defaultNeg,
+              sortOrder: i + idx + 1,
+              options: {
+                create: (q.options || []).map((opt, optIdx) => ({
+                  optionLabel: opt.optionLabel || String.fromCharCode(65 + optIdx),
+                  contentHtml: opt.contentHtml || '',
+                  isCorrect: !!opt.isCorrect,
+                  sortOrder: optIdx + 1,
+                })),
+              },
+              solution: solutionCreate,
+            },
+            include: {
+              options: true,
+              solution: true,
+            },
+          });
+        }),
+      );
+      results.push(...batchResults);
     }
+
     return { imported: results.length, questions: results };
   }
 

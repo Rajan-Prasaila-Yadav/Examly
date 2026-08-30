@@ -288,6 +288,7 @@ export default function CreateTestWizardPage() {
 
   const applyParsedQuestions = (parsed: any[]) => {
     if (!parsed.length) return;
+    let newTotal = 0;
     setAuthoredQuestions((prev) => {
       const merged = mergeParsedIntoSlots(
         prev,
@@ -296,10 +297,11 @@ export default function CreateTestWizardPage() {
         optionCountNum,
         { marksPositive: Number(positiveMarkRate), marksNegative: negDefault },
       );
+      newTotal = merged.length;
       setTotalQuestions(merged.length);
       return merged;
     });
-    setAiToast(`${parsed.length} question${parsed.length === 1 ? '' : 's'} filled from your material.`);
+    setAiToast(`✅ Added ${parsed.length} questions! Total test questions: ${newTotal || authoredQuestions.length + parsed.length}`);
     setTimeout(() => setAiToast(''), 5000);
   };
 
@@ -338,7 +340,9 @@ export default function CreateTestWizardPage() {
         correctAnswerType,
         defaultPositiveMarks: Number(positiveMarkRate),
         defaultNegativeMarks: negDefault,
+        sections: sections.map((s, idx) => ({ id: s.id, name: s.name, sortOrder: idx + 1 })),
         questions: filled.map((q) => ({
+          sectionId: q.sectionId,
           questionType: q.questionType || defaultQType,
           contentHtml: q.contentHtml,
           diagramUrl: q.diagramUrl || undefined,
@@ -351,10 +355,12 @@ export default function CreateTestWizardPage() {
         })),
       };
 
-      const res = await api.post('/tests', payload);
+      const res = await api.post('/tests', payload, { timeout: 60000 });
       router.push(`/tests/${res.data.id}`);
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Failed to create test');
+      const msg = e.response?.data?.message;
+      const errorText = Array.isArray(msg) ? msg.join('; ') : (msg || e.message || 'Failed to create test');
+      alert(`Test creation notice: ${errorText}`);
       setIsSubmitting(false);
     }
   };
