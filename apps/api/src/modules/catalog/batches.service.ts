@@ -132,7 +132,9 @@ export class BatchesService {
         status: { not: RecordStatus.DELETED },
       },
       include: {
-        studentProfile: true,
+        studentProfile: {
+          include: { batch: { select: { id: true, name: true, code: true } } },
+        },
         _count: { select: { testAttempts: true } },
       },
       orderBy: { fullName: 'asc' },
@@ -141,7 +143,12 @@ export class BatchesService {
 
   async enrollStudents(batchId: string, studentIds: string[]) {
     await this.prisma.studentProfile.updateMany({
-      where: { userId: { in: studentIds } },
+      where: {
+        OR: [
+          { userId: { in: studentIds } },
+          { id: { in: studentIds } },
+        ],
+      },
       data: { batchId },
     });
     return { success: true, count: studentIds.length };
@@ -149,10 +156,16 @@ export class BatchesService {
 
   async removeStudent(batchId: string, studentId: string) {
     await this.prisma.studentProfile.updateMany({
-      where: { userId: studentId, batchId },
+      where: {
+        OR: [
+          { userId: studentId },
+          { id: studentId },
+        ],
+        batchId,
+      },
       data: { batchId: null },
     });
-    return { success: true };
+    return { success: true, message: 'Student unassigned from batch' };
   }
 
   async getTeachers(batchId: string) {

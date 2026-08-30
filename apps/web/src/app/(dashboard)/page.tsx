@@ -23,6 +23,8 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 
+let cachedOverview: { batches: any[]; tests: any[]; student360: any } | null = null;
+
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
   const isStudent =
@@ -30,10 +32,10 @@ export default function DashboardOverviewPage() {
     user?.role === 'Student' ||
     (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
 
-  const [batches, setBatches] = useState<any[]>([]);
-  const [tests, setTests] = useState<any[]>([]);
-  const [student360, setStudent360] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [batches, setBatches] = useState<any[]>(cachedOverview?.batches || []);
+  const [tests, setTests] = useState<any[]>(cachedOverview?.tests || []);
+  const [student360, setStudent360] = useState<any>(cachedOverview?.student360 || null);
+  const [isLoading, setIsLoading] = useState(!cachedOverview);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,14 +44,23 @@ export default function DashboardOverviewPage() {
           api.get('/batches').catch(() => ({ data: [] })),
           api.get('/tests').catch(() => ({ data: [] })),
         ]);
-        setBatches(batchRes.data || []);
-        setTests(testRes.data || []);
 
+        let profileData = null;
         if (isStudent && user?.id) {
           const profileRes = await api.get(`/users/students/${user.id}`).catch(() => null);
-          if (profileRes?.data) {
-            setStudent360(profileRes.data);
-          }
+          profileData = profileRes?.data || null;
+        }
+
+        cachedOverview = {
+          batches: batchRes.data || [],
+          tests: testRes.data || [],
+          student360: profileData,
+        };
+
+        setBatches(batchRes.data || []);
+        setTests(testRes.data || []);
+        if (profileData) {
+          setStudent360(profileData);
         }
       } catch (e) {
         console.error(e);

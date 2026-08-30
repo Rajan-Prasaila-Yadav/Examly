@@ -29,7 +29,7 @@ interface CachedUserPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private static userCache = new Map<string, CachedUserPayload>();
-  private static readonly TTL_MS = 60 * 1000; // 60 seconds
+  private static readonly TTL_MS = 180 * 1000; // 3 minutes for lightning-fast sub-millisecond responses
 
   constructor(
     private readonly configService: ConfigService,

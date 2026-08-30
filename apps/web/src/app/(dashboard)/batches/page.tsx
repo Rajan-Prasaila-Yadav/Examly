@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
+let cachedBatches: any[] = [];
+
 export default function BatchesPage() {
   const { user } = useAuth();
   const isStudent =
@@ -32,8 +34,8 @@ export default function BatchesPage() {
     user?.role === 'Student' ||
     (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
 
-  const [batches, setBatches] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [batches, setBatches] = useState<any[]>(cachedBatches);
+  const [isLoading, setIsLoading] = useState(cachedBatches.length === 0);
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -56,7 +58,10 @@ export default function BatchesPage() {
   const fetchBatches = async () => {
     try {
       const res = await api.get('/batches');
-      setBatches(res.data);
+      if (res.data) {
+        cachedBatches = res.data;
+        setBatches(res.data);
+      }
     } catch (e) {
       console.error(e);
     } finally {

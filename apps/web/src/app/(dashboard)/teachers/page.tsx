@@ -1,3 +1,4 @@
+// apps/web/src/app/(dashboard)/teachers/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +22,15 @@ import {
   Trash2,
   AlertTriangle,
   Lock,
+  Camera,
+  Layers,
+  LayoutGrid,
+  List,
+  GraduationCap,
 } from 'lucide-react';
+
+let cachedTeachers: any[] = [];
+let cachedTeacherBatches: any[] = [];
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -37,8 +46,10 @@ export default function TeachersPage() {
     }
   }, [isStudent, router]);
 
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>(cachedTeachers);
+  const [batches, setBatches] = useState<any[]>(cachedTeacherBatches);
+  const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list'); // Default to list view as requested
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State (Create & Edit)
@@ -61,8 +72,14 @@ export default function TeachersPage() {
         api.get('/users/teachers'),
         api.get('/batches'),
       ]);
-      setTeachers(tchRes.data || []);
-      setBatches(batRes.data || []);
+      if (tchRes.data) {
+        cachedTeachers = tchRes.data;
+        setTeachers(tchRes.data);
+      }
+      if (batRes.data) {
+        cachedTeacherBatches = batRes.data;
+        setBatches(batRes.data);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -72,9 +89,7 @@ export default function TeachersPage() {
     fetchTeachers();
   }, []);
 
-  const generateFacultyCode = () => {
-    return `TCH-${Math.floor(100 + Math.random() * 900)}`;
-  };
+  const generateFacultyCode = () => `TCH-${Math.floor(100 + Math.random() * 900)}`;
 
   const handleOpenAdd = () => {
     setEditingTeacher(null);
@@ -119,10 +134,31 @@ export default function TeachersPage() {
 
   const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalCode = facultyCode?.trim() || generateFacultyCode();
+    const finalCode = facultyCode.trim() || generateFacultyCode();
 
     try {
       if (editingTeacher) {
+        // Optimistic UI update
+        setTeachers((prev) =>
+          prev.map((t) =>
+            t.id === editingTeacher.id
+              ? {
+                  ...t,
+                  fullName,
+                  email,
+                  phone,
+                  avatarUrl,
+                  teacherProfile: {
+                    ...t.teacherProfile,
+                    facultyCode: finalCode,
+                    designation,
+                    specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
+                  },
+                }
+              : t,
+          ),
+        );
+
         await api.put(`/users/teachers/${editingTeacher.id}`, {
           fullName,
           email,
@@ -132,7 +168,6 @@ export default function TeachersPage() {
           specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
           avatarUrl,
         });
-        alert('Teacher profile updated successfully!');
       } else {
         const res = await api.post('/users/teachers', {
           fullName,
@@ -144,35 +179,53 @@ export default function TeachersPage() {
           avatarUrl,
         });
         alert(`Teacher onboarded! Temporary Password: ${res.data.rawPassword}`);
+        fetchTeachers();
       }
       setIsModalOpen(false);
       setEditingTeacher(null);
-      fetchTeachers();
     } catch (e: any) {
       alert(e.response?.data?.message || 'Failed to save teacher');
+      fetchTeachers();
     }
   };
 
   const handleToggleStatus = async (teacherId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
+    // Optimistic update
+    setTeachers((prev) =>
+      prev.map((t) => (t.id === teacherId ? { ...t, status: nextStatus } : t)),
+    );
     try {
       await api.put(`/users/${teacherId}/status`, { status: nextStatus });
-      fetchTeachers();
     } catch (e) {
       alert('Failed to update teacher status');
+      fetchTeachers();
     }
   };
 
   const handleDeleteTeacher = async () => {
     if (!deletingTeacher) return;
+    const targetId = deletingTeacher.id;
+    // Optimistic update
+    setTeachers((prev) => prev.filter((t) => t.id !== targetId));
+    setDeletingTeacher(null);
     try {
-      await api.put(`/users/${deletingTeacher.id}/status`, { status: 'DELETED' });
-      setDeletingTeacher(null);
-      fetchTeachers();
+      await api.put(`/users/${targetId}/status`, { status: 'DELETED' });
     } catch (e) {
       alert('Failed to delete teacher');
+      fetchTeachers();
     }
   };
+
+  const filteredTeachers = teachers.filter((t) => {
+    const query = search.toLowerCase();
+    return (
+      (t.fullName || '').toLowerCase().includes(query) ||
+      (t.email || '').toLowerCase().includes(query) ||
+      (t.phone || '').includes(query) ||
+      (t.teacherProfile?.facultyCode || '').toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -193,114 +246,313 @@ export default function TeachersPage() {
         </button>
       </div>
 
-      {/* Teachers Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teachers.map((tch) => (
-          <div
-            key={tch.id}
-            className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                {tch.avatarUrl ? (
-                  <img
-                    src={tch.avatarUrl}
-                    alt={tch.fullName}
-                    className="w-10 h-10 rounded-2xl object-cover border border-slate-200"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
-                    {tch.fullName ? tch.fullName[0] : 'T'}
-                  </div>
-                )}
+      {/* Main Table / Grid Container */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
+        {/* Search Toolbar with View Toggle */}
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search faculty name, faculty code, email..."
+              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-200">
-                    {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
-                  </span>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <span className="text-xs text-slate-500 font-medium">{filteredTeachers.length} Faculty Listed</span>
 
-                  <button
-                    onClick={() => handleOpenEdit(tch)}
-                    className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                    title="Edit Teacher"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => setDeletingTeacher(tch)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    title="Delete Teacher"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <Link href={`/teachers/${tch.id}`}>
-                <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors flex items-center justify-between">
-                  <span>{tch.fullName}</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
-                </h3>
-              </Link>
-              <p className="text-xs text-brand-600 font-medium mt-0.5">
-                {tch.teacherProfile?.designation || 'Faculty Instructor'}
-              </p>
-
-              {/* Specialization Badges */}
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {(tch.teacherProfile?.specialization || ['Curriculum Expert']).map((spec: string) => (
-                  <span
-                    key={spec}
-                    className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md"
-                  >
-                    {spec}
-                  </span>
-                ))}
-              </div>
-
-              {/* Contact Info */}
-              <div className="space-y-1.5 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="truncate">{tch.email || 'No email set'}</span>
-                </div>
-                <div className="flex items-center gap-2 font-mono">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{tch.phone || '+97798XXXXXXXX'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+            {/* View Mode Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/60">
               <button
-                onClick={() => handleToggleStatus(tch.id, tch.status)}
-                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                  tch.status === 'ACTIVE'
-                    ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                    : 'text-rose-700 bg-rose-50 hover:bg-rose-100'
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                  viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                 }`}
+                title="List / Table View"
               >
-                {tch.status === 'ACTIVE' ? <CheckCircle2 className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                {tch.status === 'ACTIVE' ? 'Active' : 'Blocked'}
+                <List className="w-3.5 h-3.5" /> <span className="text-[11px] hidden sm:inline">List</span>
               </button>
-
-              <Link
-                href={`/teachers/${tch.id}`}
-                className="px-3 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 text-xs font-semibold rounded-lg transition-all"
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                  viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Cards Grid View"
               >
-                360° View →
-              </Link>
+                <LayoutGrid className="w-3.5 h-3.5" /> <span className="text-[11px] hidden sm:inline">Cards</span>
+              </button>
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* ── VIEW MODE 1: LIST / TABLE VIEW (DEFAULT) ── */}
+        {viewMode === 'list' && (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/60">
+                  <th className="py-3 px-4">Faculty Member</th>
+                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-3">Faculty Code</th>
+                  <th className="py-3 px-3">Designation</th>
+                  <th className="py-3 px-3">Specialization</th>
+                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {filteredTeachers.map((tch) => (
+                  <tr key={tch.id} className="hover:bg-slate-50/80 transition-colors">
+                    {/* 1. Faculty Member & Avatar */}
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2.5">
+                        {tch.avatarUrl ? (
+                          <img
+                            src={tch.avatarUrl}
+                            alt={tch.fullName}
+                            className="w-8 h-8 rounded-xl object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold flex items-center justify-center text-xs shadow-sm shrink-0">
+                            {tch.fullName ? tch.fullName[0] : 'T'}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <Link href={`/teachers/${tch.id}`} className="font-extrabold text-slate-900 hover:text-brand-600 truncate block">
+                            {tch.fullName}
+                          </Link>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 2. Email & Contact (Dedicated Column) */}
+                    <td className="py-3 px-4">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-700 font-medium truncate text-xs">
+                          <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{tch.email || 'No email'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-500 font-mono text-[11px]">
+                          <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{tch.phone || '-'}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 3. Faculty Code */}
+                    <td className="py-3 px-3 font-mono font-bold text-purple-700">
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 text-[11px]">
+                        {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
+                      </span>
+                    </td>
+
+                    {/* 4. Designation */}
+                    <td className="py-3 px-3">
+                      <span className="font-semibold text-slate-800 block text-xs">
+                        {tch.teacherProfile?.designation || 'Faculty Instructor'}
+                      </span>
+                    </td>
+
+                    {/* 5. Specialization */}
+                    <td className="py-3 px-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(tch.teacherProfile?.specialization || ['General']).map((spec: string) => (
+                          <span key={spec} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md border border-slate-200/60">
+                            {spec}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+
+                    {/* 6. Status */}
+                    <td className="py-3 px-3 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          tch.status === 'ACTIVE'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            tch.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
+                          }`}
+                        />
+                        {tch.status || 'ACTIVE'}
+                      </span>
+                    </td>
+
+                    {/* 7. Actions */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          href={`/teachers/${tch.id}`}
+                          className="px-2.5 py-1 bg-brand-50 text-brand-700 hover:bg-brand-100 text-[11px] font-bold rounded-lg transition-colors"
+                        >
+                          360° View
+                        </Link>
+
+                        <button
+                          onClick={() => handleOpenEdit(tch)}
+                          className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                          title="Edit Teacher"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleStatus(tch.id, tch.status)}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors border ${
+                            tch.status === 'ACTIVE'
+                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80'
+                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80'
+                          }`}
+                        >
+                          {tch.status === 'ACTIVE' ? 'Block' : 'Unblock'}
+                        </button>
+
+                        <button
+                          onClick={() => setDeletingTeacher(tch)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Teacher"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredTeachers.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                      No faculty members found. Click &quot;Onboard Faculty Teacher&quot; above to add one.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── VIEW MODE 2: CARDS GRID VIEW ── */}
+        {viewMode === 'grid' && (
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredTeachers.map((tch) => (
+              <div
+                key={tch.id}
+                className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 flex flex-col justify-between hover:border-brand-300 transition-all group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    {tch.avatarUrl ? (
+                      <img
+                        src={tch.avatarUrl}
+                        alt={tch.fullName}
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-200"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
+                        {tch.fullName ? tch.fullName[0] : 'T'}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-200">
+                        {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
+                      </span>
+
+                      <button
+                        onClick={() => handleOpenEdit(tch)}
+                        className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => setDeletingTeacher(tch)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <Link href={`/teachers/${tch.id}`}>
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors flex items-center justify-between">
+                      <span>{tch.fullName}</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+                    </h3>
+                  </Link>
+                  <p className="text-xs text-brand-600 font-medium mt-0.5">
+                    {tch.teacherProfile?.designation || 'Faculty Instructor'}
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {(tch.teacherProfile?.specialization || ['Curriculum Expert']).map((spec: string) => (
+                      <span key={spec} className="px-2 py-0.5 bg-white text-slate-600 text-[10px] font-medium rounded-md border border-slate-200">
+                        {spec}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1 mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 truncate">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{tch.email || 'No email set'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{tch.phone || '+97798XXXXXXXX'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        tch.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${tch.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      {tch.status || 'ACTIVE'}
+                    </span>
+
+                    <button
+                      onClick={() => handleToggleStatus(tch.id, tch.status)}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors border ${
+                        tch.status === 'ACTIVE'
+                          ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80'
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80'
+                      }`}
+                    >
+                      {tch.status === 'ACTIVE' ? 'Block' : 'Unblock'}
+                    </button>
+                  </div>
+
+                  <Link
+                    href={`/teachers/${tch.id}`}
+                    className="px-3 py-1 bg-white hover:bg-brand-600 hover:text-white text-slate-700 text-xs font-bold rounded-lg border border-slate-200 shadow-sm transition-all flex items-center gap-1"
+                  >
+                    360° View →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── SCROLLABLE ONBOARD & EDIT TEACHER MODAL ── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
           <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col">
-            {/* Modal Header */}
             <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
@@ -314,16 +566,14 @@ export default function TeachersPage() {
               </button>
             </div>
 
-            {/* Scrollable Form Body */}
             <form onSubmit={handleSaveTeacher} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-              {/* Photo & Name */}
               <div className="flex items-center gap-4">
                 <label className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:border-brand-500 cursor-pointer relative group overflow-hidden shrink-0">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <>
-                      <UserSquare2 className="w-5 h-5 text-slate-400 group-hover:text-brand-600" />
+                      <Camera className="w-5 h-5 text-slate-400 group-hover:text-brand-600" />
                       <span className="text-[9px] font-bold mt-1">Photo</span>
                     </>
                   )}
@@ -341,99 +591,98 @@ export default function TeachersPage() {
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Dr. Arun Mehta"
+                    placeholder="e.g. Dr. Ramesh Karki"
                     required
                     className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                   />
                 </div>
               </div>
 
-              {/* Faculty Code */}
-              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-200 flex items-center justify-between gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-purple-900 mb-1">
-                    Faculty Code *
-                  </label>
-                  <input
-                    type="text"
-                    value={facultyCode}
-                    onChange={(e) => setFacultyCode(e.target.value)}
-                    placeholder="e.g. TCH-015"
-                    required
-                    className="w-full text-xs p-2.5 bg-white border border-purple-300 rounded-xl font-mono font-bold text-purple-700 focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFacultyCode(generateFacultyCode())}
-                  className="mt-5 px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
-                >
-                  🎲 Generate
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone *</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+97798XXXXXXXX"
-                    required
-                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
-                  />
-                </div>
-
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Email Address *</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="faculty@examly.edu.np"
+                    placeholder="teacher@examly.com"
                     required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="98XXXXXXXX"
                     className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Designation</label>
-                <input
-                  type="text"
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  placeholder="Senior Physics Faculty"
-                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Faculty Code</label>
+                  <input
+                    type="text"
+                    value={facultyCode}
+                    onChange={(e) => setFacultyCode(e.target.value)}
+                    placeholder="TCH-101"
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Designation</label>
+                  <select
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  >
+                    <option value="Senior Faculty">Senior Faculty</option>
+                    <option value="HOD Physics">HOD Physics</option>
+                    <option value="HOD Chemistry">HOD Chemistry</option>
+                    <option value="HOD Biology">HOD Biology</option>
+                    <option value="Assistant Professor">Assistant Professor</option>
+                    <option value="Visiting Lecturer">Visiting Lecturer</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Specialization Areas (Comma separated)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Specialization Subjects (comma separated)</label>
                 <input
                   type="text"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
-                  placeholder="Mechanics, Modern Physics, Thermodynamics"
+                  placeholder="e.g. Organic Chemistry, Thermodynamics, Botany"
                   className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                 />
               </div>
 
-              {/* Modal Footer */}
+              <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-2xl text-xs text-purple-900 space-y-1">
+                <span className="font-bold block flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-purple-600" /> Granular RBAC Permissions
+                </span>
+                <p className="text-[11px] leading-relaxed text-purple-800">
+                  After onboarding, you can grant granular permissions (e.g. Test Authoring, Community, Evaluation) in the teacher&apos;s 360 profile.
+                </p>
+              </div>
+
               <div className="pt-4 border-t border-slate-100 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20 transition-all"
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20"
                 >
-                  {editingTeacher ? 'Save Changes' : 'Onboard Faculty'}
+                  {editingTeacher ? 'Save Changes' : 'Onboard Teacher'}
                 </button>
               </div>
             </form>
@@ -452,7 +701,7 @@ export default function TeachersPage() {
             <div>
               <h3 className="text-base font-bold text-slate-900">Delete {deletingTeacher.fullName}?</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Are you sure you want to soft delete this faculty record?
+                Are you sure you want to remove this faculty teacher from the institute roster?
               </p>
             </div>
 

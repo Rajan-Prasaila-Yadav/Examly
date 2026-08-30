@@ -144,6 +144,7 @@ export function Sidebar() {
             <div key={item.name} className="relative group">
               <Link
                 href={item.href}
+                prefetch={true}
                 onMouseEnter={() => setHoveredTab(item.name)}
                 onMouseLeave={() => setHoveredTab(null)}
                 onTouchStart={() => setHoveredTab(item.name)}
