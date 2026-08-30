@@ -313,19 +313,10 @@ export default function DashboardOverviewPage() {
 
       {/* Main Grid: Live Mock Tests & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Live Mock Tests Table */}
-        <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                {isStudent ? 'Assigned Live & Practice Examinations' : 'Recent & Live Examinations'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {isStudent
-                  ? 'Timed mock tests with anti-cheat protection and detailed scorecards'
-                  : 'Examinations conducted across assigned batches'}
-              </p>
-            </div>
+        {/* Left 2 Cols: Live Mock Tests Section */}
+        <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <h2 className="text-base font-bold text-slate-900">Live & Mock Exams</h2>
             <Link
               href="/tests"
               className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
@@ -334,126 +325,121 @@ export default function DashboardOverviewPage() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="pb-3">Test Title</th>
-                  {!isStudent && <th className="pb-3">Batch</th>}
-                  {!isStudent && <th className="pb-3">Duration</th>}
-                  <th className="pb-3">Marks</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {tests.slice(0, 6).map((t) => {
-                  const ended = isTestEnded(t);
-                  const draft = t.testStatus === 'DRAFT' || !t.isPublished;
-                  const isLive = !ended && !draft;
+          <div className="divide-y divide-slate-100">
+            {tests.slice(0, 6).map((t) => {
+              const ended = isTestEnded(t);
+              const draft = t.testStatus === 'DRAFT' || !t.isPublished;
+              const isLive = !ended && !draft;
 
-                  return (
-                    <tr
-                      key={t.id}
-                      className={`transition-colors ${
-                        isLive ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/80'
-                      }`}
-                    >
-                      <td className="py-3.5 font-semibold text-slate-900">
-                        <Link href={`/tests/${t.id}`} className="hover:text-brand-600 transition-colors block truncate max-w-[180px] sm:max-w-[240px]">
-                          {t.title}
-                        </Link>
-                        <span className="block text-[10px] font-normal text-slate-400 font-mono">
-                          {t.sections?.length || 1} Sections • {t.durationMinutes}m
-                          {t.startDateTime && ` • Start: ${new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}`}
+              return (
+                <div
+                  key={t.id}
+                  className={`py-3 px-2.5 -mx-1 rounded-2xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                    isLive ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/80'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/tests/${t.id}`}
+                        className="font-bold text-xs text-slate-900 hover:text-brand-600 transition-colors truncate max-w-[280px]"
+                      >
+                        {t.title}
+                      </Link>
+
+                      {isLive && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-red-600 text-white shadow-sm animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          🔴 LIVE
                         </span>
-                      </td>
-                      {!isStudent && <td className="py-3.5 text-slate-600">{t.batch?.name || 'General Batch'}</td>}
-                      {!isStudent && <td className="py-3.5 text-slate-600 font-mono">{t.durationMinutes} mins</td>}
-                      <td className="py-3.5 font-mono text-slate-800 font-bold">{t.totalMarks} pts</td>
-                      <td className="py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                            ended
-                              ? 'bg-slate-100 text-slate-600 border-slate-200'
-                              : draft
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-red-600 text-white shadow-md shadow-red-600/30 border-red-600 animate-pulse font-extrabold'
+                      )}
+
+                      {ended && (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 text-slate-500">
+                          Ended
+                        </span>
+                      )}
+
+                      {draft && (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 text-amber-800">
+                          Draft
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono mt-1 flex-wrap">
+                      {t.batch?.name && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-sans font-medium">
+                          {t.batch.name}
+                        </span>
+                      )}
+                      <span>⏱ {t.durationMinutes}m</span>
+                      <span>•</span>
+                      <span>{t.totalMarks} pts</span>
+                      {t.startDateTime && (
+                        <>
+                          <span>•</span>
+                          <span>Start: {new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    {isStudent ? (
+                      ended ? (
+                        t.attempts && t.attempts.length > 0 ? (
+                          <Link
+                            href={`/tests/${t.id}/runner?view=RESULT`}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs inline-flex items-center gap-1 transition-all"
+                          >
+                            <BarChart3 className="w-3.5 h-3.5 text-brand-600" /> Result
+                          </Link>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl">
+                            Closed
+                          </span>
+                        )
+                      ) : (
+                        <Link
+                          href={`/tests/${t.id}/runner`}
+                          className={`px-3.5 py-1.5 font-bold rounded-xl shadow-sm text-xs flex items-center gap-1.5 transition-all ${
+                            isLive
+                              ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-red-600/25 animate-pulse'
+                              : 'bg-brand-600 hover:bg-brand-500 text-white'
                           }`}
                         >
-                          {ended ? (
-                            'Ended'
-                          ) : draft ? (
-                            'Draft'
-                          ) : (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                              🔴 LIVE NOW
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-right">
-                        {isStudent ? (
-                          ended ? (
-                            t.attempts && t.attempts.length > 0 ? (
-                              <Link
-                                href={`/tests/${t.id}/runner?view=RESULT`}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] inline-flex items-center gap-1"
-                              >
-                                <BarChart3 className="w-3 h-3 text-brand-600" /> Result
-                              </Link>
-                            ) : (
-                              <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-semibold rounded-md">
-                                Closed
-                              </span>
-                            )
-                          ) : (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Link
-                                href={`/tests/${t.id}/runner`}
-                                className={`px-3 py-1 font-bold rounded-lg shadow-sm text-[11px] flex items-center gap-1 transition-all ${
-                                  isLive
-                                    ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-red-600/25 animate-pulse'
-                                    : 'bg-brand-600 hover:bg-brand-500 text-white'
-                                }`}
-                              >
-                                <Play className="w-3 h-3 fill-white" /> {isLive ? 'Take Live' : 'Start'}
-                              </Link>
-                            </div>
-                          )
-                        ) : (
-                          <div className="flex items-center justify-end gap-1.5">
-                            {isLive && (
-                              <Link
-                                href={`/tests/${t.id}/runner`}
-                                className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg shadow-sm text-[11px] flex items-center gap-1 transition-all animate-pulse"
-                              >
-                                <Play className="w-3 h-3 fill-white" /> Live Mode
-                              </Link>
-                            )}
-                            <Link
-                              href={`/tests/${t.id}`}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-700 font-bold rounded-lg transition-colors text-[11px]"
-                            >
-                              Manage
-                            </Link>
-                          </div>
+                          <Play className="w-3 h-3 fill-white" /> {isLive ? 'Take Live' : 'Start'}
+                        </Link>
+                      )
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {isLive && (
+                          <Link
+                            href={`/tests/${t.id}/runner`}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-sm text-xs flex items-center gap-1 transition-all animate-pulse"
+                          >
+                            <Play className="w-3 h-3 fill-white" /> Live Mode
+                          </Link>
                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <Link
+                          href={`/tests/${t.id}`}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs"
+                        >
+                          Manage
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
-                {tests.length === 0 && !isLoading && (
-                  <tr>
-                    <td colSpan={isStudent ? 4 : 6} className="py-8 text-center text-slate-400 text-xs">
-                      No examinations found in database.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {tests.length === 0 && !isLoading && (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                No examinations found in database.
+              </div>
+            )}
           </div>
         </div>
 
