@@ -664,11 +664,13 @@ export default function BatchDetailPage() {
         </div>
 
         {/* Stats Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-            <span className="text-[10px] text-slate-400 block font-medium">Enrolled Students</span>
-            <span className="text-base sm:text-lg font-extrabold text-slate-900 font-mono">{students.length}</span>
-          </div>
+        <div className={`grid ${isStudent ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'} gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100 text-xs`}>
+          {!isStudent && (
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-medium">Enrolled Students</span>
+              <span className="text-base sm:text-lg font-extrabold text-slate-900 font-mono">{students.length}</span>
+            </div>
+          )}
           <div className="p-3 rounded-2xl bg-brand-50/60 border border-brand-100">
             <span className="text-[10px] text-brand-600 block font-medium">Curriculum Subjects</span>
             <span className="text-base sm:text-lg font-extrabold text-brand-700 font-mono">{subjects.length}</span>
@@ -677,10 +679,17 @@ export default function BatchDetailPage() {
             <span className="text-[10px] text-purple-600 block font-medium">Mock Tests</span>
             <span className="text-base sm:text-lg font-extrabold text-purple-700 font-mono">{batchTests.length}</span>
           </div>
-          <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-            <span className="text-[10px] text-emerald-600 block font-medium">Faculty Teachers</span>
-            <span className="text-base sm:text-lg font-extrabold text-emerald-700 font-mono">{teachers.length}</span>
-          </div>
+          {!isStudent ? (
+            <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+              <span className="text-[10px] text-emerald-600 block font-medium">Faculty Teachers</span>
+              <span className="text-base sm:text-lg font-extrabold text-emerald-700 font-mono">{teachers.length}</span>
+            </div>
+          ) : (
+            <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100 col-span-2 sm:col-span-1">
+              <span className="text-[10px] text-emerald-600 block font-medium">Batch Enrollment</span>
+              <span className="text-base sm:text-lg font-extrabold text-emerald-700">Enrolled & Active</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -688,8 +697,10 @@ export default function BatchDetailPage() {
       <div className="flex gap-2 border-b border-slate-200 pb-px overflow-x-auto">
         {[
           { key: 'subjects', label: `Curriculum & Subjects (${subjects.length})`, icon: BookOpen },
-          { key: 'students', label: `Enrolled Students (${students.length})`, icon: Users },
-          { key: 'teachers', label: `Faculty Teachers (${teachers.length})`, icon: Users },
+          ...(!isStudent ? [
+            { key: 'students', label: `Enrolled Students (${students.length})`, icon: Users },
+            { key: 'teachers', label: `Faculty Teachers (${teachers.length})`, icon: Users },
+          ] : []),
           { key: 'tests', label: `Batch Exams (${batchTests.length})`, icon: FileCheck2 },
           ...(!isStudent ? [{ key: 'settings', label: 'Batch Settings', icon: Settings }] : []),
         ].map((t) => {
@@ -830,8 +841,8 @@ export default function BatchDetailPage() {
         </div>
       )}
 
-      {/* ── TAB 2: ENROLLED STUDENTS ROSTER ── */}
-      {activeTab === 'students' && (
+      {/* ── TAB 2: ENROLLED STUDENTS ── */}
+      {activeTab === 'students' && !isStudent && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
           {/* Toolbar */}
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1220,8 +1231,8 @@ export default function BatchDetailPage() {
         </div>
       )}
 
-      {/* ── TAB 4: ASSIGNED FACULTY TEACHERS (Exact Parity with /teachers) ── */}
-      {activeTab === 'teachers' && (
+      {/* ── TAB 4: ASSIGNED FACULTY TEACHERS ── */}
+      {activeTab === 'teachers' && !isStudent && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
           {/* Toolbar */}
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
