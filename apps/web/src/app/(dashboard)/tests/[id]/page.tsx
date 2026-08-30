@@ -539,11 +539,18 @@ export default function TestDetailPage() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
+        <div className="flex gap-2 shrink-0">
           {[
             { key: 'questions', label: `Questions (${allQuestions.length})`, icon: Layers, show: !isStudent },
-            { key: 'attempts', label: `My Attempts (${attempts?.totalAttempts ?? 0})`, icon: Clock, show: true },
+            {
+              key: 'attempts',
+              label: isStudent || isTeacher
+                ? `My Attempts (${attempts?.attempts?.length ?? attempts?.attemptCount ?? 0})`
+                : `All Attempts (${attempts?.studentCount ?? attempts?.totalAttempts ?? 0})`,
+              icon: Clock,
+              show: true,
+            },
             { key: 'leaderboard', label: `Leaderboard (${leaderboard.length})`, icon: Award, show: true },
             { key: 'analytics', label: 'Analytics & Accuracy', icon: BarChart3, show: !isStudent },
           ]
@@ -554,7 +561,7 @@ export default function TestDetailPage() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-slate-900 text-white shadow-sm'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -804,126 +811,238 @@ export default function TestDetailPage() {
 
       {/* ── TAB 3: ATTEMPTS HISTORY (multi-attempt tracking) ── */}
       {activeTab === 'attempts' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-brand-600" /> Attempt History — Each Student's Re-sits & Scores
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => downloadFile(`/tests/${testId}/export/attempts/pdf`, `attempts-${testId}.pdf`)}
-                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-                title="Download attempts history as PDF"
-              >
-                <FileText className="w-3.5 h-3.5" /> PDF
-              </button>
-              <button
-                onClick={() => downloadFile(`/tests/${testId}/export/attempts/excel`, `attempts-${testId}.xlsx`)}
-                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-                title="Download attempts history as Excel"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-              </button>
+        <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-brand-600" />
+                {isStudent || isTeacher ? 'My Examination Attempts' : "Attempt History — Each Student's Re-sits & Scores"}
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isStudent || isTeacher
+                  ? 'Track your test scores, completion time, and access solutions.'
+                  : 'Multi-attempt audit log showing every re-sit and performance breakdown.'}
+              </p>
             </div>
+
+            {!isStudent && !isTeacher && (
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => downloadFile(`/tests/${testId}/export/attempts/pdf`, `attempts-${testId}.pdf`)}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  title="Download attempts history as PDF"
+                >
+                  <FileText className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button
+                  onClick={() => downloadFile(`/tests/${testId}/export/attempts/excel`, `attempts-${testId}.xlsx`)}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                  title="Download attempts history as Excel"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                </button>
+              </div>
+            )}
           </div>
 
-          {attempts && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
-              <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Students Attempted</span>
-                <span className="text-2xl font-extrabold text-brand-700 font-mono">{attempts.studentCount}</span>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Total Attempts (re-sits included)</span>
-                <span className="text-2xl font-extrabold text-slate-900 font-mono">{attempts.totalAttempts}</span>
-              </div>
-              <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Avg Attempts / Student</span>
-                <span className="text-2xl font-extrabold text-purple-700 font-mono">
-                  {attempts.studentCount > 0 ? (attempts.totalAttempts / attempts.studentCount).toFixed(2) : '0.00'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="pb-3">Student</th>
-                  <th className="pb-3">Roll No</th>
-                  <th className="pb-3 text-center">Attempts</th>
-                  <th className="pb-3">Scores (Recent 2 & Full History)</th>
-                  <th className="pb-3 text-center">Best %</th>
-                  <th className="pb-3 text-right">Last Submitted</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {(attempts?.students || []).map((row: any) => {
-                  const sortedAttempts = [...(row.attempts || [])].sort((a: any, b: any) => (b.attemptNumber || 0) - (a.attemptNumber || 0));
-                  const recentAttempts = sortedAttempts.slice(0, 2);
-                  const extraAttemptsCount = Math.max(0, sortedAttempts.length - 2);
-                  const rollNo =
-                    row.student?.studentProfile?.rollNumber ||
-                    (row.student?.identifier && !row.student.identifier.includes('@') ? row.student.identifier : null) ||
-                    '-';
-
-                  return (
-                    <tr key={row.studentId} className="hover:bg-slate-50 transition-colors align-top">
-                      <td className="py-3.5">
-                        <div className="font-bold text-slate-900">{row.student?.fullName || 'Student'}</div>
-                        {row.student?.email && (
-                          <div className="text-[10px] text-slate-400 font-normal">{row.student.email}</div>
-                        )}
-                      </td>
-                      <td className="py-3.5 font-mono text-slate-700 font-medium">{rollNo}</td>
-                      <td className="py-3.5 text-center">
-                        <span className="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 font-bold font-mono">
-                          {row.attemptCount}
-                        </span>
-                      </td>
-                      <td className="py-3.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {recentAttempts.map((a: any) => (
-                            <span
-                              key={a.attemptId}
-                              className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
-                                a.isPassed
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border-rose-200'
-                              }`}
-                              title={`Attempt #${a.attemptNumber}: ${a.score} marks (${a.percentage}%), Duration: ${Math.floor((a.durationSeconds || 0) / 60)}m`}
-                            >
-                              #{a.attemptNumber}: {a.score ?? 0}
+          {/* Student & Teacher Personal View */}
+          {isStudent || isTeacher ? (
+            <div className="space-y-3">
+              {(!attempts?.attempts || attempts.attempts.length === 0) ? (
+                <div className="p-8 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-3">
+                  <Clock className="w-8 h-8 text-slate-400 mx-auto" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">You have not attempted this test yet</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Click the "Start / Retake Test" button above to begin your timed examination.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/tests/${testId}/runner`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" /> Start Examination
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {attempts.attempts.map((att: any) => (
+                    <div
+                      key={att.attemptId}
+                      className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm space-y-3 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-xs font-bold border border-brand-200">
+                            Attempt #{att.attemptNumber}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              att.isPassed
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}
+                          >
+                            {att.isPassed ? 'PASSED' : 'NEEDS IMPROVEMENT'}
+                          </span>
+                          {att.isAutoSubmitted && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              Auto-Submitted
                             </span>
-                          ))}
-
-                          {extraAttemptsCount > 0 && (
-                            <button
-                              onClick={() => setSelectedStudentAttempts({ ...row, sortedAttempts })}
-                              className="px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 font-mono text-[11px] font-bold border border-brand-200 flex items-center gap-1 transition-colors"
-                              title={`View complete log of all ${row.attemptCount} attempts`}
-                            >
-                              <Eye className="w-3 h-3 text-brand-600" /> +{extraAttemptsCount} more
-                            </button>
                           )}
                         </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-bold text-brand-700">{row.bestPercentage ?? 0}%</td>
-                      <td className="py-3.5 text-right text-slate-500 font-mono text-[11px]">
-                        {row.lastSubmittedAt
-                          ? new Date(row.lastSubmittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '-'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
 
-          {(!attempts || (attempts.students || []).length === 0) && (
-            <p className="text-xs text-slate-500 text-center py-6">No attempts recorded yet. Students can re-sit the test — each submission is tracked here.</p>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {att.submittedAt ? new Date(att.submittedAt).toLocaleString() : 'In Progress'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Score</span>
+                          <span className="font-bold text-brand-700 font-mono text-sm">
+                            {att.score ?? 0} / {test?.totalMarks}
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Percentage</span>
+                          <span className="font-bold text-slate-900 font-mono text-sm">{att.percentage ?? 0}%</span>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Accuracy</span>
+                          <span className="font-bold text-emerald-600 font-mono text-xs">
+                            +{att.correct ?? 0} <span className="text-rose-500 font-normal">-{att.wrong ?? 0}</span>
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Time Taken</span>
+                          <span className="font-bold text-slate-700 font-mono text-xs">
+                            {Math.floor((att.durationSeconds || 0) / 60)}m {(att.durationSeconds || 0) % 60}s
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <Link
+                          href={`/tests/${testId}/runner?view=REVIEW`}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-brand-600" /> Review Solutions
+                        </Link>
+                        <Link
+                          href={`/tests/${testId}/runner?view=ANSWER_KEY`}
+                          className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 shadow-sm flex items-center gap-1.5 transition-all"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Super Admin / Admin Full Aggregate Table View */
+            <div className="space-y-4">
+              {attempts && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
+                  <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-100">
+                    <span className="text-[10px] text-slate-500 block font-medium">Students Attempted</span>
+                    <span className="text-2xl font-extrabold text-brand-700 font-mono">{attempts.studentCount}</span>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span className="text-[10px] text-slate-500 block font-medium">Total Attempts (re-sits included)</span>
+                    <span className="text-2xl font-extrabold text-slate-900 font-mono">{attempts.totalAttempts}</span>
+                  </div>
+                  <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
+                    <span className="text-[10px] text-slate-500 block font-medium">Avg Attempts / Student</span>
+                    <span className="text-2xl font-extrabold text-purple-700 font-mono">
+                      {attempts.studentCount > 0 ? (attempts.totalAttempts / attempts.studentCount).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="min-w-[680px] w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="pb-3 min-w-[180px]">Student</th>
+                      <th className="pb-3 min-w-[90px]">Roll No</th>
+                      <th className="pb-3 min-w-[80px] text-center">Attempts</th>
+                      <th className="pb-3 min-w-[180px]">Scores (Recent 2 & History)</th>
+                      <th className="pb-3 min-w-[80px] text-center">Best %</th>
+                      <th className="pb-3 min-w-[120px] text-right">Last Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {(attempts?.students || []).map((row: any) => {
+                      const sortedAttempts = [...(row.attempts || [])].sort((a: any, b: any) => (b.attemptNumber || 0) - (a.attemptNumber || 0));
+                      const recentAttempts = sortedAttempts.slice(0, 2);
+                      const extraAttemptsCount = Math.max(0, sortedAttempts.length - 2);
+                      const rollNo =
+                        row.student?.studentProfile?.rollNumber ||
+                        (row.student?.identifier && !row.student.identifier.includes('@') ? row.student.identifier : null) ||
+                        '-';
+
+                      return (
+                        <tr key={row.studentId} className="hover:bg-slate-50 transition-colors align-top">
+                          <td className="py-3.5">
+                            <div className="font-bold text-slate-900">{row.student?.fullName || 'Student'}</div>
+                            {row.student?.email && (
+                              <div className="text-[10px] text-slate-400 font-normal">{row.student.email}</div>
+                            )}
+                          </td>
+                          <td className="py-3.5 font-mono text-slate-700 font-medium">{rollNo}</td>
+                          <td className="py-3.5 text-center">
+                            <span className="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 font-bold font-mono">
+                              {row.attemptCount}
+                            </span>
+                          </td>
+                          <td className="py-3.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {recentAttempts.map((a: any) => (
+                                <span
+                                  key={a.attemptId}
+                                  className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
+                                    a.isPassed
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                                  }`}
+                                  title={`Attempt #${a.attemptNumber}: ${a.score} marks (${a.percentage}%), Duration: ${Math.floor((a.durationSeconds || 0) / 60)}m`}
+                                >
+                                  #{a.attemptNumber}: {a.score ?? 0}
+                                </span>
+                              ))}
+
+                              {extraAttemptsCount > 0 && (
+                                <button
+                                  onClick={() => setSelectedStudentAttempts({ ...row, sortedAttempts })}
+                                  className="px-2 py-0.5 rounded-md bg-brand-50 hover:bg-brand-100 text-brand-700 font-mono text-[11px] font-bold border border-brand-200 flex items-center gap-1 transition-colors"
+                                  title={`View complete log of all ${row.attemptCount} attempts`}
+                                >
+                                  <Eye className="w-3 h-3 text-brand-600" /> +{extraAttemptsCount} more
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 text-center font-mono font-bold text-brand-700">{row.bestPercentage ?? 0}%</td>
+                          <td className="py-3.5 text-right text-slate-500 font-mono text-[11px]">
+                            {row.lastSubmittedAt
+                              ? new Date(row.lastSubmittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {(!attempts || (attempts.students || []).length === 0) && (
+                <p className="text-xs text-slate-500 text-center py-6">No attempts recorded yet. Students can re-sit the test — each submission is tracked here.</p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -953,17 +1072,17 @@ export default function TestDetailPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+            <table className="min-w-[650px] w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="pb-3">Rank</th>
-                  <th className="pb-3">Student</th>
-                  <th className="pb-3">Roll No</th>
-                  <th className="pb-3 text-center">Attempts</th>
-                  <th className="pb-3">Scores (per attempt)</th>
-                  <th className="pb-3 text-center">Best %</th>
-                  <th className="pb-3 text-right">Last Submitted</th>
+                  <th className="pb-3 min-w-[60px]">Rank</th>
+                  <th className="pb-3 min-w-[160px]">Student</th>
+                  <th className="pb-3 min-w-[80px]">Roll No</th>
+                  <th className="pb-3 min-w-[70px] text-center">Attempts</th>
+                  <th className="pb-3 min-w-[130px]">Scores (per attempt)</th>
+                  <th className="pb-3 min-w-[80px] text-center">Best %</th>
+                  <th className="pb-3 min-w-[110px] text-right">Last Submitted</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">

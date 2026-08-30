@@ -360,13 +360,25 @@ export default function SplitPaneQuestionBuilderPage() {
                       </div>
                     </div>
 
-                    {/* Start Schedule Display */}
-                    {t.startDateTime && (
-                      <div className="mt-3 px-2.5 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[11px] text-slate-500 flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 text-slate-400" />
-                        <span>Start: {new Date(t.startDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    {/* Start & End Schedule Timings Strip */}
+                    <div className="mt-3 p-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-mono text-slate-500 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 font-sans text-[10px]">Start Date & Time:</span>
+                        <span className="font-semibold text-slate-700">
+                          {t.startDateTime
+                            ? new Date(t.startDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : 'Instant Live'}
+                        </span>
                       </div>
-                    )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 font-sans text-[10px]">End Date & Time:</span>
+                        <span className="font-semibold text-slate-700">
+                          {t.endDateTime
+                            ? new Date(t.endDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : 'No Expiry'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">

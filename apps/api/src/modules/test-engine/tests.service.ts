@@ -10,7 +10,7 @@ import * as ExcelJS from 'exceljs';
 export class TestsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(instituteId?: string, roleCode?: string, batchId?: string) {
+  async findAll(instituteId?: string, roleCode?: string, batchId?: string, userId?: string) {
     if (roleCode === 'STUDENT' && batchId) {
       return this.prisma.test.findMany({
         where: {
@@ -20,7 +20,20 @@ export class TestsService {
         },
         include: {
           config: true,
-          _count: { select: { sections: true } },
+          batch: { select: { name: true, code: true } },
+          subject: { select: { name: true } },
+          sections: {
+            include: {
+              _count: { select: { questions: true } },
+            },
+          },
+          _count: { select: { attempts: true } },
+          attempts: userId
+            ? {
+                where: { studentId: userId, submittedAt: { not: null } },
+                select: { id: true, submittedAt: true, attemptNumber: true },
+              }
+            : false,
         },
         orderBy: { startDateTime: 'desc' },
       });
@@ -46,6 +59,12 @@ export class TestsService {
           },
         },
         _count: { select: { attempts: true } },
+        attempts: userId
+          ? {
+              where: { studentId: userId, submittedAt: { not: null } },
+              select: { id: true, submittedAt: true, attemptNumber: true },
+            }
+          : false,
       },
       orderBy: { createdAt: 'desc' },
     });

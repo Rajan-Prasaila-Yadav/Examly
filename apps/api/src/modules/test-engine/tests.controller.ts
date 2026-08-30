@@ -41,7 +41,7 @@ export class TestsController {
   @ApiOperation({ summary: 'List tests visible to current institute / user' })
   @RequirePermission('tests', 'read')
   async findAll(@CurrentUser() user: CurrentUserPayload) {
-    return this.testsService.findAll(user.instituteId!, user.roleCode, user.batchId);
+    return this.testsService.findAll(user.instituteId!, user.roleCode, user.batchId, user.userId);
   }
 
   @Post('ai-parse')
@@ -235,7 +235,10 @@ export class TestsController {
   @Get(':id/attempts')
   @ApiOperation({ summary: 'Get all attempts history for a test (admin) incl. count per student & each score' })
   @RequirePermission('tests', 'read')
-  async getTestAttempts(@Param('id') id: string) {
+  async getTestAttempts(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT' || user.roleCode === 'TEACHER') {
+      return this.testsService.getStudentAttempts(id, user.userId);
+    }
     return this.testsService.getTestAttempts(id);
   }
 

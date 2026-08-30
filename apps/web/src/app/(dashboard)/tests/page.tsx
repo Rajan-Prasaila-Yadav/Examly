@@ -390,6 +390,26 @@ export default function TestsPortalPage() {
                     <span className="font-bold text-emerald-600 font-mono text-[11px]">{t.passMarks}</span>
                   </div>
                 </div>
+
+                {/* Start & End Schedule Timings Strip */}
+                <div className="pt-2 text-[11px] font-mono text-slate-500 space-y-1 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-sans text-[10px]">Start Date & Time:</span>
+                    <span className="font-semibold text-slate-700">
+                      {t.startDateTime
+                        ? new Date(t.startDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'Instant Live'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-sans text-[10px]">End Date & Time:</span>
+                    <span className="font-semibold text-slate-700">
+                      {t.endDateTime
+                        ? new Date(t.endDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'No Expiry'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Action Bar */}
@@ -404,12 +424,21 @@ export default function TestsPortalPage() {
                 {/* Exam Action Button Logic */}
                 {ended ? (
                   isStudent ? (
-                    <Link
-                      href={`/tests/${t.id}/runner?view=RESULT`}
-                      className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
-                    >
-                      <BarChart3 className="w-3.5 h-3.5 text-brand-600" /> View Result
-                    </Link>
+                    t.attempts && t.attempts.length > 0 ? (
+                      <Link
+                        href={`/tests/${t.id}/runner?view=RESULT`}
+                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5 text-brand-600" /> View Result
+                      </Link>
+                    ) : (
+                      <span
+                        className="px-3 py-1.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl flex items-center gap-1 cursor-not-allowed"
+                        title="You did not attempt this examination while it was open."
+                      >
+                        <Lock className="w-3.5 h-3.5" /> Exam Ended
+                      </span>
+                    )
                   ) : (
                     <Link
                       href={`/tests/${t.id}`}
