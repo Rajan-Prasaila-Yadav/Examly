@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
 
 export interface PresignedUrlResponse {
   uploadUrl: string;
@@ -110,13 +109,15 @@ export class StorageService {
         const bucket = 'examly-media';
         const url = `${this.supabaseUrl}/storage/v1/object/${bucket}/${uniqueFileKey}`;
 
-        await axios.post(url, buffer, {
+        await fetch(url, {
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${this.supabaseServiceKey}`,
             apikey: this.supabaseServiceKey,
             'Content-Type': contentType || 'application/octet-stream',
             'x-upsert': 'true',
           },
+          body: new Uint8Array(buffer),
         });
 
         const publicUrl = `${this.supabaseUrl}/storage/v1/object/public/${bucket}/${uniqueFileKey}`;
