@@ -45,6 +45,13 @@ export default function TestDetailPage() {
     user?.role === 'Student' ||
     (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
 
+  const isTeacher =
+    user?.role === 'TEACHER' ||
+    user?.role === 'Teacher' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'TEACHER' || (user.role as any)?.code === 'TEACHER'));
+
+  const isSuperAdminOrAdmin = !isStudent && !isTeacher;
+
   const params = useParams();
   const router = useRouter();
   const testId = params.id as string;

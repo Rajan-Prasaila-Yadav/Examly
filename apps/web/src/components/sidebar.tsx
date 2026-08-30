@@ -95,8 +95,8 @@ export function Sidebar() {
 
   const roleDisplayName =
     typeof user?.role === 'object' && user?.role !== null
-      ? (user.role as any).name || (user.role as any).code || 'SUPER_ADMIN'
-      : user?.role || 'SUPER_ADMIN';
+      ? (user.role as any).name || (user.role as any).code || (isStudent ? 'STUDENT' : 'USER')
+      : user?.role || (isStudent ? 'STUDENT' : 'USER');
 
   return (
     <aside
@@ -127,56 +127,56 @@ export function Sidebar() {
         {/* Quick Collapse/Expand Button */}
         <button
           onClick={toggleCollapse}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
-          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-2.5 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
+          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
 
           return (
-            <div key={item.name} className="relative group">
+            <div
+              key={item.name}
+              className="relative"
+              onMouseEnter={() => isCollapsed && setHoveredTab(item.name)}
+              onMouseLeave={() => isCollapsed && setHoveredTab(null)}
+            >
               <Link
                 href={item.href}
-                prefetch={true}
-                onMouseEnter={() => setHoveredTab(item.name)}
-                onMouseLeave={() => setHoveredTab(null)}
-                onTouchStart={() => setHoveredTab(item.name)}
-                onTouchEnd={() => setTimeout(() => setHoveredTab(null), 1500)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 relative ${
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all relative ${
                   isActive
-                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
+                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 } ${isCollapsed ? 'justify-center px-2' : ''}`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                <Icon
+                  className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
+                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+                  }`}
+                />
+
                 {!isCollapsed && (
-                  <>
-                    <span className="flex-1 truncate">{item.name}</span>
+                  <div className="flex-1 flex items-center justify-between min-w-0">
+                    <span className="truncate">{item.name}</span>
                     {item.highlight && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-bold bg-accent-purple text-white rounded-md flex items-center gap-1 shadow-sm shrink-0">
-                        <Sparkles className="w-2.5 h-2.5" /> Split
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono shrink-0">
+                        Split
                       </span>
                     )}
-                  </>
+                  </div>
                 )}
               </Link>
 
-              {/* Touch & Hover Floating Tooltip on Collapsed Mode */}
-              {isCollapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-2 bg-slate-800/95 backdrop-blur-md border border-slate-700 text-white text-xs rounded-xl shadow-2xl pointer-events-none opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-all z-50 whitespace-nowrap">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <span>{item.name}</span>
-                    {item.highlight && (
-                      <span className="px-1 py-0.2 bg-purple-600 text-[9px] rounded">KaTeX</span>
-                    )}
-                  </div>
+              {/* Tooltip on collapsed state */}
+              {isCollapsed && hoveredTab === item.name && (
+                <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 bg-slate-950 text-white px-3 py-1.5 rounded-xl text-xs whitespace-nowrap shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                  <p className="font-bold">{item.name}</p>
                   <p className="text-[10px] text-slate-400 font-normal">{item.desc}</p>
                 </div>
               )}
@@ -193,12 +193,12 @@ export function Sidebar() {
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
               ) : (
-                user?.fullName ? user.fullName[0] : 'R'
+                user?.fullName ? user.fullName[0] : (user?.email ? user.email[0].toUpperCase() : 'U')
               )}
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-white truncate">{user?.fullName || 'Rajan Prasaila'}</p>
+                <p className="text-xs font-semibold text-white truncate">{user?.fullName || user?.email || 'User'}</p>
                 <p className="text-[10px] text-slate-400 truncate">{String(roleDisplayName)}</p>
               </div>
             )}
