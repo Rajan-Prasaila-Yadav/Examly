@@ -413,22 +413,12 @@ export default function DashboardOverviewPage() {
                         </Link>
                       )
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        {isLive && (
-                          <Link
-                            href={`/tests/${t.id}/runner`}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-sm text-xs flex items-center gap-1 transition-all animate-pulse"
-                          >
-                            <Play className="w-3 h-3 fill-white" /> Live Mode
-                          </Link>
-                        )}
-                        <Link
-                          href={`/tests/${t.id}`}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs"
-                        >
-                          Manage
-                        </Link>
-                      </div>
+                      <Link
+                        href={`/tests/${t.id}`}
+                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs"
+                      >
+                        Manage
+                      </Link>
                     )}
                   </div>
                 </div>
