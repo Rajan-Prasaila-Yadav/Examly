@@ -307,9 +307,9 @@ export default function LessonDetailPage() {
       <div className="w-full overflow-x-auto pb-1 -mb-1 custom-scrollbar">
         <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-slate-200/80 rounded-2xl w-max min-w-full sm:min-w-0">
           {[
-            { key: 'videos', label: 'Video Lectures', icon: Video, count: lesson.videos?.length || 0 },
-            { key: 'notes', label: 'PDF Notes & Handouts', icon: FileText, count: lesson.notes?.length || 0 },
-            ...(!isStudent ? [{ key: 'resources', label: 'Resource Folder Tree', icon: FolderTree, count: lesson.resources?.length || 0 }] : []),
+            { key: 'videos', label: 'Videos', icon: Video, count: lesson.videos?.length || 0 },
+            { key: 'notes', label: 'Notes', icon: FileText, count: lesson.notes?.length || 0 },
+            { key: 'resources', label: 'Resources', icon: FolderTree, count: lesson.resources?.length || 0 },
             { key: 'tests', label: 'Chapter Tests', icon: FileCheck2, count: lesson.tests?.length || 0 },
           ].map((t) => {
             const Icon = t.icon;
@@ -317,7 +317,7 @@ export default function LessonDetailPage() {
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key as any)}
-                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
                   activeTab === t.key
                     ? 'bg-white text-slate-900 shadow-sm font-extrabold'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
@@ -432,7 +432,7 @@ export default function LessonDetailPage() {
         </div>
       )}
 
-      {/* Tab 2: PDF Notes & Handouts with Full Edit/Delete CRUD */}
+      {/* Tab 2: Notes with Full Edit/Delete CRUD */}
       {activeTab === 'notes' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {(lesson.notes || []).map((n: any) => (
@@ -494,19 +494,19 @@ export default function LessonDetailPage() {
           {(!lesson.notes || lesson.notes.length === 0) && (
             <div className="col-span-full bg-white rounded-3xl border border-dashed border-slate-300 p-8 sm:p-10 text-center">
               <FileText className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-slate-800">No PDF notes uploaded yet</h3>
+              <h3 className="text-sm font-bold text-slate-800">No notes uploaded yet</h3>
               <p className="text-xs text-slate-500 mt-1">Upload study materials, formula sheets, and DPP handouts.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Tab 3: Resource Folder Tree Manager */}
-      {activeTab === 'resources' && !isStudent && (
+      {/* Tab 3: Resources */}
+      {activeTab === 'resources' && (
         <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Resource Folder Tree</h2>
+              <h2 className="text-sm font-bold text-slate-900">Lesson Resources & Study Files</h2>
               {/* Breadcrumbs */}
               <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-slate-600 flex-wrap">
                 {folderBreadcrumbs.map((crumb, idx) => (
