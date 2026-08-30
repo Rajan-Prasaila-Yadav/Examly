@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   FileCheck2,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/lib/toast-context';
@@ -39,6 +40,7 @@ export default function BatchesPage() {
 
   const [batches, setBatches] = useState<any[]>(cachedBatches);
   const [isLoading, setIsLoading] = useState(cachedBatches.length === 0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -78,51 +80,33 @@ export default function BatchesPage() {
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const tempId = `temp-${Date.now()}`;
-    const newBatch = {
-      id: tempId,
-      name,
-      code: code || `BATCH-${Date.now()}`,
-      description,
-      priceNpr: parseInt(priceNpr, 10) || 0,
-      status: 'ACTIVE',
-      subjects: [],
-      _count: { studentProfiles: 0, tests: 0 },
-    };
+    if (!name.trim()) return;
 
-    // Optimistic instant UI update
-    setBatches((prev) => [newBatch, ...prev]);
+    setIsSubmitting(true);
+    const loadingId = toast.loading('Creating batch...', `Setting up ${name}`);
     setIsCreateOpen(false);
-    setName('');
-    setCode('');
-    setDescription('');
 
-    const toastId = toast.loading('Creating batch...', `Setting up ${newBatch.name}`);
     try {
       const res = await api.post('/batches', {
-        name: newBatch.name,
-        code: newBatch.code,
-        description: newBatch.description,
-        priceNpr: newBatch.priceNpr,
+        name,
+        code: code || `BATCH-${Date.now()}`,
+        description,
+        priceNpr: parseInt(priceNpr, 10) || 0,
       });
-      if (res.data) {
-        setBatches((prev) => prev.map((b) => (b.id === tempId ? res.data : b)));
-        toast.updateToast(toastId, {
-          type: 'success',
-          title: 'Batch Created Successfully!',
-          message: `${res.data.name} (${res.data.code}) is now ready.`,
-          duration: 4000,
-        });
-        fetchBatches();
-      }
+
+      setName('');
+      setCode('');
+      setDescription('');
+
+      toast.dismissToast(loadingId);
+      toast.success('Batch Created Successfully!', `${res.data?.name || name} is now active.`);
+      await fetchBatches();
     } catch (e: any) {
-      setBatches((prev) => prev.filter((b) => b.id !== tempId));
-      toast.updateToast(toastId, {
-        type: 'error',
-        title: 'Failed to create batch',
-        message: e.response?.data?.message || 'Please check input data',
-        duration: 5000,
-      });
+      toast.dismissToast(loadingId);
+      toast.error('Failed to create batch', e.response?.data?.message || 'Please check input data');
+      await fetchBatches();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -140,46 +124,48 @@ export default function BatchesPage() {
     if (!editingBatch) return;
 
     const targetId = editingBatch.id;
-    const updatedPayload = {
-      name: editName,
-      code: editCode,
-      description: editDesc,
-      priceNpr: parseInt(editPrice, 10) || 0,
-      status: editStatus,
-    };
-
-    // Optimistic instant UI update
-    setBatches((prev) =>
-      prev.map((b) => (b.id === targetId ? { ...b, ...updatedPayload } : b)),
-    );
+    const targetName = editName;
+    setIsSubmitting(true);
+    const loadingId = toast.loading('Updating batch...', `Saving changes to ${targetName}`);
     setEditingBatch(null);
-    toast.loading('Updating batch...', `Saving changes to ${updatedPayload.name}`);
 
     try {
-      await api.put(`/batches/${targetId}`, updatedPayload);
-      toast.success('Batch Updated!', `${updatedPayload.name} saved successfully.`);
+      await api.put(`/batches/${targetId}`, {
+        name: editName,
+        code: editCode,
+        description: editDesc,
+        priceNpr: parseInt(editPrice, 10) || 0,
+        status: editStatus,
+      });
+
+      toast.dismissToast(loadingId);
+      toast.success('Batch Updated Successfully!', `${targetName} saved.`);
+      await fetchBatches();
     } catch (e: any) {
-      fetchBatches();
+      toast.dismissToast(loadingId);
       toast.error('Failed to update batch', e.response?.data?.message || 'Error occurred');
+      await fetchBatches();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleHide = async (b: any) => {
     const nextStatus = b.status === 'HIDDEN' ? 'ACTIVE' : 'HIDDEN';
-    // Optimistic instant UI update
-    setBatches((prev) =>
-      prev.map((item) => (item.id === b.id ? { ...item, status: nextStatus } : item)),
-    );
+    const loadingId = toast.loading('Updating visibility...', `${b.name} → ${nextStatus}`);
 
     try {
       await api.put(`/batches/${b.id}`, { status: nextStatus });
+      toast.dismissToast(loadingId);
       toast.success(
         nextStatus === 'HIDDEN' ? 'Batch Hidden' : 'Batch Activated',
         `${b.name} is now ${nextStatus === 'HIDDEN' ? 'hidden from student view' : 'visible to enrolled students'}.`,
       );
+      await fetchBatches();
     } catch (e) {
-      fetchBatches();
+      toast.dismissToast(loadingId);
       toast.error('Failed to toggle status');
+      await fetchBatches();
     }
   };
 
@@ -187,18 +173,18 @@ export default function BatchesPage() {
     if (!deletingBatch) return;
     const targetId = deletingBatch.id;
     const batchName = deletingBatch.name;
-
-    // Optimistic instant UI update
-    setBatches((prev) => prev.filter((b) => b.id !== targetId));
     setDeletingBatch(null);
-    toast.loading('Deleting batch...', `Archiving ${batchName}`);
+    const loadingId = toast.loading('Deleting batch...', `Archiving ${batchName}`);
 
     try {
       await api.delete(`/batches/${targetId}`);
-      toast.success('Batch Deleted', `${batchName} has been soft deleted.`);
+      toast.dismissToast(loadingId);
+      toast.success('Batch Deleted Successfully', `${batchName} has been soft deleted.`);
+      await fetchBatches();
     } catch (e) {
-      fetchBatches();
+      toast.dismissToast(loadingId);
       toast.error('Failed to delete batch');
+      await fetchBatches();
     }
   };
 
@@ -424,9 +410,11 @@ export default function BatchesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md shadow-brand-600/20"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-xl shadow-md shadow-brand-600/20 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Save Batch
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  {isSubmitting ? 'Creating Batch...' : 'Save Batch'}
                 </button>
               </div>
             </form>
@@ -512,9 +500,11 @@ export default function BatchesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 disabled:opacity-60 rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Update Batch
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  {isSubmitting ? 'Updating Batch...' : 'Update Batch'}
                 </button>
               </div>
             </form>

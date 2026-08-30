@@ -156,48 +156,52 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
   return (
     <div
       aria-live="polite"
-      className="fixed top-5 right-5 z-[999999] flex flex-col gap-3 max-w-md w-[calc(100vw-2.5rem)] sm:w-96 pointer-events-none"
+      className="fixed top-6 right-6 z-[999999] flex flex-col gap-3 max-w-md w-[calc(100vw-3rem)] sm:w-[400px] pointer-events-none"
     >
       {toasts.map((toast) => {
         let bg = 'bg-slate-900 text-white border-slate-700 shadow-2xl shadow-slate-950/60';
         let Icon = Info;
-        let iconColor = 'text-sky-400';
+        let iconColor = 'text-sky-300';
+        let badgeBg = 'bg-white/15';
 
         if (toast.type === 'success') {
-          bg = 'bg-slate-900 text-white border-emerald-500/60 shadow-2xl shadow-emerald-950/50';
+          bg = 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400/80 shadow-2xl shadow-emerald-900/50';
           Icon = CheckCircle2;
-          iconColor = 'text-emerald-400';
+          iconColor = 'text-white';
+          badgeBg = 'bg-white/20';
         } else if (toast.type === 'error') {
-          bg = 'bg-slate-900 text-white border-rose-500/60 shadow-2xl shadow-rose-950/50';
+          bg = 'bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-400/80 shadow-2xl shadow-rose-900/50';
           Icon = AlertCircle;
-          iconColor = 'text-rose-400';
+          iconColor = 'text-white';
+          badgeBg = 'bg-white/20';
         } else if (toast.type === 'loading') {
-          bg = 'bg-slate-900 text-white border-brand-500/60 shadow-2xl shadow-brand-950/50';
+          bg = 'bg-slate-900 text-white border-brand-500 shadow-2xl shadow-slate-950/80 ring-2 ring-brand-500/30';
           Icon = Loader2;
           iconColor = 'text-brand-400 animate-spin';
+          badgeBg = 'bg-brand-500/20';
         }
 
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto p-4 rounded-2xl border-2 backdrop-blur-2xl transition-all duration-300 flex items-start gap-3.5 transform translate-y-0 opacity-100 ${bg}`}
+            className={`pointer-events-auto p-4 rounded-2xl border-2 backdrop-blur-2xl transition-all duration-300 flex items-start gap-3.5 shadow-2xl animate-in slide-in-from-top-4 fade-in ${bg}`}
           >
-            <div className="p-1 rounded-xl bg-white/10 shrink-0 mt-0.5">
+            <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${badgeBg}`}>
               <Icon className={`w-5 h-5 ${iconColor}`} />
             </div>
             <div className="flex-1 min-w-0 pr-1">
-              <h4 className="text-xs sm:text-sm font-bold leading-tight text-white tracking-wide">
+              <h4 className="text-xs sm:text-sm font-extrabold leading-tight text-white tracking-wide">
                 {toast.title}
               </h4>
               {toast.message && (
-                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed break-words font-medium">
+                <p className="text-xs text-white/90 mt-1 leading-relaxed break-words font-medium">
                   {toast.message}
                 </p>
               )}
             </div>
             <button
               onClick={() => onDismiss(toast.id)}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all shrink-0"
+              className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-xl transition-all shrink-0 cursor-pointer"
               title="Close notification"
             >
               <X className="w-4 h-4" />
