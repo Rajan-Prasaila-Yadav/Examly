@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { CardGridSkeleton, TableSkeleton } from '@/components/skeleton';
 import {
   Users,
   Plus,
@@ -413,9 +414,16 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        {/* ── VIEW MODE 1: CARDS GRID VIEW (DEFAULT) ── */}
-        {viewMode === 'grid' && (
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* ── LOADING SKELETON ── */}
+        {isLoading ? (
+          <div className="p-5">
+            {viewMode === 'grid' ? <CardGridSkeleton count={6} /> : <TableSkeleton rows={6} />}
+          </div>
+        ) : (
+          <>
+            {/* ── VIEW MODE 1: CARDS GRID VIEW (DEFAULT) ── */}
+            {viewMode === 'grid' && (
+              <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {students.map((stu) => {
               const currentBatch = stu.studentProfile?.batch || batches.find((b: any) => b.id === stu.studentProfile?.batchId);
               const currentBatchName = currentBatch ? currentBatch.name : 'Unassigned Batch';
@@ -681,6 +689,8 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
+        )}
+          </>
         )}
       </div>
 

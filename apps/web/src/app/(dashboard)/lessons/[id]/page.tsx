@@ -5,28 +5,31 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { getYouTubeThumbnailUrl, getYouTubeVideoId } from '@/lib/video-utils';
+import { useAuth } from '@/lib/auth-context';
+import { DetailPageSkeleton } from '@/components/skeleton';
 import {
+  FolderTree,
+  Plus,
   Video,
   FileText,
-  FolderTree,
-  FileCheck2,
-  Plus,
-  ArrowLeft,
+  ChevronRight,
+  Folder,
   Play,
   Download,
-  Folder,
-  Trash2,
+  BookOpen,
+  Sparkles,
+  ArrowLeft,
   Edit2,
+  Trash2,
+  File,
+  Upload,
+  Lock,
+  FileCheck2,
   CheckCircle2,
   X,
   ExternalLink,
-  Sparkles,
-  ChevronRight,
   AlertTriangle,
-  File,
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
 
 export default function LessonDetailPage() {
   const { user } = useAuth();
@@ -66,7 +69,7 @@ export default function LessonDetailPage() {
   const [resourceFileUrl, setResourceFileUrl] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderBreadcrumbs, setFolderBreadcrumbs] = useState<{ id: string | null; title: string }[]>([
-    { id: null, title: 'Root Library' },
+    { id: null, title: 'Resources' },
   ]);
 
   // Lesson Edit Modal
@@ -215,11 +218,7 @@ export default function LessonDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!lesson) {

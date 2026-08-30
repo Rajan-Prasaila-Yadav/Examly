@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { StatCardSkeleton } from '@/components/skeleton';
 import {
   GraduationCap,
   Users,
@@ -265,7 +266,15 @@ export default function DashboardOverviewPage() {
 
       {/* Stat Metric Cards (100% Live Database Numbers) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {activeStats.map((item) => {
+        {isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          activeStats.map((item) => {
           const Icon = item.icon;
           const content = (
             <div
@@ -299,7 +308,7 @@ export default function DashboardOverviewPage() {
             );
           }
           return content;
-        })}
+        }))}
       </div>
 
       {/* Main Grid: Live Mock Tests & Quick Actions */}

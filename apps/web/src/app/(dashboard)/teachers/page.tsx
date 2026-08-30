@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { CardGridSkeleton, TableSkeleton } from '@/components/skeleton';
 import {
   UserSquare2,
   Plus,
@@ -288,8 +289,15 @@ export default function TeachersPage() {
           </div>
         </div>
 
-        {/* ── VIEW MODE 1: LIST / TABLE VIEW (DEFAULT) ── */}
-        {viewMode === 'list' && (
+        {/* ── LOADING SKELETON ── */}
+        {isLoading ? (
+          <div className="p-5">
+            {viewMode === 'grid' ? <CardGridSkeleton count={6} /> : <TableSkeleton rows={6} />}
+          </div>
+        ) : (
+          <>
+            {/* ── VIEW MODE 1: LIST / TABLE VIEW (DEFAULT) ── */}
+            {viewMode === 'list' && (
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead>
@@ -526,6 +534,8 @@ export default function TeachersPage() {
               </div>
             ))}
           </div>
+        )}
+          </>
         )}
       </div>
 

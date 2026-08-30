@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { CardGridSkeleton } from '@/components/skeleton';
 import {
   FileCheck2,
   Plus,
@@ -276,8 +277,11 @@ export default function TestsPortalPage() {
       </div>
 
       {/* Tests Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredTests.map((t) => {
+      {isLoading ? (
+        <CardGridSkeleton count={6} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredTests.map((t) => {
           const ended = isTestEnded(t);
           const draft = isTestDraft(t);
           const live = isTestLive(t);

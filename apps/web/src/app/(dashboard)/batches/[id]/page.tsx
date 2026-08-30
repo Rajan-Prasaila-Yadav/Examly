@@ -37,9 +37,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Lock,
-  UserSquare2,
-} from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { DetailPageSkeleton } from '@/components/skeleton';
 
 const batchDetailCache = new Map<string, any>();
 
@@ -137,19 +136,32 @@ export default function BatchDetailPage() {
 
   const fetchBatchDetail = async () => {
     try {
-      const [batchRes, studentsRes, teachersRes, testsRes, allBatchesRes] = await Promise.all([
+      const [batchRes, studentsRes, teachersRes, testsRes, allBatchesRes, allTeachersRes] = await Promise.all([
         api.get(`/batches/${batchId}`),
         api.get(`/batches/${batchId}/students`).catch(() => ({ data: [] })),
         api.get(`/batches/${batchId}/teachers`).catch(() => ({ data: [] })),
         api.get(`/batches/${batchId}/tests`).catch(() => ({ data: [] })),
         api.get('/batches').catch(() => ({ data: [] })),
+        api.get('/users/teachers').catch(() => ({ data: [] })),
       ]);
+
+      const fetchedStudents = (studentsRes.data && studentsRes.data.length > 0)
+        ? studentsRes.data
+        : (batchRes.data?.students || []).map((s: any) => s.user ? { ...s.user, studentProfile: s } : s);
+
+      const fetchedTeachers = (teachersRes.data && teachersRes.data.length > 0)
+        ? teachersRes.data
+        : (allTeachersRes.data || []);
+
+      const fetchedTests = (testsRes.data && testsRes.data.length > 0)
+        ? testsRes.data
+        : (batchRes.data?.tests || []);
 
       batchDetailCache.set(batchId, {
         batch: batchRes.data,
-        students: studentsRes.data || [],
-        teachers: teachersRes.data || [],
-        tests: testsRes.data || [],
+        students: fetchedStudents,
+        teachers: fetchedTeachers,
+        tests: fetchedTests,
         allBatches: allBatchesRes.data || [],
       });
 
@@ -166,9 +178,9 @@ export default function BatchDetailPage() {
         setSettingsEndDate(new Date(batchRes.data.endDate).toISOString().slice(0, 10));
       }
 
-      setStudents(studentsRes.data || []);
-      setTeachers(teachersRes.data || []);
-      setBatchTests(testsRes.data || []);
+      setStudents(fetchedStudents);
+      setTeachers(fetchedTeachers);
+      setBatchTests(fetchedTests);
       setAllBatches(allBatchesRes.data || []);
     } catch (e) {
       console.error(e);
@@ -568,11 +580,7 @@ export default function BatchDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!batch) {

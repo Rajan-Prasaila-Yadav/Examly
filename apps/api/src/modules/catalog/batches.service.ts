@@ -74,6 +74,15 @@ export class BatchesService {
           },
           orderBy: { sortOrder: 'asc' },
         },
+        students: {
+          include: {
+            user: true,
+          },
+        },
+        tests: {
+          where: { status: { not: RecordStatus.DELETED } },
+        },
+        _count: { select: { students: true, tests: true } },
       },
     });
 
@@ -126,7 +135,7 @@ export class BatchesService {
   }
 
   async getStudents(batchId: string) {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         studentProfile: { batchId },
         status: { not: RecordStatus.DELETED },
@@ -139,6 +148,26 @@ export class BatchesService {
       },
       orderBy: { fullName: 'asc' },
     });
+
+    if (users.length === 0) {
+      const profiles = await this.prisma.studentProfile.findMany({
+        where: { batchId },
+        include: {
+          user: true,
+          batch: { select: { id: true, name: true, code: true } },
+        },
+      });
+
+      return profiles
+        .filter((p) => p.user && p.user.status !== RecordStatus.DELETED)
+        .map((p) => ({
+          ...p.user,
+          studentProfile: p,
+          _count: { testAttempts: 0 },
+        }));
+    }
+
+    return users;
   }
 
   async enrollStudents(batchId: string, studentIds: string[]) {
@@ -171,7 +200,11 @@ export class BatchesService {
   async getTeachers(batchId: string) {
     return this.prisma.user.findMany({
       where: {
-        role: { code: 'TEACHER' },
+        OR: [
+          { role: { code: { in: ['TEACHER', 'Teacher', 'FACULTY', 'Faculty'] } } },
+          { role: { name: { in: ['TEACHER', 'Teacher', 'FACULTY', 'Faculty'] } } },
+          { teacherProfile: { isNot: null } },
+        ],
         status: { not: RecordStatus.DELETED },
       },
       include: {

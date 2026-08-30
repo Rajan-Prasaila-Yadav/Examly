@@ -24,6 +24,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { CardGridSkeleton } from '@/components/skeleton';
 
 let cachedBatches: any[] = [];
 
@@ -203,14 +204,17 @@ export default function BatchesPage() {
       </div>
 
       {/* Batch Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {batches.map((b) => (
-          <div
-            key={b.id}
-            className={`bg-white rounded-3xl border p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group ${
-              b.status === 'HIDDEN' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/90'
-            }`}
-          >
+      {isLoading ? (
+        <CardGridSkeleton count={6} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {batches.map((b) => (
+            <div
+              key={b.id}
+              className={`bg-white rounded-3xl border p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group ${
+                b.status === 'HIDDEN' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/90'
+              }`}
+            >
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
