@@ -306,6 +306,8 @@ export default function TestsPortalPage() {
                   ? 'border-slate-200 bg-slate-50/40 opacity-95'
                   : draft
                   ? 'border-amber-200 bg-amber-50/20'
+                  : live
+                  ? 'border-red-300 ring-2 ring-red-500/20 bg-gradient-to-b from-red-50/20 to-white shadow-md'
                   : 'border-slate-200'
               }`}
             >
@@ -318,16 +320,16 @@ export default function TestsPortalPage() {
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {ended ? (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-rose-500" /> EXAM ENDED
+                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-500" /> EXAM ENDED
                       </span>
                     ) : draft ? (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
                         ○ DRAFT
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> LIVE
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-600 text-white shadow-md shadow-red-600/30 border border-red-600 flex items-center gap-1.5 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" /> 🔴 LIVE NOW
                       </span>
                     )}
 
@@ -338,7 +340,7 @@ export default function TestsPortalPage() {
                           onClick={() => handleTogglePublish(t.id, t.isPublished)}
                           className={`p-1 rounded-md transition-colors ${
                             t.isPublished
-                              ? 'text-emerald-600 hover:bg-emerald-50'
+                              ? 'text-red-600 hover:bg-red-50'
                               : 'text-amber-600 hover:bg-amber-50'
                           }`}
                           title={t.isPublished ? 'Unpublish to Draft' : 'Publish Live'}
@@ -394,9 +396,9 @@ export default function TestsPortalPage() {
               <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                 <Link
                   href={`/tests/${t.id}`}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1"
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-xl transition-all"
                 >
-                  View Details <ChevronRight className="w-3 h-3" />
+                  View Details
                 </Link>
 
                 {/* Exam Action Button Logic */}
@@ -432,9 +434,13 @@ export default function TestsPortalPage() {
                 ) : (
                   <Link
                     href={`/tests/${t.id}/runner`}
-                    className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                    className={`px-4 py-2 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                      live
+                        ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-600/25 animate-pulse'
+                        : 'bg-brand-600 hover:bg-brand-500 shadow-brand-600/20'
+                    }`}
                   >
-                    <Play className="w-3.5 h-3.5 fill-white" /> Start Test
+                    <Play className="w-3.5 h-3.5 fill-white" /> {live ? 'Take Live Exam' : 'Start Test'}
                   </Link>
                 )}
               </div>

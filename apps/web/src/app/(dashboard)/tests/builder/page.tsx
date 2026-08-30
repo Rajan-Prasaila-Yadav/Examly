@@ -280,11 +280,16 @@ export default function SplitPaneQuestionBuilderPage() {
             tests.map((t) => {
               const questionCount =
                 t.sections?.reduce((sum: number, s: any) => sum + (s._count?.questions || s.questions?.length || 0), 0) || 0;
+              const isLive = t.isPublished;
 
               return (
                 <div
                   key={t.id}
-                  className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+                  className={`bg-white rounded-3xl border p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group ${
+                    isLive
+                      ? 'border-red-300 ring-2 ring-red-500/20 bg-gradient-to-b from-red-50/20 to-white shadow-md'
+                      : 'border-slate-200'
+                  }`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -295,13 +300,19 @@ export default function SplitPaneQuestionBuilderPage() {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleTogglePublish(t.id)}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                            t.isPublished
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition-all ${
+                            isLive
+                              ? 'bg-red-600 text-white shadow-md shadow-red-600/30 border-red-600 flex items-center gap-1.5 animate-pulse'
                               : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}
                         >
-                          {t.isPublished ? '● Live Published' : '○ Draft'}
+                          {isLive ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" /> 🔴 LIVE NOW
+                            </>
+                          ) : (
+                            '○ Draft'
+                          )}
                         </button>
 
                         <button
@@ -368,9 +379,13 @@ export default function SplitPaneQuestionBuilderPage() {
 
                     <Link
                       href={`/tests/${t.id}/runner`}
-                      className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
+                      className={`px-4 py-2 text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition-all ${
+                        isLive
+                          ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-red-600/25 animate-pulse'
+                          : 'bg-brand-600 hover:bg-brand-500 text-white shadow-brand-600/20'
+                      }`}
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" /> Take Exam
+                      <Play className="w-3.5 h-3.5 fill-white" /> {isLive ? 'Take Live Exam' : 'Take Exam'}
                     </Link>
                   </div>
                 </div>
