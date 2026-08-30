@@ -93,15 +93,33 @@ export class BatchesService {
     return batch;
   }
 
-  async create(instituteId: string, data: any) {
+  async create(instituteId: string | undefined, data: any) {
+    let targetInstituteId = instituteId;
+    if (!targetInstituteId) {
+      const defaultInst = await this.prisma.institute.findFirst({
+        orderBy: { createdAt: 'asc' },
+      });
+      targetInstituteId = defaultInst?.id;
+    }
+
+    if (!targetInstituteId) {
+      const newInst = await this.prisma.institute.create({
+        data: {
+          name: 'Examly Institute',
+          slug: 'examly-main',
+        },
+      });
+      targetInstituteId = newInst.id;
+    }
+
     return this.prisma.batch.create({
       data: {
-        instituteId,
+        instituteId: targetInstituteId,
         name: data.name,
         code: data.code,
         description: data.description,
         imageUrl: data.imageUrl,
-        priceNpr: data.priceNpr || 0,
+        priceNpr: data.priceNpr ? Number(data.priceNpr) : 0,
         startDate: data.startDate ? new Date(data.startDate) : null,
         endDate: data.endDate ? new Date(data.endDate) : null,
         status: data.status || RecordStatus.ACTIVE,
