@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { CardGridSkeleton } from '@/components/skeleton';
 import {
   FileCheck2,
@@ -32,6 +33,7 @@ import {
 
 export default function TestsPortalPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const isStudent =
     user?.role === 'STUDENT' ||
     user?.role === 'Student' ||
@@ -117,13 +119,14 @@ export default function TestsPortalPage() {
 
   // Toggle Publish Status
   const handleTogglePublish = async (testId: string, currentPublished: boolean) => {
+    const nextPublished = !currentPublished;
     setTests((prev) =>
       prev.map((t) =>
         t.id === testId
           ? {
               ...t,
-              isPublished: !currentPublished,
-              testStatus: !currentPublished ? 'LIVE' : 'DRAFT',
+              isPublished: nextPublished,
+              testStatus: nextPublished ? 'LIVE' : 'DRAFT',
             }
           : t,
       ),
@@ -131,8 +134,12 @@ export default function TestsPortalPage() {
     try {
       await api.post(`/tests/${testId}/publish`);
       api.invalidateCache('/tests');
+      toast.success(
+        nextPublished ? 'Test Published Live!' : 'Test Moved to Drafts',
+        nextPublished ? 'Students can now take this examination.' : 'Hidden from students until republished.',
+      );
     } catch (e) {
-      alert('Failed to update publish status');
+      toast.error('Failed to update publish status');
       fetchTests();
     }
   };
@@ -153,6 +160,7 @@ export default function TestsPortalPage() {
     if (!editingTest) return;
 
     setIsSavingEdit(true);
+    toast.loading('Updating test...', `Saving ${editTitle}`);
     try {
       await api.put(`/tests/${editingTest.id}`, {
         title: editTitle,
@@ -179,8 +187,9 @@ export default function TestsPortalPage() {
 
       setEditingTest(null);
       api.invalidateCache('/tests');
+      toast.success('Test Updated!', `${editTitle} updated successfully.`);
     } catch (e) {
-      alert('Failed to update test');
+      toast.error('Failed to update test');
     } finally {
       setIsSavingEdit(false);
     }
@@ -189,14 +198,17 @@ export default function TestsPortalPage() {
   // Delete Test
   const handleConfirmDelete = async () => {
     if (!deletingTest) return;
+    const testTitle = deletingTest.title;
     setIsDeleting(true);
+    toast.loading('Deleting test...', `Removing ${testTitle}`);
     try {
       setTests((prev) => prev.filter((t) => t.id !== deletingTest.id));
       await api.delete(`/tests/${deletingTest.id}`);
       setDeletingTest(null);
       api.invalidateCache('/tests');
+      toast.success('Test Deleted', `${testTitle} was removed.`);
     } catch (e) {
-      alert('Failed to delete test');
+      toast.error('Failed to delete test');
       fetchTests();
     } finally {
       setIsDeleting(false);

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { CardGridSkeleton, TableSkeleton } from '@/components/skeleton';
 import {
   UserSquare2,
@@ -36,6 +37,7 @@ let cachedTeacherBatches: any[] = [];
 export default function TeachersPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const toast = useToast();
   const isStudent =
     user?.role === 'STUDENT' ||
     user?.role === 'Student' ||
@@ -163,6 +165,7 @@ export default function TeachersPage() {
           ),
         );
 
+        toast.loading('Saving teacher...', `Updating ${fullName}`);
         await api.put(`/users/teachers/${editingTeacher.id}`, {
           fullName,
           email,
@@ -172,7 +175,9 @@ export default function TeachersPage() {
           specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
           avatarUrl,
         });
+        toast.success('Teacher Updated!', `${fullName} saved successfully.`);
       } else {
+        toast.loading('Onboarding teacher...', `Adding ${fullName}`);
         const res = await api.post('/users/teachers', {
           fullName,
           email,
@@ -182,13 +187,16 @@ export default function TeachersPage() {
           specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
           avatarUrl,
         });
-        alert(`Teacher onboarded! Temporary Password: ${res.data.rawPassword}`);
+        toast.success(
+          'Teacher Onboarded!',
+          `Credentials sent: ${email || phone} • Temp Pass: ${res.data?.rawPassword || 'Set by email'}`,
+        );
         fetchTeachers();
       }
       setIsModalOpen(false);
       setEditingTeacher(null);
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Failed to save teacher');
+      toast.error('Failed to save teacher', e.response?.data?.message || 'Error occurred');
       fetchTeachers();
     }
   };
@@ -201,8 +209,12 @@ export default function TeachersPage() {
     );
     try {
       await api.put(`/users/${teacherId}/status`, { status: nextStatus });
+      toast.success(
+        nextStatus === 'BLOCKED' ? 'Faculty Suspended' : 'Faculty Reactivated',
+        `Account is now ${nextStatus === 'BLOCKED' ? 'blocked from platform' : 'active'}.`,
+      );
     } catch (e) {
-      alert('Failed to update teacher status');
+      toast.error('Failed to update teacher status');
       fetchTeachers();
     }
   };
@@ -210,13 +222,17 @@ export default function TeachersPage() {
   const handleDeleteTeacher = async () => {
     if (!deletingTeacher) return;
     const targetId = deletingTeacher.id;
+    const teacherName = deletingTeacher.fullName;
     // Optimistic update
     setTeachers((prev) => prev.filter((t) => t.id !== targetId));
     setDeletingTeacher(null);
+    toast.loading('Deleting faculty member...', `Removing ${teacherName}`);
+
     try {
       await api.put(`/users/${targetId}/status`, { status: 'DELETED' });
+      toast.success('Faculty Member Deleted', `${teacherName} was removed from the roster.`);
     } catch (e) {
-      alert('Failed to delete teacher');
+      toast.error('Failed to delete teacher');
       fetchTeachers();
     }
   };

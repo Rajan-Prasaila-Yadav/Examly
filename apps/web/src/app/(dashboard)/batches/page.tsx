@@ -24,12 +24,14 @@ import {
   FileText,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { CardGridSkeleton } from '@/components/skeleton';
 
 let cachedBatches: any[] = [];
 
 export default function BatchesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const isStudent =
     user?.role === 'STUDENT' ||
     user?.role === 'Student' ||
@@ -95,6 +97,7 @@ export default function BatchesPage() {
     setCode('');
     setDescription('');
 
+    toast.loading('Creating batch...', `Setting up ${newBatch.name}`);
     try {
       const res = await api.post('/batches', {
         name: newBatch.name,
@@ -104,10 +107,11 @@ export default function BatchesPage() {
       });
       if (res.data) {
         setBatches((prev) => prev.map((b) => (b.id === tempId ? res.data : b)));
+        toast.success('Batch Created!', `${res.data.name} is now live.`);
       }
-    } catch (e) {
+    } catch (e: any) {
       setBatches((prev) => prev.filter((b) => b.id !== tempId));
-      alert('Failed to create batch');
+      toast.error('Failed to create batch', e.response?.data?.message || 'Please check input data');
     }
   };
 
@@ -138,12 +142,14 @@ export default function BatchesPage() {
       prev.map((b) => (b.id === targetId ? { ...b, ...updatedPayload } : b)),
     );
     setEditingBatch(null);
+    toast.loading('Updating batch...', `Saving changes to ${updatedPayload.name}`);
 
     try {
       await api.put(`/batches/${targetId}`, updatedPayload);
-    } catch (e) {
+      toast.success('Batch Updated!', `${updatedPayload.name} saved successfully.`);
+    } catch (e: any) {
       fetchBatches();
-      alert('Failed to update batch');
+      toast.error('Failed to update batch', e.response?.data?.message || 'Error occurred');
     }
   };
 
@@ -156,25 +162,32 @@ export default function BatchesPage() {
 
     try {
       await api.put(`/batches/${b.id}`, { status: nextStatus });
+      toast.success(
+        nextStatus === 'HIDDEN' ? 'Batch Hidden' : 'Batch Activated',
+        `${b.name} is now ${nextStatus === 'HIDDEN' ? 'hidden from student view' : 'visible to enrolled students'}.`,
+      );
     } catch (e) {
       fetchBatches();
-      alert('Failed to toggle status');
+      toast.error('Failed to toggle status');
     }
   };
 
   const handleDeleteBatch = async () => {
     if (!deletingBatch) return;
     const targetId = deletingBatch.id;
+    const batchName = deletingBatch.name;
 
     // Optimistic instant UI update
     setBatches((prev) => prev.filter((b) => b.id !== targetId));
     setDeletingBatch(null);
+    toast.loading('Deleting batch...', `Archiving ${batchName}`);
 
     try {
       await api.delete(`/batches/${targetId}`);
+      toast.success('Batch Deleted', `${batchName} has been soft deleted.`);
     } catch (e) {
       fetchBatches();
-      alert('Failed to delete batch');
+      toast.error('Failed to delete batch');
     }
   };
 

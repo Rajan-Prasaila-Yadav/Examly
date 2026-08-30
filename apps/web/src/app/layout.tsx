@@ -2,6 +2,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/auth-context';
+import { ToastProvider } from '@/lib/toast-context';
 
 export const metadata: Metadata = {
   title: 'Examly — Enterprise Examination & Learning Platform',
@@ -29,7 +30,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

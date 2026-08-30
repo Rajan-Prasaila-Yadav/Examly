@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { CardGridSkeleton, TableSkeleton } from '@/components/skeleton';
 import {
   Users,
@@ -41,6 +42,7 @@ let cachedStudentsBatches: any[] = [];
 export default function StudentsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const toast = useToast();
   const isStudent =
     user?.role === 'STUDENT' ||
     user?.role === 'Student' ||
@@ -178,23 +180,29 @@ export default function StudentsPage() {
       ),
     );
 
+    const studentName = assigningStudent.fullName;
+    const batchName = chosenBatch ? chosenBatch.name : 'Unassigned';
     setAssigningStudent(null);
+    toast.loading('Assigning batch...', `Transferring ${studentName} to ${batchName}`);
 
     try {
       if (!targetBatchId) {
         // Unassign batch
         await api.put(`/users/students/${studentId}`, { batchId: null });
+        toast.success('Batch Unassigned', `${studentName} is now unassigned.`);
       } else {
         await api.put(`/users/students/${studentId}/batch`, { batchId: targetBatchId });
+        toast.success('Batch Assigned!', `${studentName} enrolled in ${batchName}.`);
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Failed to assign batch');
+      toast.error('Failed to assign batch', e.response?.data?.message || 'Error occurred');
       fetchStudents();
     }
   };
 
   const handleUnassignStudent = async (stu: any) => {
     const studentId = stu.id;
+    const studentName = stu.fullName;
     // Optimistic update
     setStudents((prev) =>
       prev.map((s) =>
@@ -213,8 +221,9 @@ export default function StudentsPage() {
 
     try {
       await api.put(`/users/students/${studentId}`, { batchId: null });
+      toast.success('Student Unassigned', `${studentName} has been removed from batch.`);
     } catch (e) {
-      alert('Failed to unassign batch');
+      toast.error('Failed to unassign batch');
       fetchStudents();
     }
   };
@@ -269,6 +278,7 @@ export default function StudentsPage() {
           ),
         );
 
+        toast.loading('Saving student...', `Updating ${fullName}`);
         await api.put(`/users/students/${editingStudent.id}`, {
           fullName,
           phone,
@@ -282,7 +292,9 @@ export default function StudentsPage() {
           parentPhone,
           avatarUrl,
         });
+        toast.success('Student Updated!', `${fullName} updated successfully.`);
       } else {
+        toast.loading('Enrolling student...', `Adding ${fullName}`);
         const res = await api.post('/users/students', {
           fullName,
           phone,
@@ -296,13 +308,16 @@ export default function StudentsPage() {
           parentPhone,
           avatarUrl,
         });
-        alert(`Student enrolled! Temporary Password: ${res.data.rawPassword}`);
+        toast.success(
+          'Student Enrolled Successfully!',
+          `Credentials sent: ${email || phone} • Temp Pass: ${res.data?.rawPassword || 'Set by email'}`,
+        );
         fetchStudents();
       }
       setIsModalOpen(false);
       setEditingStudent(null);
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Failed to save student');
+      toast.error('Failed to save student', e.response?.data?.message || 'Please verify form fields');
       fetchStudents();
     }
   };
@@ -316,8 +331,12 @@ export default function StudentsPage() {
     );
     try {
       await api.put(`/users/${studentId}/status`, { status: nextStatus });
+      toast.success(
+        nextStatus === 'BLOCKED' ? 'Student Suspended' : 'Student Reactivated',
+        `Account is now ${nextStatus === 'BLOCKED' ? 'blocked from logging in' : 'active'}.`,
+      );
     } catch (e) {
-      alert('Failed to update student status');
+      toast.error('Failed to update student status');
       fetchStudents();
     }
   };
@@ -326,13 +345,17 @@ export default function StudentsPage() {
   const handleDeleteStudent = async () => {
     if (!deletingStudent) return;
     const targetId = deletingStudent.id;
+    const studentName = deletingStudent.fullName;
     // Optimistic UI state
     setStudents((prev) => prev.filter((s) => s.id !== targetId));
     setDeletingStudent(null);
+    toast.loading('Deleting student...', `Removing ${studentName}`);
+
     try {
       await api.put(`/users/${targetId}/status`, { status: 'DELETED' });
+      toast.success('Student Deleted', `${studentName} was removed from the roster.`);
     } catch (e) {
-      alert('Failed to delete student');
+      toast.error('Failed to delete student');
       fetchStudents();
     }
   };

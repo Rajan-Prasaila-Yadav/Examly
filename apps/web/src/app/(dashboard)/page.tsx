@@ -167,7 +167,7 @@ export default function DashboardOverviewPage() {
     {
       title: 'Enrolled Students',
       value: String(studentsCount),
-      change: 'Live Database',
+      change: 'Active Learners',
       icon: Users,
       color: 'from-emerald-500 to-teal-600',
       shadow: 'shadow-emerald-500/20',
