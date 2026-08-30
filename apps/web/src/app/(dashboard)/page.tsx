@@ -330,8 +330,8 @@ export default function DashboardOverviewPage() {
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
                   <th className="pb-3">Test Title</th>
-                  <th className="pb-3">Batch</th>
-                  <th className="pb-3">Duration</th>
+                  {!isStudent && <th className="pb-3">Batch</th>}
+                  {!isStudent && <th className="pb-3">Duration</th>}
                   <th className="pb-3">Marks</th>
                   <th className="pb-3">Status</th>
                   <th className="pb-3 text-right">Action</th>
@@ -345,15 +345,15 @@ export default function DashboardOverviewPage() {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 font-semibold text-slate-900">
-                        <Link href={`/tests/${t.id}`} className="hover:text-brand-600 transition-colors block truncate max-w-[200px]">
+                        <Link href={`/tests/${t.id}`} className="hover:text-brand-600 transition-colors block truncate max-w-[180px] sm:max-w-[240px]">
                           {t.title}
                         </Link>
-                        <span className="block text-[10px] font-normal text-slate-400">
-                          {t.sections?.length || 1} Sections • Timed Exam
+                        <span className="block text-[10px] font-normal text-slate-400 font-mono">
+                          {t.sections?.length || 1} Sections • {t.durationMinutes}m
                         </span>
                       </td>
-                      <td className="py-3.5 text-slate-600">{t.batch?.name || 'General Batch'}</td>
-                      <td className="py-3.5 text-slate-600 font-mono">{t.durationMinutes} mins</td>
+                      {!isStudent && <td className="py-3.5 text-slate-600">{t.batch?.name || 'General Batch'}</td>}
+                      {!isStudent && <td className="py-3.5 text-slate-600 font-mono">{t.durationMinutes} mins</td>}
                       <td className="py-3.5 font-mono text-slate-800 font-bold">{t.totalMarks} pts</td>
                       <td className="py-3.5">
                         <span
@@ -411,7 +411,7 @@ export default function DashboardOverviewPage() {
 
                 {tests.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={isStudent ? 4 : 6} className="py-8 text-center text-slate-400 text-xs">
                       No examinations found in database.
                     </td>
                   </tr>
