@@ -54,6 +54,7 @@ export default function StudentsPage() {
 
   const [students, setStudents] = useState<any[]>(cachedStudents);
   const [batches, setBatches] = useState<any[]>(cachedStudentsBatches);
+  const [isLoading, setIsLoading] = useState(cachedStudents.length === 0);
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Default to Card / Grid view as requested
@@ -108,6 +109,8 @@ export default function StudentsPage() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 

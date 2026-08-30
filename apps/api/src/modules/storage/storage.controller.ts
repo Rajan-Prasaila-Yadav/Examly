@@ -56,7 +56,7 @@ export class StorageController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Direct multipart file upload to Supabase / Cloudflare Storage' })
   async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Body() dto: DirectUploadDto,
   ) {
     if (!file) {

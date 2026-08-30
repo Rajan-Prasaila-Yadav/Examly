@@ -444,6 +444,7 @@ export default function TestsPortalPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── MODAL 1: EDIT TEST SETTINGS ── */}
       {editingTest && (

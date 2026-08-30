@@ -37,6 +37,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Lock,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { DetailPageSkeleton } from '@/components/skeleton';
 

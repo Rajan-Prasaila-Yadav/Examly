@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { DetailPageSkeleton } from '@/components/skeleton';
+import { getYouTubeThumbnailUrl, getYouTubeVideoId } from '@/lib/video-utils';
 import {
   FolderTree,
   Plus,

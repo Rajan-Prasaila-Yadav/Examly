@@ -325,6 +325,7 @@ export default function BatchesPage() {
           </div>
         ))}
       </div>
+    )}
 
       {/* Create Batch Modal */}
       {isCreateOpen && (

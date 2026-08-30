@@ -201,8 +201,7 @@ export class BatchesService {
     return this.prisma.user.findMany({
       where: {
         OR: [
-          { role: { code: { in: ['TEACHER', 'Teacher', 'FACULTY', 'Faculty'] } } },
-          { role: { name: { in: ['TEACHER', 'Teacher', 'FACULTY', 'Faculty'] } } },
+          { role: { code: 'TEACHER' } },
           { teacherProfile: { isNot: null } },
         ],
         status: { not: RecordStatus.DELETED },

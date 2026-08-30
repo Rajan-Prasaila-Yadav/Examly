@@ -49,6 +49,7 @@ export default function TeachersPage() {
 
   const [teachers, setTeachers] = useState<any[]>(cachedTeachers);
   const [batches, setBatches] = useState<any[]>(cachedTeacherBatches);
+  const [isLoading, setIsLoading] = useState(cachedTeachers.length === 0);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list'); // Default to list view as requested
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,6 +84,8 @@ export default function TeachersPage() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
