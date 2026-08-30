@@ -39,12 +39,14 @@ import {
   Lock,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { DetailPageSkeleton } from '@/components/skeleton';
 
 const batchDetailCache = new Map<string, any>();
 
 export default function BatchDetailPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const isStudent =
     user?.role === 'STUDENT' ||
     user?.role === 'Student' ||
@@ -216,14 +218,18 @@ export default function BatchDetailPage() {
   const handleEnrollStudents = async () => {
     if (selectedStudentIds.length === 0) return;
     setIsEnrolling(true);
+    const loadingId = toast.loading('Enrolling students...', `Adding ${selectedStudentIds.length} students`);
     try {
       await api.post(`/batches/${batchId}/students`, {
         studentIds: selectedStudentIds,
       });
       setIsEnrollModalOpen(false);
+      toast.dismissToast(loadingId);
+      toast.success('Students Enrolled!', `${selectedStudentIds.length} students enrolled in ${batch?.name || 'batch'}.`);
       fetchBatchDetail();
     } catch (e) {
-      alert('Failed to enroll students');
+      toast.dismissToast(loadingId);
+      toast.error('Failed to enroll students');
     } finally {
       setIsEnrolling(false);
     }
@@ -232,10 +238,15 @@ export default function BatchDetailPage() {
   // Instant optimistic unassign from batch
   const handleUnassignStudent = async (studentUserId: string) => {
     setStudents((prev) => prev.filter((s) => s.id !== studentUserId));
+    const loadingId = toast.loading('Unassigning student...', 'Removing from batch');
     try {
       await api.delete(`/batches/${batchId}/students/${studentUserId}`);
+      toast.dismissToast(loadingId);
+      toast.success('Student Unassigned', 'Removed from this batch.');
+      fetchBatchDetail();
     } catch (e) {
-      alert('Failed to unassign student');
+      toast.dismissToast(loadingId);
+      toast.error('Failed to unassign student');
       fetchBatchDetail();
     }
   };
@@ -248,8 +259,12 @@ export default function BatchDetailPage() {
     );
     try {
       await api.put(`/users/${studentId}/status`, { status: nextStatus });
+      toast.success(
+        nextStatus === 'BLOCKED' ? 'Student Suspended' : 'Student Reactivated',
+        `Account status is now ${nextStatus}.`,
+      );
     } catch (e) {
-      alert('Failed to update student status');
+      toast.error('Failed to update student status');
       fetchBatchDetail();
     }
   };
@@ -258,12 +273,18 @@ export default function BatchDetailPage() {
   const handleDeleteStudent = async () => {
     if (!deletingStudent) return;
     const targetId = deletingStudent.id;
+    const studentName = deletingStudent.fullName;
     setStudents((prev) => prev.filter((s) => s.id !== targetId));
     setDeletingStudent(null);
+    const loadingId = toast.loading('Deleting student...', `Removing ${studentName}`);
     try {
       await api.put(`/users/${targetId}/status`, { status: 'DELETED' });
+      toast.dismissToast(loadingId);
+      toast.success('Student Deleted', `${studentName} was removed.`);
+      fetchBatchDetail();
     } catch (e) {
-      alert('Failed to delete student');
+      toast.dismissToast(loadingId);
+      toast.error('Failed to delete student');
       fetchBatchDetail();
     }
   };

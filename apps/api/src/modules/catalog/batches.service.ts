@@ -146,10 +146,26 @@ export class BatchesService {
 
   async delete(id: string, instituteId: string | undefined) {
     await this.findOne(id, instituteId);
-    return this.prisma.batch.update({
+    
+    // 1. Mark batch as DELETED
+    const deletedBatch = await this.prisma.batch.update({
       where: { id },
       data: { status: RecordStatus.DELETED, deletedAt: new Date() },
     });
+
+    // 2. Unassign all students linked to this deleted batch
+    await this.prisma.studentProfile.updateMany({
+      where: { batchId: id },
+      data: { batchId: null },
+    });
+
+    // 3. Mark all batch subjects as DELETED
+    await this.prisma.subject.updateMany({
+      where: { batchId: id },
+      data: { status: RecordStatus.DELETED },
+    });
+
+    return deletedBatch;
   }
 
   async getStudents(batchId: string) {

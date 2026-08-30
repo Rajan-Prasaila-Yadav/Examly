@@ -42,38 +42,22 @@ export class UsersService {
       where,
       include: {
         studentProfile: {
-          include: { batch: { select: { id: true, name: true, code: true } } },
+          include: {
+            batch: { select: { id: true, name: true, code: true, status: true } },
+          },
         },
         _count: { select: { testAttempts: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const defaultBatch = await this.prisma.batch.findFirst({
-      where: {
-        status: RecordStatus.ACTIVE,
-        ...(instituteId ? { instituteId } : {}),
-      },
-      select: { id: true, name: true, code: true },
-      orderBy: { sortOrder: 'asc' },
-    });
-
     return students.map((stu) => {
       let sp = stu.studentProfile;
-      if ((!sp || !sp.batch) && defaultBatch) {
+      if (sp?.batch && (sp.batch.status === RecordStatus.DELETED || (sp.batch as any).status === 'DELETED')) {
         sp = {
-          id: sp?.id || 'sp-' + stu.id,
-          userId: stu.id,
-          rollNumber: stu.identifier && !stu.identifier.includes('@') ? stu.identifier : 'STU-2026',
-          batchId: defaultBatch.id,
-          batch: defaultBatch,
-          parentPhone: null,
-          province: 'Bagmati',
-          district: 'Kathmandu',
-          municipality: 'Kathmandu Metropolitan City',
-          wardNumber: '04',
-          isTrialActive: false,
-          trialExpiresAt: null,
+          ...sp,
+          batchId: null,
+          batch: null,
         } as any;
       }
       return {
@@ -490,43 +474,12 @@ export class UsersService {
     const failedCount = totalAttempts - passedCount;
 
     let studentProfile = user.studentProfile;
-    if (!studentProfile || !studentProfile.batch) {
-      const defaultBatch = await this.prisma.batch.findFirst({
-        where: {
-          status: RecordStatus.ACTIVE,
-          ...(user.instituteId ? { instituteId: user.instituteId } : {}),
-        },
-        include: {
-          subjects: {
-            where: { status: { not: RecordStatus.DELETED } },
-            include: {
-              _count: { select: { lessons: true, tests: true } },
-            },
-          },
-        },
-        orderBy: { sortOrder: 'asc' },
-      });
-
-      if (defaultBatch) {
-        if (!studentProfile) {
-          studentProfile = {
-            id: 'profile-' + user.id,
-            userId: user.id,
-            rollNumber: user.identifier && !user.identifier.includes('@') ? user.identifier : 'STU-2026',
-            batchId: defaultBatch.id,
-            batch: defaultBatch,
-            parentPhone: null,
-            province: 'Bagmati',
-            district: 'Kathmandu',
-            municipality: 'Kathmandu Metropolitan City',
-            wardNumber: '04',
-            isTrialActive: false,
-            trialExpiresAt: null,
-          } as any;
-        } else {
-          studentProfile = { ...studentProfile, batch: defaultBatch };
-        }
-      }
+    if (studentProfile?.batch && (studentProfile.batch.status === RecordStatus.DELETED || (studentProfile.batch as any).status === 'DELETED')) {
+      studentProfile = {
+        ...studentProfile,
+        batchId: null,
+        batch: null,
+      } as any;
     }
 
     return {
