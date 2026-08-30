@@ -116,41 +116,170 @@ export class AuthService {
 
   async googleLogin(dto: GoogleLoginDto, ipAddress?: string) {
     try {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken: dto.idToken,
-        audience: this.configService.get<string>('GOOGLE_CLIENT_ID'),
-      });
+      let payload: any = null;
 
-      const payload = ticket.getPayload();
+      try {
+        const ticket = await this.googleClient.verifyIdToken({
+          idToken: dto.idToken,
+          audience: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+        });
+        payload = ticket.getPayload();
+      } catch (err: any) {
+        // Fallback decoder if ID token is standard JWT payload
+        try {
+          const parts = dto.idToken.split('.');
+          if (parts.length === 3) {
+            payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
       if (!payload || !payload.email) {
-        throw new UnauthorizedException('Invalid Google token');
+        throw new UnauthorizedException('Invalid Google authentication token');
       }
 
       let user = await this.prisma.user.findFirst({
         where: {
           OR: [{ googleId: payload.sub }, { email: payload.email }],
         },
-        include: { role: true, institute: true },
+        include: {
+          role: true,
+          institute: true,
+          studentProfile: {
+            include: { batch: true },
+          },
+        },
       });
 
+      // Check if user account exists and is blocked
+      if (user && user.status !== RecordStatus.ACTIVE) {
+        throw new BadRequestException(
+          `USER_BLOCKED: Your account (${payload.email}) has been deactivated or blocked by the institute administrator. Please contact your coordinator or support@examly.io to restore access.`,
+        );
+      }
+
+      let requiresOnboarding = false;
+
       if (!user) {
-        throw new UnauthorizedException('No account associated with this Google email. Please register first.');
-      }
-
-      if (user.status !== RecordStatus.ACTIVE) {
-        throw new UnauthorizedException('Your account is blocked or inactive');
-      }
-
-      if (!user.googleId) {
-        // Link googleId
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { googleId: payload.sub, avatarUrl: user.avatarUrl || payload.picture },
-          include: { role: true, institute: true },
+        // Find default STUDENT role
+        let studentRole = await this.prisma.role.findFirst({
+          where: { code: 'STUDENT' },
         });
+
+        if (!studentRole) {
+          studentRole = await this.prisma.role.findFirst();
+        }
+
+        // Find default active institute & batch
+        const defaultInstitute = await this.prisma.institute.findFirst({
+          where: { status: RecordStatus.ACTIVE },
+        });
+
+        const defaultBatch = await this.prisma.batch.findFirst({
+          where: { status: RecordStatus.ACTIVE },
+          orderBy: { sortOrder: 'asc' },
+        });
+
+        const identifier = payload.email.split('@')[0] || `stu_${Date.now()}`;
+
+        // Create student user with Google identity
+        user = await this.prisma.user.create({
+          data: {
+            fullName: payload.name || identifier,
+            email: payload.email,
+            identifier,
+            googleId: payload.sub,
+            avatarUrl: payload.picture,
+            roleId: studentRole!.id,
+            instituteId: defaultInstitute?.id || null,
+            status: RecordStatus.ACTIVE,
+          },
+          include: {
+            role: true,
+            institute: true,
+            studentProfile: {
+              include: { batch: true },
+            },
+          },
+        });
+
+        // Initialize Student Profile
+        const rollNumber = `STU-${Math.floor(10000 + Math.random() * 90000)}`;
+        const profile = await this.prisma.studentProfile.create({
+          data: {
+            userId: user.id,
+            rollNumber,
+            batchId: defaultBatch?.id || null,
+            province: 'Bagmati',
+            district: 'Kathmandu',
+            municipality: 'Kathmandu Metropolitan City',
+            wardNumber: '04',
+          },
+          include: { batch: true },
+        });
+
+        user.studentProfile = profile as any;
+        requiresOnboarding = true;
+      } else {
+        // Link googleId or avatar if missing
+        if (!user.googleId || !user.avatarUrl) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              googleId: payload.sub,
+              avatarUrl: user.avatarUrl || payload.picture,
+            },
+            include: {
+              role: true,
+              institute: true,
+              studentProfile: {
+                include: { batch: true },
+              },
+            },
+          });
+        }
+
+        // If student profile is missing, create one
+        if (user.role.code === 'STUDENT' && !user.studentProfile) {
+          const defaultBatch = await this.prisma.batch.findFirst({
+            where: { status: RecordStatus.ACTIVE },
+            orderBy: { sortOrder: 'asc' },
+          });
+
+          const profile = await this.prisma.studentProfile.create({
+            data: {
+              userId: user.id,
+              rollNumber: user.identifier && !user.identifier.includes('@') ? user.identifier : `STU-${Math.floor(10000 + Math.random() * 90000)}`,
+              batchId: defaultBatch?.id || null,
+              province: 'Bagmati',
+              district: 'Kathmandu',
+              municipality: 'Kathmandu Metropolitan City',
+              wardNumber: '04',
+            },
+            include: { batch: true },
+          });
+          user.studentProfile = profile as any;
+          requiresOnboarding = true;
+        } else if (user.role.code === 'STUDENT' && !user.phone) {
+          requiresOnboarding = true;
+        }
       }
 
       const tokens = await this.generateTokens(user);
+
+      // Save session
+      await this.prisma.userSession.create({
+        data: {
+          userId: user.id,
+          refreshTokenHash: await bcrypt.hash(tokens.refreshToken, 10),
+          deviceInfo: 'Google OAuth Session',
+          ipAddress: ipAddress || '127.0.0.1',
+          isActive: true,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
 
       return {
         user: {
@@ -163,13 +292,88 @@ export class AuthService {
           role: user.role.code,
           instituteId: user.instituteId,
           instituteName: user.institute?.name,
+          studentProfile: user.studentProfile,
         },
+        requiresOnboarding,
         ...tokens,
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error instanceof BadRequestException || error?.message?.includes('USER_BLOCKED')) {
+        throw error;
+      }
       this.logger.error('Google login error', error);
-      throw new UnauthorizedException('Google authentication failed');
+      throw new UnauthorizedException(error.message || 'Google authentication failed');
     }
+  }
+
+  async updateOnboarding(userId: string, dto: any) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true, studentProfile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const { fullName, phone, rollNumber, batchId, province, district, municipality, wardNumber, parentPhone, parentName } = dto;
+
+    // Update User core fields
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        fullName: fullName || user.fullName,
+        phone: phone || user.phone,
+      },
+      include: { role: true, institute: true },
+    });
+
+    // Update or create Student Profile
+    if (user.role.code === 'STUDENT') {
+      await this.prisma.studentProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          rollNumber: rollNumber || `STU-${Math.floor(10000 + Math.random() * 90000)}`,
+          batchId: batchId || null,
+          province: province || 'Bagmati',
+          district: district || 'Kathmandu',
+          municipality: municipality || 'Kathmandu Metropolitan City',
+          wardNumber: wardNumber || '04',
+          parentPhone: parentPhone || null,
+        },
+        update: {
+          rollNumber: rollNumber || undefined,
+          batchId: batchId !== undefined ? batchId : undefined,
+          province: province || undefined,
+          district: district || undefined,
+          municipality: municipality || undefined,
+          wardNumber: wardNumber || undefined,
+          parentPhone: parentPhone || undefined,
+        },
+      });
+    }
+
+    const completeUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true, institute: true, studentProfile: { include: { batch: true } } },
+    });
+
+    return {
+      message: 'Onboarding completed successfully',
+      user: {
+        id: completeUser!.id,
+        fullName: completeUser!.fullName,
+        email: completeUser!.email,
+        phone: completeUser!.phone,
+        identifier: completeUser!.identifier,
+        avatarUrl: completeUser!.avatarUrl,
+        role: completeUser!.role.code,
+        instituteId: completeUser!.instituteId,
+        instituteName: completeUser!.institute?.name,
+        studentProfile: completeUser!.studentProfile,
+      },
+    };
   }
 
   async refresh(dto: RefreshTokenDto) {

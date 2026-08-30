@@ -962,16 +962,19 @@ export class TestsService {
     const allQuestions = attempt.test.sections.flatMap((s) => s.questions);
     const answersMap = new Map(attempt.answers.map((a) => [a.questionId, a]));
 
+    const answerUpdates: any[] = [];
+
     for (const q of allQuestions) {
       const answer = answersMap.get(q.id);
       if (!answer || answer.selectedOptionIds.length === 0) {
         totalUnanswered++;
-        // Update awarded marks for unanswered
         if (answer) {
-          await this.prisma.attemptAnswer.update({
-            where: { id: answer.id },
-            data: { awardedMarks: 0 },
-          });
+          answerUpdates.push(
+            this.prisma.attemptAnswer.update({
+              where: { id: answer.id },
+              data: { awardedMarks: 0 },
+            }),
+          );
         }
         continue;
       }
@@ -982,10 +985,6 @@ export class TestsService {
       let awardedMarks = 0;
 
       if (q.questionType === QuestionType.MULTIPLE_CORRECT) {
-        // Partial Marking for Multiple-Correct MCQs (doc 19.2):
-        // - If ANY incorrect option is chosen → -M
-        // - If ALL correct options chosen and NO incorrect → +P
-        // - If partial correct options chosen and NO incorrect → (chosen/total) * P
         const hasIncorrect = selectedIds.some((id) => !correctOptionIds.includes(id));
 
         if (hasIncorrect) {
@@ -997,13 +996,11 @@ export class TestsService {
             totalCorrect++;
             awardedMarks = q.marksPositive;
           } else {
-            // Partial credit: (correctChosen / totalCorrect) * positiveMarks
             totalCorrect++;
             awardedMarks = Math.round(((correctChosen / correctOptionIds.length) * q.marksPositive) * 100) / 100;
           }
         }
       } else {
-        // Standard exact-match evaluation for SINGLE_CORRECT and other types
         const isExactMatch =
           correctOptionIds.length === selectedIds.length &&
           correctOptionIds.every((id) => selectedIds.includes(id));
@@ -1019,11 +1016,12 @@ export class TestsService {
 
       totalScore += awardedMarks;
 
-      // Store per-question awarded marks
-      await this.prisma.attemptAnswer.update({
-        where: { id: answer.id },
-        data: { awardedMarks },
-      });
+      answerUpdates.push(
+        this.prisma.attemptAnswer.update({
+          where: { id: answer.id },
+          data: { awardedMarks },
+        }),
+      );
     }
 
     const maxMarks = attempt.test.totalMarks;
@@ -1033,7 +1031,8 @@ export class TestsService {
     const submittedAt = new Date();
     const durationSeconds = Math.floor((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000);
 
-    const [_, result] = await this.prisma.$transaction([
+    const transactionOps = [
+      ...answerUpdates,
       this.prisma.testAttempt.update({
         where: { id: attemptId },
         data: { submittedAt, durationSeconds },
@@ -1060,7 +1059,10 @@ export class TestsService {
           publishedAt: submittedAt,
         },
       }),
-    ]);
+    ];
+
+    const results = await this.prisma.$transaction(transactionOps);
+    const result = results[results.length - 1];
 
     return result;
   }

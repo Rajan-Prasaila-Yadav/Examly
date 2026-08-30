@@ -75,19 +75,37 @@ export default function BatchesPage() {
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
+    const tempId = `temp-${Date.now()}`;
+    const newBatch = {
+      id: tempId,
+      name,
+      code: code || `BATCH-${Date.now()}`,
+      description,
+      priceNpr: parseInt(priceNpr, 10) || 0,
+      status: 'ACTIVE',
+      subjects: [],
+      _count: { studentProfiles: 0, tests: 0 },
+    };
+
+    // Optimistic instant UI update
+    setBatches((prev) => [newBatch, ...prev]);
+    setIsCreateOpen(false);
+    setName('');
+    setCode('');
+    setDescription('');
+
     try {
-      await api.post('/batches', {
-        name,
-        code,
-        description,
-        priceNpr: parseInt(priceNpr, 10) || 0,
+      const res = await api.post('/batches', {
+        name: newBatch.name,
+        code: newBatch.code,
+        description: newBatch.description,
+        priceNpr: newBatch.priceNpr,
       });
-      setIsCreateOpen(false);
-      setName('');
-      setCode('');
-      setDescription('');
-      fetchBatches();
+      if (res.data) {
+        setBatches((prev) => prev.map((b) => (b.id === tempId ? res.data : b)));
+      }
     } catch (e) {
+      setBatches((prev) => prev.filter((b) => b.id !== tempId));
       alert('Failed to create batch');
     }
   };
@@ -97,45 +115,64 @@ export default function BatchesPage() {
     setEditName(b.name);
     setEditCode(b.code);
     setEditDesc(b.description || '');
-    setEditPrice(b.priceNpr.toString());
+    setEditPrice((b.priceNpr || 0).toString());
     setEditStatus(b.status || 'ACTIVE');
   };
 
   const handleUpdateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBatch) return;
+
+    const targetId = editingBatch.id;
+    const updatedPayload = {
+      name: editName,
+      code: editCode,
+      description: editDesc,
+      priceNpr: parseInt(editPrice, 10) || 0,
+      status: editStatus,
+    };
+
+    // Optimistic instant UI update
+    setBatches((prev) =>
+      prev.map((b) => (b.id === targetId ? { ...b, ...updatedPayload } : b)),
+    );
+    setEditingBatch(null);
+
     try {
-      await api.put(`/batches/${editingBatch.id}`, {
-        name: editName,
-        code: editCode,
-        description: editDesc,
-        priceNpr: parseInt(editPrice, 10) || 0,
-        status: editStatus,
-      });
-      setEditingBatch(null);
-      fetchBatches();
+      await api.put(`/batches/${targetId}`, updatedPayload);
     } catch (e) {
+      fetchBatches();
       alert('Failed to update batch');
     }
   };
 
   const handleToggleHide = async (b: any) => {
     const nextStatus = b.status === 'HIDDEN' ? 'ACTIVE' : 'HIDDEN';
+    // Optimistic instant UI update
+    setBatches((prev) =>
+      prev.map((item) => (item.id === b.id ? { ...item, status: nextStatus } : item)),
+    );
+
     try {
       await api.put(`/batches/${b.id}`, { status: nextStatus });
-      fetchBatches();
     } catch (e) {
+      fetchBatches();
       alert('Failed to toggle status');
     }
   };
 
   const handleDeleteBatch = async () => {
     if (!deletingBatch) return;
+    const targetId = deletingBatch.id;
+
+    // Optimistic instant UI update
+    setBatches((prev) => prev.filter((b) => b.id !== targetId));
+    setDeletingBatch(null);
+
     try {
-      await api.delete(`/batches/${deletingBatch.id}`);
-      setDeletingBatch(null);
-      fetchBatches();
+      await api.delete(`/batches/${targetId}`);
     } catch (e) {
+      fetchBatches();
       alert('Failed to delete batch');
     }
   };

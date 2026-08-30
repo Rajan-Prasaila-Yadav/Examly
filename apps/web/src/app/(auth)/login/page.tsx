@@ -1,11 +1,29 @@
 // apps/web/src/app/(auth)/login/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { Lock, User, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, AlertCircle, Chrome } from 'lucide-react';
+import {
+  Lock,
+  User,
+  ArrowRight,
+  Sparkles,
+  AlertCircle,
+  ShieldAlert,
+  GraduationCap,
+  Phone,
+  MapPin,
+  CheckCircle2,
+  Mail,
+  Building,
+} from 'lucide-react';
+
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  '718018327158-br3d94rjnl5vcfdcp66teotjcrjnmn6e.apps.googleusercontent.com';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,11 +32,176 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('rajanprasaila@gmail.com');
   const [password, setPassword] = useState('Admin@Examly2026!');
   const [error, setError] = useState('');
+  const [blockedNotice, setBlockedNotice] = useState<{ email?: string; message: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
+
+  // Student Onboarding Modal State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingAuthData, setOnboardingAuthData] = useState<any>(null);
+  const [onboardingFullName, setOnboardingFullName] = useState('');
+  const [onboardingEmail, setOnboardingEmail] = useState('');
+  const [onboardingPhone, setOnboardingPhone] = useState('');
+  const [onboardingRollNumber, setOnboardingRollNumber] = useState('');
+  const [onboardingBatchId, setOnboardingBatchId] = useState('');
+  const [onboardingProvince, setOnboardingProvince] = useState('Bagmati');
+  const [onboardingDistrict, setOnboardingDistrict] = useState('Kathmandu');
+  const [onboardingMunicipality, setOnboardingMunicipality] = useState('Kathmandu Metropolitan City');
+  const [onboardingWard, setOnboardingWard] = useState('04');
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+  const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+
+  // Initialize Google Identity Services
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).google && isGoogleScriptLoaded) {
+      try {
+        (window as any).google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCallback,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        const btnContainer = document.getElementById('google-signin-btn');
+        if (btnContainer) {
+          btnContainer.innerHTML = '';
+          (window as any).google.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+          });
+        }
+      } catch (e) {
+        console.error('Google GSI init error:', e);
+      }
+    }
+  }, [isGoogleScriptLoaded]);
+
+  const handleGoogleCallback = async (response: any) => {
+    setError('');
+    setBlockedNotice(null);
+    setIsLoading(true);
+
+    try {
+      const res = await api.post('/auth/google', {
+        idToken: response.credential,
+      });
+
+      const { user, accessToken, refreshToken, requiresOnboarding } = res.data;
+
+      // Check if user is blocked
+      if (user?.status === 'BLOCKED') {
+        setBlockedNotice({
+          email: user.email,
+          message:
+            'Your account has been deactivated or blocked by the institute administrator. Please contact your coordinator or support@examly.io to restore access.',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if student profile needs completion / details update
+      if (requiresOnboarding || (user.role === 'STUDENT' && !user.phone)) {
+        login({ accessToken, refreshToken, user });
+        setOnboardingAuthData(res.data);
+        setOnboardingFullName(user.fullName || '');
+        setOnboardingEmail(user.email || '');
+        setOnboardingPhone(user.phone || '');
+        setOnboardingRollNumber(user.studentProfile?.rollNumber || `STU-${Math.floor(10000 + Math.random() * 90000)}`);
+        setOnboardingBatchId(user.studentProfile?.batchId || '');
+        setOnboardingProvince(user.studentProfile?.province || 'Bagmati');
+        setOnboardingDistrict(user.studentProfile?.district || 'Kathmandu');
+        setOnboardingMunicipality(user.studentProfile?.municipality || 'Kathmandu Metropolitan City');
+        setOnboardingWard(user.studentProfile?.wardNumber || '04');
+
+        // Fetch active batches for selection
+        try {
+          const batchRes = await api.get('/batches');
+          setAvailableBatches(batchRes.data || []);
+          if (batchRes.data?.length > 0 && !user.studentProfile?.batchId) {
+            setOnboardingBatchId(batchRes.data[0].id);
+          }
+        } catch {
+          // ignore
+        }
+
+        setShowOnboarding(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Login directly
+      login(res.data);
+      router.push('/');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Google authentication failed';
+      if (msg.includes('USER_BLOCKED') || msg.includes('blocked') || msg.includes('deactivated')) {
+        setBlockedNotice({
+          message:
+            'Your account has been deactivated or blocked by the institute administrator. Please contact your academic coordinator or support@examly.io to restore access.',
+        });
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCustomGoogleClick = () => {
+    if (typeof window !== 'undefined' && (window as any).google) {
+      try {
+        (window as any).google.accounts.id.prompt();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handleOnboardingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onboardingPhone) {
+      alert('Please enter a valid contact phone number.');
+      return;
+    }
+
+    setIsOnboardingSubmitting(true);
+    try {
+      const res = await api.post('/auth/onboarding', {
+        fullName: onboardingFullName,
+        phone: onboardingPhone,
+        rollNumber: onboardingRollNumber,
+        batchId: onboardingBatchId,
+        province: onboardingProvince,
+        district: onboardingDistrict,
+        municipality: onboardingMunicipality,
+        wardNumber: onboardingWard,
+      });
+
+      if (res.data?.user) {
+        login({
+          accessToken: onboardingAuthData.accessToken,
+          refreshToken: onboardingAuthData.refreshToken,
+          user: res.data.user,
+        });
+      }
+
+      setShowOnboarding(false);
+      router.push('/');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to complete profile onboarding');
+    } finally {
+      setIsOnboardingSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setBlockedNotice(null);
     setIsLoading(true);
 
     try {
@@ -31,7 +214,16 @@ export default function LoginPage() {
       login(res.data);
       router.push('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials or connection failed');
+      const msg = err.response?.data?.message || 'Invalid credentials or connection failed';
+      if (msg.includes('blocked') || msg.includes('deactivated') || msg.includes('inactive')) {
+        setBlockedNotice({
+          email: identifier,
+          message:
+            'Your account has been deactivated or blocked by the institute administrator. Please contact your coordinator or support@examly.io to restore access.',
+        });
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -40,10 +232,19 @@ export default function LoginPage() {
   const handleQuickLogin = (email: string, pass: string) => {
     setIdentifier(email);
     setPassword(pass);
+    setError('');
+    setBlockedNotice(null);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden">
+      {/* Load Google Identity Services */}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={() => setIsGoogleScriptLoaded(true)}
+      />
+
       {/* Background Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-brand-600/20 to-accent-purple/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -55,37 +256,78 @@ export default function LoginPage() {
           <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-accent-indigo items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-brand-500/30 mb-4">
             E
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Examly Admin Suite</h1>
-          <p className="text-xs text-slate-400 mt-1">Multi-Tenant Learning & Examination Portal</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Examly Portal</h1>
+          <p className="text-xs text-slate-400 mt-1">Multi-Tenant Learning & Examination System</p>
         </div>
 
-        {error && (
+        {/* ── USER FRIENDLY BLOCKED NOTICE ── */}
+        {blockedNotice && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1.5">
+                <div className="font-bold text-amber-200 text-sm">Account Access Suspended</div>
+                <p className="text-amber-300/90 leading-relaxed">{blockedNotice.message}</p>
+                <div className="pt-2 flex items-center gap-2">
+                  <a
+                    href="mailto:support@examly.io?subject=Account%20Reactivation%20Request"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[11px] font-bold rounded-lg transition-colors"
+                  >
+                    <Mail className="w-3 h-3" /> Contact Support Team
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Standard Error Notice */}
+        {error && !blockedNotice && (
           <div className="mb-6 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Google Sign-in Button */}
-        <button
-          type="button"
-          onClick={() => {
-            // Google OAuth flow would be implemented here
-            // For now, show a placeholder
-            alert('Google Sign-in requires OAuth setup. Use manual login for now.');
-          }}
-          className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-900 font-semibold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] border border-slate-200"
-        >
-          <Chrome className="w-4 h-4" />
-          Sign in with Google
-        </button>
+        {/* ── GOOGLE SIGN-IN SECTION ── */}
+        <div className="space-y-3">
+          <div id="google-signin-btn" className="w-full flex justify-center min-h-[44px]"></div>
 
-        <div className="relative py-2">
+          {/* Custom Fallback Button if GSI iframe renders customized */}
+          <button
+            type="button"
+            onClick={handleCustomGoogleClick}
+            disabled={isLoading}
+            className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2.5 transition-all transform active:scale-[0.98] border border-slate-200"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            Continue with Google Account
+          </button>
+        </div>
+
+        <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-slate-700/50"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-2 bg-slate-900 text-slate-500">or continue with email</span>
+            <span className="px-2 bg-slate-900 text-slate-500">or sign in with password</span>
           </div>
         </div>
 
@@ -108,9 +350,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Password
-            </label>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
@@ -142,7 +382,7 @@ export default function LoginPage() {
         {/* 1-Click Quick Demo Switcher */}
         <div className="mt-8 pt-6 border-t border-slate-800/80">
           <p className="text-[11px] font-medium text-slate-400 mb-3 text-center flex items-center justify-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-amber-400" /> 1-Click Authentication Accounts:
+            <Sparkles className="w-3 h-3 text-amber-400" /> 1-Click Fast Accounts:
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -164,16 +404,161 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Signup & Forgot Password Links */}
+        {/* Signup & Support Links */}
         <div className="mt-6 pt-4 border-t border-slate-800/80 flex justify-between text-xs">
-          <a href="/signup" className="text-brand-400 hover:text-brand-300 font-semibold transition-colors">
-            Create Account
-          </a>
-          <a href="/forgot-password" className="text-slate-400 hover:text-brand-400 font-semibold transition-colors">
-            Forgot Password?
+          <span className="text-slate-400">Apex Medical Academy</span>
+          <a
+            href="mailto:support@examly.io"
+            className="text-brand-400 hover:text-brand-300 font-semibold transition-colors"
+          >
+            Need Help?
           </a>
         </div>
       </div>
+
+      {/* ── STUDENT ONBOARDING DETAILS MODAL ── */}
+      {showOnboarding && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 text-white max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="text-center space-y-1.5 pb-2 border-b border-slate-800">
+              <div className="inline-flex p-3 rounded-2xl bg-brand-500/10 text-brand-400 border border-brand-500/20 mb-1">
+                <GraduationCap className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight">Complete Student Profile</h2>
+              <p className="text-xs text-slate-400">
+                Welcome to Examly! Please confirm your student details to activate your enrolled batches & mock tests.
+              </p>
+            </div>
+
+            <form onSubmit={handleOnboardingSubmit} className="space-y-4 text-xs">
+              {/* Role & Institute Badge */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4 text-brand-400" />
+                  <span className="text-slate-300 font-medium">Assigned Institute:</span>
+                </div>
+                <span className="px-2.5 py-1 rounded-lg bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30">
+                  Apex Medical Academy
+                </span>
+              </div>
+
+              {/* Full Name & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardingFullName}
+                    onChange={(e) => setOnboardingFullName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Verified Google Email</label>
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate font-mono text-[11px]">{onboardingEmail}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone & Roll No */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">
+                    Contact Phone Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="98XXXXXXXX"
+                      value={onboardingPhone}
+                      onChange={(e) => setOnboardingPhone(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Assigned Roll No</label>
+                  <input
+                    type="text"
+                    value={onboardingRollNumber}
+                    onChange={(e) => setOnboardingRollNumber(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Batch Selection */}
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Select Your Batch *</label>
+                <select
+                  value={onboardingBatchId}
+                  onChange={(e) => setOnboardingBatchId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  {availableBatches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                  {availableBatches.length === 0 && (
+                    <option value="">General Medical Entrance Batch</option>
+                  )}
+                </select>
+              </div>
+
+              {/* Location Details (Nepal) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Province</label>
+                  <select
+                    value={onboardingProvince}
+                    onChange={(e) => setOnboardingProvince(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white"
+                  >
+                    <option value="Bagmati">Bagmati Province</option>
+                    <option value="Gandaki">Gandaki Province</option>
+                    <option value="Koshi">Koshi Province</option>
+                    <option value="Madhesh">Madhesh Province</option>
+                    <option value="Lumbini">Lumbini Province</option>
+                    <option value="Karnali">Karnali Province</option>
+                    <option value="Sudurpashchim">Sudurpashchim Province</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">District</label>
+                  <input
+                    type="text"
+                    value={onboardingDistrict}
+                    onChange={(e) => setOnboardingDistrict(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3">
+                <button
+                  type="submit"
+                  disabled={isOnboardingSubmitting}
+                  className="w-full py-3 bg-gradient-to-r from-brand-600 to-accent-indigo hover:from-brand-500 hover:to-accent-indigo/90 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {isOnboardingSubmitting ? (
+                    <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Confirm & Enter Student Portal <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

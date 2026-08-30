@@ -61,4 +61,15 @@ export class AuthController {
   async getProfile(@CurrentUser() user: CurrentUserPayload) {
     return this.authService.getProfile(user.userId);
   }
+
+  @Post('onboarding')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete student details onboarding' })
+  async updateOnboarding(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: any,
+  ) {
+    return this.authService.updateOnboarding(user.userId, dto);
+  }
 }
