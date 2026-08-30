@@ -296,7 +296,7 @@ export default function BatchesPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{(b._count?.tests || 0) + (b.subjects?.reduce((acc: number, s: any) => acc + (s._count?.tests || 0), 0) || 0)} Mock Tests</span>
+                    <span>{Array.isArray(b.tests) ? b.tests.length : (b._count?.tests || 0)} Mock Tests</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <GraduationCap className="w-3.5 h-3.5 text-purple-500" />
@@ -304,7 +304,7 @@ export default function BatchesPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{b._count?.notes || b.subjects?.length || 0} Notes & PDFs</span>
+                    <span>{b._count?.notes || (b.subjects?.length ? b.subjects.length : 0)} Notes & PDFs</span>
                   </div>
                 </div>
               ) : (

@@ -19,10 +19,14 @@ export class BatchesService {
           subjects: {
             where: { status: RecordStatus.ACTIVE },
             include: {
-              _count: { select: { lessons: true, tests: true } },
+              _count: { select: { lessons: true } },
             },
           },
-          _count: { select: { students: true, tests: true } },
+          tests: {
+            where: { status: RecordStatus.ACTIVE, isPublished: true },
+            select: { id: true, isPublished: true, status: true },
+          },
+          _count: { select: { students: true } },
         },
         orderBy: { sortOrder: 'asc' },
       });
@@ -42,11 +46,15 @@ export class BatchesService {
         subjects: {
           where: { status: { not: RecordStatus.DELETED } },
           include: {
-            _count: { select: { lessons: true, tests: true } },
+            _count: { select: { lessons: true } },
           },
           orderBy: { sortOrder: 'asc' },
         },
-        _count: { select: { students: true, tests: true } },
+        tests: {
+          where: { status: { not: RecordStatus.DELETED } },
+          select: { id: true, isPublished: true, status: true },
+        },
+        _count: { select: { students: true } },
       },
       orderBy: { sortOrder: 'asc' },
     });
