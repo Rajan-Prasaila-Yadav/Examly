@@ -61,7 +61,6 @@ axiosInstance.interceptors.response.use(
     const method = response.config.method?.toUpperCase();
     if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       const url = response.config.url || '';
-      // Clear relevant cache
       if (url.includes('/batches')) invalidateApiCache('/batches');
       if (url.includes('/students')) invalidateApiCache('/students');
       if (url.includes('/teachers')) invalidateApiCache('/teachers');
@@ -109,10 +108,10 @@ axiosInstance.interceptors.response.use(
 export const api = {
   ...axiosInstance,
 
-  get: async <T = any, R = AxiosResponse<T>>(
+  get: async <T = any>(
     url: string,
     config?: AxiosRequestConfig & { bypassCache?: boolean },
-  ): Promise<R> => {
+  ): Promise<AxiosResponse<T>> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('examly_access_token') || '' : '';
     const cacheKey = `GET:${url}:${JSON.stringify(config?.params || {})}:${token}`;
 
@@ -136,25 +135,25 @@ export const api = {
             .catch(() => {});
         }
 
-        return {
-          data: cached.data,
+        return Promise.resolve({
+          data: cached.data as T,
           status: cached.status,
           statusText: cached.statusText,
           headers: cached.headers,
           config: cached.config,
-        } as unknown as R;
+        } as AxiosResponse<T>);
       }
 
       // Deduplicate simultaneous inflight requests
       const inflight = inflightRequests.get(cacheKey);
       if (inflight) {
-        return inflight as unknown as Promise<R>;
+        return inflight as Promise<AxiosResponse<T>>;
       }
     }
 
     const requestPromise = axiosInstance
       .get<T>(url, config)
-      .then((res) => {
+      .then((res: AxiosResponse<T>) => {
         memoryCache.set(cacheKey, {
           data: res.data,
           status: res.status,
@@ -171,28 +170,28 @@ export const api = {
         throw err;
       });
 
-    inflightRequests.set(cacheKey, requestPromise as any);
-    return requestPromise as unknown as Promise<R>;
+    inflightRequests.set(cacheKey, requestPromise as Promise<AxiosResponse<any>>);
+    return requestPromise;
   },
 
-  post: async <T = any, R = AxiosResponse<T>>(url: string, data?: any, config?: AxiosRequestConfig): Promise<R> => {
+  post: async <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
     invalidateApiCache(url);
-    return axiosInstance.post<T, R>(url, data, config);
+    return axiosInstance.post<T>(url, data, config);
   },
 
-  put: async <T = any, R = AxiosResponse<T>>(url: string, data?: any, config?: AxiosRequestConfig): Promise<R> => {
+  put: async <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
     invalidateApiCache(url);
-    return axiosInstance.put<T, R>(url, data, config);
+    return axiosInstance.put<T>(url, data, config);
   },
 
-  patch: async <T = any, R = AxiosResponse<T>>(url: string, data?: any, config?: AxiosRequestConfig): Promise<R> => {
+  patch: async <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
     invalidateApiCache(url);
-    return axiosInstance.patch<T, R>(url, data, config);
+    return axiosInstance.patch<T>(url, data, config);
   },
 
-  delete: async <T = any, R = AxiosResponse<T>>(url: string, config?: AxiosRequestConfig): Promise<R> => {
+  delete: async <T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
     invalidateApiCache(url);
-    return axiosInstance.delete<T, R>(url, config);
+    return axiosInstance.delete<T>(url, config);
   },
 
   invalidateCache: invalidateApiCache,

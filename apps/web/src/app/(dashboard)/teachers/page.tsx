@@ -296,10 +296,8 @@ export default function TeachersPage() {
                 <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/60">
                   <th className="py-3 px-4">Faculty Member</th>
                   <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-3">Faculty Code</th>
-                  <th className="py-3 px-3">Designation</th>
-                  <th className="py-3 px-3">Specialization</th>
-                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-4">Designation</th>
+                  <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -342,33 +340,15 @@ export default function TeachersPage() {
                       </div>
                     </td>
 
-                    {/* 3. Faculty Code */}
-                    <td className="py-3 px-3 font-mono font-bold text-purple-700">
-                      <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 text-[11px]">
-                        {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
-                      </span>
-                    </td>
-
-                    {/* 4. Designation */}
-                    <td className="py-3 px-3">
+                    {/* 3. Designation */}
+                    <td className="py-3 px-4">
                       <span className="font-semibold text-slate-800 block text-xs">
                         {tch.teacherProfile?.designation || 'Faculty Instructor'}
                       </span>
                     </td>
 
-                    {/* 5. Specialization */}
-                    <td className="py-3 px-3">
-                      <div className="flex flex-wrap gap-1">
-                        {(tch.teacherProfile?.specialization || ['General']).map((spec: string) => (
-                          <span key={spec} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md border border-slate-200/60">
-                            {spec}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* 6. Status */}
-                    <td className="py-3 px-3 text-center">
+                    {/* 4. Status */}
+                    <td className="py-3 px-4 text-center">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                           tch.status === 'ACTIVE'
@@ -385,7 +365,7 @@ export default function TeachersPage() {
                       </span>
                     </td>
 
-                    {/* 7. Actions */}
+                    {/* 5. Actions */}
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Link

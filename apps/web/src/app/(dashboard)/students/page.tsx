@@ -559,19 +559,13 @@ export default function StudentsPage() {
                 <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/60">
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-3">Roll No</th>
-                  <th className="py-3 px-3">Batch</th>
-                  <th className="py-3 px-3">Location</th>
-                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-4">Roll No</th>
+                  <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {students.map((stu) => {
-                  const currentBatch = stu.studentProfile?.batch || batches.find((b: any) => b.id === stu.studentProfile?.batchId);
-                  const currentBatchName = currentBatch ? currentBatch.name : 'Unassigned Batch';
-                  const isAssigned = !!currentBatch;
-
                   return (
                     <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* 1. Student Name & Avatar */}
@@ -611,56 +605,14 @@ export default function StudentsPage() {
                       </td>
 
                       {/* 3. Roll No */}
-                      <td className="py-3 px-3 font-mono font-bold text-brand-700">
+                      <td className="py-3 px-4 font-mono font-bold text-brand-700">
                         <span className="px-2 py-0.5 rounded-md bg-brand-50 border border-brand-200/80 text-brand-700 text-[11px]">
                           {stu.studentProfile?.rollNumber || (stu.identifier && !stu.identifier.includes('@') ? stu.identifier : '-')}
                         </span>
                       </td>
 
-                      {/* 4. Assigned Batch */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleOpenAssignBatch(stu)}
-                            title="Click to Assign or Change Batch"
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
-                              isAssigned
-                                ? 'bg-brand-50 hover:bg-brand-100 text-brand-700 border-brand-200/80'
-                                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                            }`}
-                          >
-                            <GraduationCap className="w-3 h-3" />
-                            <span className="truncate max-w-[130px]">{currentBatchName}</span>
-                            <span className="text-[9px] bg-white/60 px-1 py-0.2 rounded font-normal ml-0.5">
-                              Edit ▾
-                            </span>
-                          </button>
-                          {isAssigned && (
-                            <button
-                              onClick={() => handleUnassignStudent(stu)}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
-                              title="Unassign Batch"
-                            >
-                              <UserX className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* 5. Location */}
-                      <td className="py-3 px-3 text-slate-600 text-[11px]">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>
-                            {stu.studentProfile?.district
-                              ? `${stu.studentProfile.district}, ${stu.studentProfile.province || ''}`
-                              : 'Nepal'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* 6. Status */}
-                      <td className="py-3 px-3 text-center">
+                      {/* 4. Status */}
+                      <td className="py-3 px-4 text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                             stu.status === 'ACTIVE'
@@ -677,7 +629,7 @@ export default function StudentsPage() {
                         </span>
                       </td>
 
-                      {/* 7. Actions */}
+                      {/* 5. Actions */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
