@@ -347,18 +347,25 @@ export default function DashboardOverviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {tests.slice(0, 5).map((t) => {
+                {tests.slice(0, 6).map((t) => {
                   const ended = isTestEnded(t);
                   const draft = t.testStatus === 'DRAFT' || !t.isPublished;
+                  const isLive = !ended && !draft;
 
                   return (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={t.id}
+                      className={`transition-colors ${
+                        isLive ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/80'
+                      }`}
+                    >
                       <td className="py-3.5 font-semibold text-slate-900">
                         <Link href={`/tests/${t.id}`} className="hover:text-brand-600 transition-colors block truncate max-w-[180px] sm:max-w-[240px]">
                           {t.title}
                         </Link>
                         <span className="block text-[10px] font-normal text-slate-400 font-mono">
                           {t.sections?.length || 1} Sections • {t.durationMinutes}m
+                          {t.startDateTime && ` • Start: ${new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}`}
                         </span>
                       </td>
                       {!isStudent && <td className="py-3.5 text-slate-600">{t.batch?.name || 'General Batch'}</td>}
@@ -368,10 +375,10 @@ export default function DashboardOverviewPage() {
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                             ended
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              ? 'bg-slate-100 text-slate-600 border-slate-200'
                               : draft
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-red-600 text-white shadow-md shadow-red-600/30 border-red-600 animate-pulse font-extrabold'
                           }`}
                         >
                           {ended ? (
@@ -380,8 +387,8 @@ export default function DashboardOverviewPage() {
                             'Draft'
                           ) : (
                             <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Live
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                              🔴 LIVE NOW
                             </>
                           )}
                         </span>
@@ -389,29 +396,49 @@ export default function DashboardOverviewPage() {
                       <td className="py-3.5 text-right">
                         {isStudent ? (
                           ended ? (
-                            <Link
-                              href={`/tests/${t.id}/runner?view=RESULT`}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] inline-flex items-center gap-1"
-                            >
-                              <BarChart3 className="w-3 h-3 text-brand-600" /> Result
-                            </Link>
+                            t.attempts && t.attempts.length > 0 ? (
+                              <Link
+                                href={`/tests/${t.id}/runner?view=RESULT`}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] inline-flex items-center gap-1"
+                              >
+                                <BarChart3 className="w-3 h-3 text-brand-600" /> Result
+                              </Link>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-semibold rounded-md">
+                                Closed
+                              </span>
+                            )
                           ) : (
                             <div className="flex items-center justify-end gap-1.5">
                               <Link
                                 href={`/tests/${t.id}/runner`}
-                                className="px-3 py-1 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-sm text-[11px] flex items-center gap-1"
+                                className={`px-3 py-1 font-bold rounded-lg shadow-sm text-[11px] flex items-center gap-1 transition-all ${
+                                  isLive
+                                    ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-red-600/25 animate-pulse'
+                                    : 'bg-brand-600 hover:bg-brand-500 text-white'
+                                }`}
                               >
-                                <Play className="w-3 h-3 fill-white" /> Start
+                                <Play className="w-3 h-3 fill-white" /> {isLive ? 'Take Live' : 'Start'}
                               </Link>
                             </div>
                           )
                         ) : (
-                          <Link
-                            href={`/tests/${t.id}`}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-700 font-bold rounded-lg transition-colors text-[11px]"
-                          >
-                            Manage
-                          </Link>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isLive && (
+                              <Link
+                                href={`/tests/${t.id}/runner`}
+                                className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg shadow-sm text-[11px] flex items-center gap-1 transition-all animate-pulse"
+                              >
+                                <Play className="w-3 h-3 fill-white" /> Live Mode
+                              </Link>
+                            )}
+                            <Link
+                              href={`/tests/${t.id}`}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-700 font-bold rounded-lg transition-colors text-[11px]"
+                            >
+                              Manage
+                            </Link>
+                          </div>
                         )}
                       </td>
                     </tr>
