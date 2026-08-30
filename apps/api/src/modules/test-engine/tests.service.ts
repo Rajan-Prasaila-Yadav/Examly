@@ -1,5 +1,5 @@
 // apps/api/src/modules/test-engine/tests.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RecordStatus, TestType, QuestionType, ResultPublishMode } from '@prisma/client';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -846,10 +846,10 @@ export class TestsService {
         }
       }
 
-      // Check if test window has opened
-      if (now < test.startDateTime) {
+      // Check if test window has opened (only if test is not already marked LIVE)
+      if (test.testStatus !== 'LIVE' && test.startDateTime && now < test.startDateTime) {
         throw new BadRequestException(
-          `This test is not open yet. It starts at ${test.startDateTime.toISOString()}.`,
+          `This test is not open yet. It starts at ${test.startDateTime.toLocaleString()}.`,
         );
       }
     }
@@ -1194,12 +1194,16 @@ export class TestsService {
         })
       : null;
 
-    if (!latestAttempt && studentId) {
-      latestAttempt = await this.prisma.testAttempt.findFirst({
-        where: { testId, studentId },
-        include: { result: true, answers: true },
-        orderBy: { startedAt: 'desc' },
+    if (studentId && !latestAttempt) {
+      // Check if user is staff / teacher / admin
+      const user = await this.prisma.user.findUnique({
+        where: { id: studentId },
+        include: { role: true },
       });
+      const isAdminOrTeacher = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'].includes(user?.role?.name || '');
+      if (!isAdminOrTeacher) {
+        throw new ForbiddenException('You must complete and submit the test before viewing the answer key and solutions.');
+      }
     }
 
     const answersMap = new Map(latestAttempt?.answers?.map((a: any) => [a.questionId, a]) || []);

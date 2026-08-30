@@ -158,15 +158,51 @@ export default function LiveTestRunnerPage() {
           setUserAnswers(restored);
         }
 
-        // Direct view requested via URL (e.g. ?view=REVIEW or ?view=ANSWER_KEY)
+        // Check if there is an active running attempt to resume automatically (e.g. after refresh or device restart)
+        if (!viewParam && !keyRes?.data?.result) {
+          try {
+            const startRes = await api.post(`/tests/${testId}/start`);
+            if (startRes.data?.attemptId) {
+              setAttemptId(startRes.data.attemptId);
+              if (startRes.data.test) {
+                setTest(startRes.data.test);
+                setQuestions(flattenQuestions(startRes.data.test));
+              }
+              const startedAt = startRes.data.startedAt ? new Date(startRes.data.startedAt).getTime() : Date.now();
+              const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+              const allocated = startRes.data.effectiveDurationSeconds || (testRes.data?.durationMinutes ? testRes.data.durationMinutes * 60 : 0);
+              const remaining = Math.max(0, allocated - elapsed);
+
+              setElapsedSeconds(elapsed);
+              setRemainingSeconds(remaining);
+
+              if (startRes.data.existingAnswers?.length) {
+                const activeAnswers: Record<string, { selectedOptionIds: string[]; isMarkedForReview: boolean }> = {};
+                startRes.data.existingAnswers.forEach((a: any) => {
+                  activeAnswers[a.questionId] = {
+                    selectedOptionIds: a.selectedOptionIds || [],
+                    isMarkedForReview: !!a.isMarkedForReview,
+                  };
+                });
+                setUserAnswers(activeAnswers);
+              }
+
+              if (remaining <= 0) {
+                // Auto-submit expired attempt
+                handleAutoSubmit('Time Expired on Resume');
+              } else if (startRes.data.existingAnswers?.length || elapsed > 10) {
+                setPhase('RUNNING');
+              }
+            }
+          } catch {}
+        }
+
+        // Direct view requested via URL (e.g. ?view=REVIEW or ?view=ANSWER_KEY or ?view=RESULT)
         if (viewParam === 'REVIEW') {
           setPhase('REVIEW');
         } else if (viewParam === 'ANSWER_KEY') {
           setPhase('ANSWER_KEY');
         } else if (viewParam === 'RESULT') {
-          setPhase('RESULT');
-        } else if (keyRes?.data?.result && phase === 'RULES') {
-          // If no query parameter given but user has already submitted, show results
           setPhase('RESULT');
         }
       } catch (e) {
@@ -333,6 +369,17 @@ export default function LiveTestRunnerPage() {
         isMarkedForReview: prev[questionId]?.isMarkedForReview || false,
       },
     }));
+  };
+
+  const handleJumpToQuestion = (targetIdx: number) => {
+    setCurrentIndex(targetIdx);
+    setIsMobilePaletteOpen(false);
+    setTimeout(() => {
+      const el = document.getElementById(`question-card-${targetIdx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 50);
   };
 
   const handleAutoSubmit = async (reason?: string) => {
@@ -567,7 +614,18 @@ export default function LiveTestRunnerPage() {
             onClick={handleStartExam}
             className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2 transition-all"
           >
-            {isStarting ? 'Starting…' : questions.length === 0 ? 'No questions authored yet' : 'Start Test'}{' '}
+            {isStarting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Starting Examination...</span>
+              </>
+            ) : questions.length === 0 ? (
+              'No questions authored yet'
+            ) : pastAttempt ? (
+              'Start Retake Examination'
+            ) : (
+              'Start Examination'
+            )}{' '}
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -629,6 +687,18 @@ export default function LiveTestRunnerPage() {
 
           {/* Action Buttons (SCR-STU-14) */}
           <div className="space-y-3 pt-2">
+            <button
+              onClick={() => {
+                setUserAnswers({});
+                setPastAttempt(null);
+                setSubmitResult(null);
+                handleStartExam();
+              }}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" /> Start New Attempt / Retake Exam
+            </button>
+
             <button
               onClick={() => setPhase('REVIEW')}
               className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
@@ -1139,53 +1209,63 @@ export default function LiveTestRunnerPage() {
           {/* Mathematical Calculation Breakdown Box (doc 19 & SCR-STU-16) */}
           <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 font-mono text-xs">
             <span className="font-bold text-slate-900 font-sans block text-sm">Score Calculation Breakdown</span>
-            <div className="space-y-1.5 divide-y divide-slate-200/70 text-slate-700">
-              <div className="flex justify-between pt-1">
-                <span>Total Questions × Marks per Q</span>
-                <span className="font-bold">
-                  = {questions.length} × 4 = {questions.length * 4}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 text-emerald-700">
-                <span>Correct Answers</span>
-                <span className="font-bold">
-                  = {submitResult?.totalCorrect || 0} × 4 = +{(submitResult?.totalCorrect || 0) * 4}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 text-rose-700">
-                <span>Wrong Answers (Negative Marking)</span>
-                <span className="font-bold">
-                  = {submitResult?.totalWrong || 0} × (-1) = -{submitResult?.totalWrong || 0}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 text-slate-500">
-                <span>Unanswered</span>
-                <span className="font-bold">= {submitResult?.totalUnanswered || 0} × 0 = 0</span>
-              </div>
-              {/* Anti-Cheating Penalties (Only rendered if penalty per strike is set and strikes > 0) */}
-              {Number(test?.config?.antiCheatPenaltyPerStrike) > 0 && antiCheatStrikes > 0 && (
-                <div className="flex justify-between pt-1.5 pb-1 text-rose-700 font-bold border-t border-rose-200">
-                  <span>⚠️ Anti-Cheat Integrity Deduction ({antiCheatStrikes} violation strike{antiCheatStrikes > 1 ? 's' : ''} × {test.config.antiCheatPenaltyPerStrike} marks)</span>
-                  <span className="font-mono font-extrabold">
-                    = -{antiCheatStrikes * Number(test.config.antiCheatPenaltyPerStrike)}
-                  </span>
+            {(() => {
+              const posRate = test?.config?.defaultPositiveMarks ?? (test?.totalMarks && questions.length ? Number((test.totalMarks / questions.length).toFixed(2)) : 1);
+              const negRate = test?.config?.defaultNegativeMarks ?? (test?.negativeMarkRate !== undefined ? Number(test.negativeMarkRate) : 1);
+              const totalPossible = test?.totalMarks || Number((questions.length * posRate).toFixed(2));
+              const correctTotal = Number(((submitResult?.totalCorrect || 0) * posRate).toFixed(2));
+              const wrongTotal = Number(((submitResult?.totalWrong || 0) * negRate).toFixed(2));
+
+              return (
+                <div className="space-y-1.5 divide-y divide-slate-200/70 text-slate-700">
+                  <div className="flex justify-between pt-1">
+                    <span>Total Questions × Marks per Q</span>
+                    <span className="font-bold">
+                      = {questions.length} × {posRate} = {totalPossible}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1 text-emerald-700">
+                    <span>Correct Answers (+{posRate} per correct)</span>
+                    <span className="font-bold">
+                      = {submitResult?.totalCorrect || 0} × (+{posRate}) = +{correctTotal}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1 text-rose-700">
+                    <span>Wrong Answers (Negative: -{negRate} per wrong)</span>
+                    <span className="font-bold">
+                      = {submitResult?.totalWrong || 0} × (-{negRate}) = -{wrongTotal}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1 text-slate-500">
+                    <span>Unanswered</span>
+                    <span className="font-bold">= {submitResult?.totalUnanswered || 0} × 0 = 0</span>
+                  </div>
+                  {/* Anti-Cheating Penalties */}
+                  {Number(test?.config?.antiCheatPenaltyPerStrike) > 0 && antiCheatStrikes > 0 && (
+                    <div className="flex justify-between pt-1.5 pb-1 text-rose-700 font-bold border-t border-rose-200">
+                      <span>⚠️ Anti-Cheat Penalty ({antiCheatStrikes} strike{antiCheatStrikes > 1 ? 's' : ''} × {test.config.antiCheatPenaltyPerStrike} marks)</span>
+                      <span className="font-mono font-extrabold">
+                        = -{antiCheatStrikes * Number(test.config.antiCheatPenaltyPerStrike)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t-2 border-slate-300 font-bold text-sm text-brand-900 font-mono">
+                    <span>Final Awarded Score</span>
+                    <span>= {submitResult?.totalScore || 0} / {totalPossible}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 font-bold text-slate-900">
+                    <span>Percentage</span>
+                    <span>= {submitResult?.percentage || 0}%</span>
+                  </div>
+                  <div className="flex justify-between pt-1 font-bold">
+                    <span>Evaluation Result</span>
+                    <span className={submitResult?.isPassed ? 'text-emerald-700' : 'text-rose-700'}>
+                      {submitResult?.isPassed ? '✔ PASSED' : '✖ FAILED (Pass Mark: 40%)'}
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between pt-2 border-t-2 border-slate-300 font-bold text-sm text-brand-900 font-mono">
-                <span>Final Awarded Score</span>
-                <span>= {submitResult?.totalScore || 0} / {test?.totalMarks || questions.length * 4 || 200}</span>
-              </div>
-              <div className="flex justify-between pt-1 font-bold text-slate-900">
-                <span>Percentage</span>
-                <span>= {submitResult?.percentage || 0}%</span>
-              </div>
-              <div className="flex justify-between pt-1 font-bold">
-                <span>Evaluation Result</span>
-                <span className={submitResult?.isPassed ? 'text-emerald-700' : 'text-rose-700'}>
-                  {submitResult?.isPassed ? '✔ PASSED' : '✖ FAILED (Pass Mark: 40%)'}
-                </span>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -1275,82 +1355,100 @@ export default function LiveTestRunnerPage() {
       {/* Main Split Layout: Question Card (Left 2 Cols) + Palette Sidebar (Right 1 Col) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Question Box & Options (SCR-STU-11) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-5">
-            {/* Header: Q Number & Marks */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="font-bold text-xs text-slate-800">
-                Question {currentIndex + 1} of {questions.length}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-mono text-[11px] sm:text-xs font-bold border border-emerald-200">
-                +{currentQ.marksPositive || 4} / -{currentQ.marksNegative || 1} Marks
-              </span>
-            </div>
+        <div className="lg:col-span-2 space-y-5">
+          {pageQuestions.map((q: any, pIdx: number) => {
+            const qIndex = pageStart + pIdx;
+            const ans = userAnswers[q.id] || { selectedOptionIds: [], isMarkedForReview: false };
 
-            {/* Question Statement (KaTeX LaTeX Rendered) */}
-            <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-              {renderMath(currentQ.contentHtml || '')}
-            </div>
+            return (
+              <div
+                key={q.id || qIndex}
+                id={`question-card-${qIndex}`}
+                className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-5"
+              >
+                {/* Header: Q Number, Section & Marks */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs sm:text-sm text-slate-800">
+                      Question {qIndex + 1} of {questions.length}
+                    </span>
+                    {q.sectionName && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200">
+                        {q.sectionName}
+                      </span>
+                    )}
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-mono text-[11px] sm:text-xs font-bold border border-emerald-200">
+                    +{q.marksPositive || 4} / -{q.marksNegative || 1} Marks
+                  </span>
+                </div>
 
-            {/* Options List */}
-            <div className="space-y-2.5 pt-1">
-              {(currentQ.options || []).map((opt: any) => {
-                const isSelected = currentAns.selectedOptionIds.includes(opt.id);
+                {/* Question Statement (KaTeX LaTeX Rendered) */}
+                <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                  {renderMath(q.contentHtml || '')}
+                </div>
 
-                return (
+                {/* Options List */}
+                <div className="space-y-2.5 pt-1">
+                  {(q.options || []).map((opt: any) => {
+                    const isSelected = ans.selectedOptionIds.includes(opt.id);
+
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => handleSelectOption(q.id, opt.id, q.questionType === 'MULTIPLE_CORRECT')}
+                        className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center gap-3 ${
+                          isSelected
+                            ? 'bg-brand-50/70 border-brand-500 ring-2 ring-brand-500/20 text-brand-900 shadow-sm'
+                            : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200/90 text-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center transition-all shrink-0 ${
+                            isSelected ? 'bg-brand-600 text-white' : 'bg-white border border-slate-300 text-slate-600'
+                          }`}
+                        >
+                          {opt.optionLabel}
+                        </div>
+
+                        <div className="text-xs font-medium leading-normal flex-1">
+                          {renderMath(cleanOptionText(opt.contentHtml))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Action Bar: Mark for Review & Clear Response (Desktop) */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <button
-                    key={opt.id}
-                    onClick={() => handleSelectOption(currentQ.id, opt.id, currentQ.questionType === 'MULTIPLE_CORRECT')}
-                    className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center gap-3 ${
-                      isSelected
-                        ? 'bg-brand-50/70 border-brand-500 ring-2 ring-brand-500/20 text-brand-900 shadow-sm'
-                        : 'bg-slate-50/70 hover:bg-slate-100/80 border-slate-200/90 text-slate-700'
+                    onClick={() => handleToggleReview(q.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      ans.isMarkedForReview
+                        ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                        : 'bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-700'
                     }`}
                   >
-                    <div
-                      className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center transition-all shrink-0 ${
-                        isSelected ? 'bg-brand-600 text-white' : 'bg-white border border-slate-300 text-slate-600'
-                      }`}
-                    >
-                      {opt.optionLabel}
-                    </div>
-
-                    <div className="text-xs font-medium leading-normal flex-1">
-                      {renderMath(cleanOptionText(opt.contentHtml))}
-                    </div>
+                    <Bookmark className="w-3.5 h-3.5" />
+                    {ans.isMarkedForReview ? 'Marked for Review' : 'Mark for Review'}
                   </button>
-                );
-              })}
-            </div>
 
-            {/* Action Bar: Mark for Review & Clear Response (Desktop) */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <button
-                onClick={() => handleToggleReview(currentQ.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  currentAns.isMarkedForReview
-                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                    : 'bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-700'
-                }`}
-              >
-                <Bookmark className="w-3.5 h-3.5" />
-                {currentAns.isMarkedForReview ? 'Marked for Review' : 'Mark for Review'}
-              </button>
-
-              <button
-                onClick={() => handleClearAnswer(currentQ.id)}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-              >
-                Clear Response
-              </button>
-            </div>
-          </div>
+                  <button
+                    onClick={() => handleClearAnswer(q.id)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                  >
+                    Clear Response
+                  </button>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Navigation Controls: Previous / Save & Next (Desktop) */}
           <div className="hidden sm:flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
             <button
-              disabled={currentIndex === 0}
-              onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+              disabled={pageStart === 0}
+              onClick={() => setCurrentIndex((prev) => Math.max(0, prev - questionsPerScreen))}
               className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
@@ -1361,7 +1459,7 @@ export default function LiveTestRunnerPage() {
             </span>
 
             <button
-              onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+              onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + questionsPerScreen))}
               className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
             >
               Save & Next <ChevronRight className="w-4 h-4" />
@@ -1404,7 +1502,7 @@ export default function LiveTestRunnerPage() {
               return (
                 <button
                   key={q.id}
-                  onClick={() => setCurrentIndex(idx)}
+                  onClick={() => handleJumpToQuestion(idx)}
                   className={`h-9 rounded-xl text-xs font-bold font-mono transition-all ${color} ${
                     isCurrent ? 'ring-2 ring-slate-900 ring-offset-2' : ''
                   }`}
@@ -1496,10 +1594,7 @@ export default function LiveTestRunnerPage() {
                   return (
                     <button
                       key={q.id}
-                      onClick={() => {
-                        setCurrentIndex(idx);
-                        setIsMobilePaletteOpen(false);
-                      }}
+                      onClick={() => handleJumpToQuestion(idx)}
                       className={`h-10 rounded-xl text-xs font-bold font-mono transition-all ${color} ${
                         isCurrent ? 'ring-2 ring-slate-900 ring-offset-2' : ''
                       }`}
@@ -1524,6 +1619,19 @@ export default function LiveTestRunnerPage() {
                 <Check className="w-3.5 h-3.5" /> Submit Exam ({answeredCount}/{questions.length} Answered)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Submitting Loading Overlay */}
+      {isSubmittingExam && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 space-y-4 text-white animate-in fade-in">
+          <div className="w-14 h-14 rounded-full border-4 border-emerald-400 border-t-transparent animate-spin" />
+          <div className="text-center space-y-1.5 max-w-sm">
+            <h3 className="text-lg font-bold">Submitting Examination...</h3>
+            <p className="text-xs text-slate-300">
+              Recording your answers, computing accuracy metrics, and preparing step solutions. Please wait...
+            </p>
           </div>
         </div>
       )}

@@ -204,6 +204,114 @@ export default function CreateTestWizardPage() {
   const isWindowValid = windowDurationMs >= validDurationMins * 60 * 1000;
   const lastJoin = new Date(endDateTime.getTime() - validDurationMins * 60 * 1000);
 
+  // Auto-Draft Recovery
+  const [draftBannerVisible, setDraftBannerVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('examly_test_creation_wizard_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.title || parsed.authoredQuestions?.some(isSlotFilled)) {
+          if (parsed.title) setTitle(parsed.title);
+          if (parsed.description) setDescription(parsed.description);
+          if (parsed.batchId) setBatchId(parsed.batchId);
+          if (parsed.subjectId) setSubjectId(parsed.subjectId);
+          if (parsed.lessonId) setLessonId(parsed.lessonId);
+          if (parsed.durationMinutes) setDurationMinutes(parsed.durationMinutes);
+          if (parsed.totalQuestions) setTotalQuestions(parsed.totalQuestions);
+          if (parsed.positiveMarkRate) setPositiveMarkRate(parsed.positiveMarkRate);
+          if (parsed.negativeMarkRate) setNegativeMarkRate(parsed.negativeMarkRate);
+          if (parsed.sections) setSections(parsed.sections);
+          if (parsed.authoredQuestions?.length) setAuthoredQuestions(parsed.authoredQuestions);
+          if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+          setDraftBannerVisible(true);
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (title || authoredQuestions.some(isSlotFilled)) {
+      const stateToSave = {
+        title,
+        description,
+        batchId,
+        subjectId,
+        lessonId,
+        durationMinutes,
+        startDate,
+        startTime,
+        endDate,
+        endTime,
+        totalQuestions,
+        positiveMarkRate,
+        negativeMarkRate,
+        passMarkType,
+        passMarks,
+        lockAnswerKey,
+        autoPublishResults,
+        showHintsSolutionsAfterSubmit,
+        shuffleQuestions,
+        shuffleOptions,
+        showLeaderboard,
+        blockScreenshot,
+        detectAppSwitch,
+        disableCopyPaste,
+        optionsPerQuestion,
+        correctAnswerType,
+        questionsPerScreen,
+        submitUnlockMinutes,
+        antiCheatLevel,
+        resultPublishMode,
+        sections,
+        authoredQuestions,
+        currentStep,
+      };
+      localStorage.setItem('examly_test_creation_wizard_draft', JSON.stringify(stateToSave));
+    }
+  }, [
+    title,
+    description,
+    batchId,
+    subjectId,
+    lessonId,
+    durationMinutes,
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+    totalQuestions,
+    positiveMarkRate,
+    negativeMarkRate,
+    passMarkType,
+    passMarks,
+    lockAnswerKey,
+    autoPublishResults,
+    showHintsSolutionsAfterSubmit,
+    shuffleQuestions,
+    shuffleOptions,
+    showLeaderboard,
+    blockScreenshot,
+    detectAppSwitch,
+    disableCopyPaste,
+    optionsPerQuestion,
+    correctAnswerType,
+    questionsPerScreen,
+    submitUnlockMinutes,
+    antiCheatLevel,
+    resultPublishMode,
+    sections,
+    authoredQuestions,
+    currentStep,
+  ]);
+
+  const handleClearDraft = () => {
+    localStorage.removeItem('examly_test_creation_wizard_draft');
+    setDraftBannerVisible(false);
+    window.location.reload();
+  };
+
   const handleSetStartToNow = () => {
     const now = new Date();
     setStartDate(toLocalDateInput(now));
@@ -356,6 +464,9 @@ export default function CreateTestWizardPage() {
       };
 
       const res = await api.post('/tests', payload, { timeout: 60000 });
+      try {
+        localStorage.removeItem('examly_test_creation_wizard_draft');
+      } catch {}
       router.push(`/tests/${res.data.id}`);
     } catch (e: any) {
       const msg = e.response?.data?.message;
@@ -367,6 +478,22 @@ export default function CreateTestWizardPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Draft Recovery Banner */}
+      {draftBannerVisible && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-xs text-amber-900 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="text-base">📝</span>
+            <span>Auto-recovered unsaved draft from your previous session: <strong>{title || 'Untitled Test'}</strong></span>
+          </div>
+          <button
+            onClick={handleClearDraft}
+            className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-amber-200 hover:border-rose-200 rounded-xl font-bold transition-all text-xs"
+          >
+            Discard Draft
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <Link
@@ -1154,9 +1281,18 @@ export default function CreateTestWizardPage() {
               type="button"
               onClick={handleFinalLaunch}
               disabled={isSubmitting}
-              className="flex-1 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2 transition-all"
+              className="flex-1 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2 transition-all"
             >
-              <Sparkles className="w-4 h-4" /> Launch Examination & Save Test
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Creating & Launching Test... Please wait...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" /> Launch Examination & Save Test
+                </>
+              )}
             </button>
           </div>
         </div>

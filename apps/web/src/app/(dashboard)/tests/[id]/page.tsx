@@ -62,9 +62,35 @@ export default function TestDetailPage() {
   // Edit Test Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [totalMarks, setTotalMarks] = useState(200);
   const [passMarks, setPassMarks] = useState(80);
   const [durationMinutes, setDurationMinutes] = useState(120);
+  const [negativeMarkRate, setNegativeMarkRate] = useState(1.0);
+  const [startDateTime, setStartDateTime] = useState('');
+  const [endDateTime, setEndDateTime] = useState('');
+  const [isUpdatingTest, setIsUpdatingTest] = useState(false);
+
+  // Delete Test Modal
+  const [isDeleteTestModalOpen, setIsDeleteTestModalOpen] = useState(false);
+  const [isDeletingTest, setIsDeletingTest] = useState(false);
+
+  const formatForDateTimeLocal = (dateString?: string | Date | null) => {
+    if (!dateString) return '';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const mins = pad(d.getMinutes());
+      return `${year}-${month}-${day}T${hours}:${mins}`;
+    } catch {
+      return '';
+    }
+  };
 
   // Add Section Modal
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
@@ -102,10 +128,14 @@ export default function TestDetailPage() {
         api.get(`/tests/${testId}/attempts`).catch(() => ({ data: null })),
       ]);
       setTest(testRes.data);
-      setTitle(testRes.data.title);
-      setTotalMarks(testRes.data.totalMarks);
-      setPassMarks(testRes.data.passMarks);
-      setDurationMinutes(testRes.data.durationMinutes);
+      setTitle(testRes.data.title || '');
+      setDescription(testRes.data.description || '');
+      setTotalMarks(testRes.data.totalMarks || 200);
+      setPassMarks(testRes.data.passMarks || 80);
+      setDurationMinutes(testRes.data.durationMinutes || 120);
+      setNegativeMarkRate(testRes.data.negativeMarkRate !== undefined ? testRes.data.negativeMarkRate : 1.0);
+      setStartDateTime(formatForDateTimeLocal(testRes.data.startDateTime));
+      setEndDateTime(formatForDateTimeLocal(testRes.data.endDateTime));
       setLeaderboard(boardRes.data);
       setAnalytics(analyticsRes.data);
       setAttempts(attemptsRes.data);
@@ -149,17 +179,35 @@ export default function TestDetailPage() {
 
   const handleUpdateTest = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsUpdatingTest(true);
     try {
       await api.put(`/tests/${testId}`, {
         title,
+        description,
         totalMarks: Number(totalMarks),
         passMarks: Number(passMarks),
         durationMinutes: Number(durationMinutes),
+        negativeMarkRate: Number(negativeMarkRate),
+        startDateTime: startDateTime ? new Date(startDateTime).toISOString() : undefined,
+        endDateTime: endDateTime ? new Date(endDateTime).toISOString() : undefined,
       });
       setIsEditModalOpen(false);
       fetchTestDetails();
-    } catch (e) {
-      alert('Failed to update test');
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Failed to update test');
+    } finally {
+      setIsUpdatingTest(false);
+    }
+  };
+
+  const handleDeleteTest = async () => {
+    setIsDeletingTest(true);
+    try {
+      await api.delete(`/tests/${testId}`);
+      router.push('/tests/builder');
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Failed to delete test');
+      setIsDeletingTest(false);
     }
   };
 
@@ -432,8 +480,15 @@ export default function TestDetailPage() {
                   >
                     <Edit2 className="w-3.5 h-3.5" /> Edit
                   </button>
+
+                  <button
+                    onClick={() => setIsDeleteTestModalOpen(true)}
+                    className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
                 </>
-              ) : (
+              ) : attempts?.totalAttempts > 0 ? (
                 <>
                   <Link
                     href={`/tests/${test.id}/runner?view=REVIEW`}
@@ -448,7 +503,7 @@ export default function TestDetailPage() {
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key
                   </Link>
                 </>
-              )}
+              ) : null}
 
               <Link
                 href={`/tests/${test.id}/runner`}
@@ -1341,59 +1396,106 @@ export default function TestDetailPage() {
 
       {/* Edit Test Settings Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900">Edit Test Configuration</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Edit Test Configuration</h3>
+                <p className="text-xs text-slate-400">Update timing, marks, negative marking, and schedule</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleUpdateTest} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Test Title</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Test Title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Total Marks</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Duration (Mins)</label>
+                  <input
+                    type="number"
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                    required
+                    min={1}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Total Marks</label>
                   <input
                     type="number"
                     value={totalMarks}
                     onChange={(e) => setTotalMarks(Number(e.target.value))}
-                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Pass Marks</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pass Marks</label>
                   <input
                     type="number"
                     value={passMarks}
                     onChange={(e) => setPassMarks(Number(e.target.value))}
-                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-emerald-600 font-semibold"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Duration (Minutes)</label>
-                <input
-                  type="number"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none"
-                />
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Negative Mark Rate</label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    value={negativeMarkRate}
+                    onChange={(e) => setNegativeMarkRate(Number(e.target.value))}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-rose-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={startDateTime}
+                    onChange={(e) => setStartDateTime(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">End Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={endDateTime}
+                    onChange={(e) => setEndDateTime(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
               </div>
 
-              <div className="pt-2 flex gap-3">
+              <div className="pt-3 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
@@ -1403,12 +1505,48 @@ export default function TestDetailPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md"
+                  disabled={isUpdatingTest}
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md disabled:opacity-60"
                 >
-                  Save Changes
+                  {isUpdatingTest ? 'Saving Changes...' : 'Save Changes'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Test Modal */}
+      {isDeleteTestModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete This Test?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to permanently delete <strong className="text-slate-800">"{test?.title}"</strong>? This will remove all sections, questions, and attempts.
+              </p>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                onClick={() => setIsDeleteTestModalOpen(false)}
+                className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTest}
+                disabled={isDeletingTest}
+                className="flex-1 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-60"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingTest ? 'Deleting...' : 'Yes, Delete Test'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

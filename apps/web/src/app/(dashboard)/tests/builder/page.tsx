@@ -25,6 +25,10 @@ import {
   ArrowRight,
   ChevronRight,
   AlertTriangle,
+  Edit2,
+  Loader2,
+  Calendar,
+  X,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
 
@@ -68,12 +72,51 @@ export default function SplitPaneQuestionBuilderPage() {
 
   const [isSaved, setIsSaved] = useState(false);
 
+  // Edit Test State & Modal
+  const [editingTest, setEditingTest] = useState<any>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDuration, setEditDuration] = useState(120);
+  const [editTotalMarks, setEditTotalMarks] = useState(200);
+  const [editPassMarks, setEditPassMarks] = useState(80);
+  const [editNegativeRate, setEditNegativeRate] = useState(1.0);
+  const [editStartDateTime, setEditStartDateTime] = useState('');
+  const [editEndDateTime, setEditEndDateTime] = useState('');
+  const [editPublishAction, setEditPublishAction] = useState<'INSTANT' | 'SCHEDULED' | 'DRAFT'>('INSTANT');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Delete Test Modal
+  const [deletingTest, setDeletingTest] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const formatForDateTimeLocal = (dateString?: string | Date | null) => {
+    if (!dateString) return '';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const mins = pad(d.getMinutes());
+      return `${year}-${month}-${day}T${hours}:${mins}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const [isLoadingTests, setIsLoadingTests] = useState(true);
+
   const fetchTests = async () => {
+    setIsLoadingTests(true);
     try {
       const res = await api.get('/tests');
-      setTests(res.data);
+      setTests(res.data || []);
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoadingTests(false);
     }
   };
 
@@ -81,7 +124,57 @@ export default function SplitPaneQuestionBuilderPage() {
     fetchTests();
   }, []);
 
+  const handleOpenEdit = (t: any) => {
+    setEditingTest(t);
+    setEditTitle(t.title || '');
+    setEditDescription(t.description || '');
+    setEditDuration(t.durationMinutes || 120);
+    setEditTotalMarks(t.totalMarks || 200);
+    setEditPassMarks(t.passMarks || 80);
+    setEditNegativeRate(t.negativeMarkRate !== undefined ? t.negativeMarkRate : 1.0);
+    setEditStartDateTime(formatForDateTimeLocal(t.startDateTime));
+    setEditEndDateTime(formatForDateTimeLocal(t.endDateTime));
+    setEditPublishAction(t.isPublished ? 'INSTANT' : t.testStatus === 'SCHEDULED' ? 'SCHEDULED' : 'DRAFT');
+  };
 
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTest) return;
+    setIsSavingEdit(true);
+    try {
+      await api.put(`/tests/${editingTest.id}`, {
+        title: editTitle,
+        description: editDescription,
+        durationMinutes: Number(editDuration),
+        totalMarks: Number(editTotalMarks),
+        passMarks: Number(editPassMarks),
+        negativeMarkRate: Number(editNegativeRate),
+        startDateTime: editStartDateTime ? new Date(editStartDateTime).toISOString() : undefined,
+        endDateTime: editEndDateTime ? new Date(editEndDateTime).toISOString() : undefined,
+        publishAction: editPublishAction,
+      });
+      setEditingTest(null);
+      await fetchTests();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update test details');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingTest) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/tests/${deletingTest.id}`);
+      setTests((prev) => prev.filter((item) => item.id !== deletingTest.id));
+      setDeletingTest(null);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete test');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleOptionCorrectToggle = (id: string) => {
     if (questionType === 'SINGLE_CORRECT') {
@@ -158,76 +251,313 @@ export default function SplitPaneQuestionBuilderPage() {
       {/* ══════════════════════════════════════════════════════════════════════════════ */}
       {activeView === 'tests' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.map((t) => (
-            <div
-              key={t.id}
-              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
-                    {t.batch?.code || 'CEE-A'}
-                  </span>
-
-                  <button
-                    onClick={() => handleTogglePublish(t.id)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
-                      t.isPublished
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
-                  >
-                    {t.isPublished ? '● Live Published' : '○ Draft'}
-                  </button>
+          {isLoadingTests ? (
+            Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm animate-pulse space-y-4"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="w-16 h-5 bg-slate-200 rounded-lg" />
+                  <div className="w-20 h-5 bg-slate-200 rounded-lg" />
                 </div>
-
-                <Link href={`/tests/${t.id}`}>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-                    {t.title}
-                  </h3>
-                </Link>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                  {t.description || 'Full timed mock exam with anti-cheat monitoring.'}
-                </p>
-
-                {/* Meta Chips */}
-                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600 font-mono">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-brand-500" />
-                    <span>{t.durationMinutes} Mins</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Award className="w-3.5 h-3.5 text-accent-indigo" />
-                    <span>{t.totalMarks} Marks</span>
-                  </div>
+                <div className="w-3/4 h-6 bg-slate-200 rounded-lg" />
+                <div className="w-full h-4 bg-slate-100 rounded-lg" />
+                <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
+                  <div className="h-4 bg-slate-100 rounded" />
+                  <div className="h-4 bg-slate-100 rounded" />
+                  <div className="h-4 bg-slate-100 rounded" />
                 </div>
               </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                <Link
-                  href={`/tests/${t.id}`}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all"
-                >
-                  Details / Leaderboard
-                </Link>
-
-                <Link
-                  href={`/tests/${t.id}/runner`}
-                  className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
-                >
-                  <Play className="w-3.5 h-3.5 fill-white" /> Take Exam
-                </Link>
-              </div>
-            </div>
-          ))}
-
-          {tests.length === 0 && (
+            ))
+          ) : tests.length === 0 ? (
             <div className="col-span-full bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
               <FileText className="w-10 h-10 text-slate-400 mx-auto mb-2" />
               <h3 className="text-sm font-bold text-slate-800">No mock tests created yet</h3>
               <p className="text-xs text-slate-500 mt-1">Click "+ Create New Test (4-Step Wizard)" above to start.</p>
             </div>
+          ) : (
+            tests.map((t) => {
+              const questionCount =
+                t.sections?.reduce((sum: number, s: any) => sum + (s._count?.questions || s.questions?.length || 0), 0) || 0;
+
+              return (
+                <div
+                  key={t.id}
+                  className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
+                        {t.batch?.code || t.batch?.name || 'CEE-2083'}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleTogglePublish(t.id)}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
+                            t.isPublished
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {t.isPublished ? '● Live Published' : '○ Draft'}
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenEdit(t)}
+                          title="Edit Schedule & Settings"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => setDeletingTest({ id: t.id, title: t.title })}
+                          title="Delete Test"
+                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <Link href={`/tests/${t.id}`}>
+                      <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+                        {t.title}
+                      </h3>
+                    </Link>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                      {t.description || 'Full timed mock exam with anti-cheat monitoring.'}
+                    </p>
+
+                    {/* Meta Chips */}
+                    <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+                        <span>{t.durationMinutes} Mins</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-accent-indigo shrink-0" />
+                        <span>{t.totalMarks} Marks</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span className={questionCount === 0 ? 'text-amber-600 font-semibold' : ''}>
+                          {questionCount} Qs
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Start Schedule Display */}
+                    {t.startDateTime && (
+                      <div className="mt-3 px-2.5 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[11px] text-slate-500 flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3 text-slate-400" />
+                        <span>Start: {new Date(t.startDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <Link
+                      href={`/tests/${t.id}`}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all"
+                    >
+                      Details / Leaderboard
+                    </Link>
+
+                    <Link
+                      href={`/tests/${t.id}/runner`}
+                      className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" /> Take Exam
+                    </Link>
+                  </div>
+                </div>
+              );
+            })
           )}
+        </div>
+      )}
+
+      {/* ── MODAL: EDIT TEST SETTINGS & SCHEDULE ── */}
+      {editingTest && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Edit Test & Schedule</h3>
+                <p className="text-xs text-slate-400">Update timing, marks, and publishing mode</p>
+              </div>
+              <button
+                onClick={() => setEditingTest(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Test Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Duration (Mins)</label>
+                  <input
+                    type="number"
+                    value={editDuration}
+                    onChange={(e) => setEditDuration(Number(e.target.value))}
+                    required
+                    min={1}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Total Marks</label>
+                  <input
+                    type="number"
+                    value={editTotalMarks}
+                    onChange={(e) => setEditTotalMarks(Number(e.target.value))}
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pass Marks</label>
+                  <input
+                    type="number"
+                    value={editPassMarks}
+                    onChange={(e) => setEditPassMarks(Number(e.target.value))}
+                    required
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-emerald-600 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editStartDateTime}
+                    onChange={(e) => setEditStartDateTime(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">End Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editEndDateTime}
+                    onChange={(e) => setEditEndDateTime(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Publishing Status</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'INSTANT', label: 'Live Immediate' },
+                    { id: 'SCHEDULED', label: 'Scheduled' },
+                    { id: 'DRAFT', label: 'Draft Mode' },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setEditPublishAction(mode.id as any)}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                        editPublishAction === mode.id
+                          ? 'bg-brand-50 border-brand-500 text-brand-700 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingTest(null)}
+                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="flex-1 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Saving Changes...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: DELETE TEST CONFIRMATION ── */}
+      {deletingTest && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete Test?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to permanently delete{' '}
+                <strong className="text-slate-800">"{deletingTest.title}"</strong>?
+              </p>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                onClick={() => setDeletingTest(null)}
+                className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-60"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                <span>{isDeleting ? 'Deleting...' : 'Yes, Delete'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
