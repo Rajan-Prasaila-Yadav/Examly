@@ -18,21 +18,21 @@ export class BatchesController {
   @ApiOperation({ summary: 'Get list of batches' })
   @RequirePermission('batches', 'read')
   async findAll(@CurrentUser() user: CurrentUserPayload) {
-    return this.batchesService.findAll(user.instituteId!, user.roleCode);
+    return this.batchesService.findAll(user?.instituteId, user?.roleCode);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get batch detail with subjects and lessons' })
   @RequirePermission('batches', 'read')
   async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
-    return this.batchesService.findOne(id, user.instituteId!);
+    return this.batchesService.findOne(id, user?.instituteId);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create new batch' })
   @RequirePermission('batches', 'create')
   async create(@Body() body: any, @CurrentUser() user: CurrentUserPayload) {
-    return this.batchesService.create(user.instituteId!, body);
+    return this.batchesService.create(user?.instituteId, body);
   }
 
   @Put(':id')
@@ -43,7 +43,7 @@ export class BatchesController {
     @Body() body: any,
     @CurrentUser() user: CurrentUserPayload,
   ) {
-    return this.batchesService.update(id, user.instituteId!, body);
+    return this.batchesService.update(id, user?.instituteId, body);
   }
 
   @Post(':id/students')
