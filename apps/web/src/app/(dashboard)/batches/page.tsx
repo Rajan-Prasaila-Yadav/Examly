@@ -97,7 +97,7 @@ export default function BatchesPage() {
     setCode('');
     setDescription('');
 
-    toast.loading('Creating batch...', `Setting up ${newBatch.name}`);
+    const toastId = toast.loading('Creating batch...', `Setting up ${newBatch.name}`);
     try {
       const res = await api.post('/batches', {
         name: newBatch.name,
@@ -107,11 +107,22 @@ export default function BatchesPage() {
       });
       if (res.data) {
         setBatches((prev) => prev.map((b) => (b.id === tempId ? res.data : b)));
-        toast.success('Batch Created!', `${res.data.name} is now live.`);
+        toast.updateToast(toastId, {
+          type: 'success',
+          title: 'Batch Created Successfully!',
+          message: `${res.data.name} (${res.data.code}) is now ready.`,
+          duration: 4000,
+        });
+        fetchBatches();
       }
     } catch (e: any) {
       setBatches((prev) => prev.filter((b) => b.id !== tempId));
-      toast.error('Failed to create batch', e.response?.data?.message || 'Please check input data');
+      toast.updateToast(toastId, {
+        type: 'error',
+        title: 'Failed to create batch',
+        message: e.response?.data?.message || 'Please check input data',
+        duration: 5000,
+      });
     }
   };
 
@@ -282,9 +293,13 @@ export default function BatchesPage() {
                   <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
                 </h3>
               </Link>
-              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                {b.description || 'Comprehensive medical entrance prep curriculum.'}
-              </p>
+              {b.description ? (
+                <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                  {b.description}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400 italic mt-1">Academic batch curriculum</p>
+              )}
 
               {/* Meta Stats */}
               {isStudent ? (

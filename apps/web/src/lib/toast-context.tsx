@@ -1,8 +1,8 @@
 // apps/web/src/lib/toast-context.tsx
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, AlertTriangle, AlertCircle, Info, Loader2, X } from 'lucide-react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { CheckCircle2, AlertCircle, Info, Loader2, X, Sparkles } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'loading';
 
@@ -23,6 +23,10 @@ interface ToastContextType {
   loading: (title: string, message?: string) => string;
   dismissToast: (id: string) => void;
   updateToast: (id: string, updates: Partial<Omit<Toast, 'id'>>) => void;
+  promise: <T>(
+    promise: Promise<T>,
+    msgs: { loading: string; success: string | ((data: T) => string); error?: string | ((err: any) => string) },
+  ) => Promise<T>;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -39,13 +43,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const newToast: Toast = { id, type, title, message, duration };
 
-      setToasts((prev) => [...prev, newToast]);
+      setToasts((prev) => [...prev.slice(-4), newToast]);
 
-      if (type !== 'loading' && duration > 0) {
-        setTimeout(() => {
-          dismissToast(id);
-        }, duration);
-      }
+      const effectiveDuration = duration > 0 ? duration : type === 'loading' ? 6000 : 4000;
+      setTimeout(() => {
+        dismissToast(id);
+      }, effectiveDuration);
 
       return id;
     },
@@ -58,11 +61,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         prev.map((t) => {
           if (t.id === id) {
             const updated = { ...t, ...updates };
-            if (updated.type !== 'loading' && (updated.duration ?? 4000) > 0) {
-              setTimeout(() => {
-                dismissToast(id);
-              }, updated.duration ?? 4000);
-            }
+            const effectiveDuration = updated.duration ?? (updated.type === 'loading' ? 6000 : 4000);
+            setTimeout(() => {
+              dismissToast(id);
+            }, effectiveDuration);
             return updated;
           }
           return t;
@@ -72,10 +74,43 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [dismissToast],
   );
 
-  const success = useCallback((title: string, message?: string) => showToast('success', title, message), [showToast]);
+  const success = useCallback((title: string, message?: string) => showToast('success', title, message, 4000), [showToast]);
   const error = useCallback((title: string, message?: string) => showToast('error', title, message, 5000), [showToast]);
-  const info = useCallback((title: string, message?: string) => showToast('info', title, message), [showToast]);
-  const loading = useCallback((title: string, message?: string) => showToast('loading', title, message, 0), [showToast]);
+  const info = useCallback((title: string, message?: string) => showToast('info', title, message, 4000), [showToast]);
+  const loading = useCallback((title: string, message?: string) => showToast('loading', title, message, 6000), [showToast]);
+
+  const promise = useCallback(
+    async <T,>(
+      prom: Promise<T>,
+      msgs: { loading: string; success: string | ((data: T) => string); error?: string | ((err: any) => string) },
+    ): Promise<T> => {
+      const toastId = loading(msgs.loading);
+      try {
+        const result = await prom;
+        const successMsg = typeof msgs.success === 'function' ? msgs.success(result) : msgs.success;
+        updateToast(toastId, {
+          type: 'success',
+          title: successMsg,
+          message: undefined,
+          duration: 4000,
+        });
+        return result;
+      } catch (err: any) {
+        const errorMsg =
+          typeof msgs.error === 'function'
+            ? msgs.error(err)
+            : msgs.error || err.response?.data?.message || err.message || 'An error occurred';
+        updateToast(toastId, {
+          type: 'error',
+          title: errorMsg,
+          message: undefined,
+          duration: 5000,
+        });
+        throw err;
+      }
+    },
+    [loading, updateToast],
+  );
 
   return (
     <ToastContext.Provider
@@ -88,6 +123,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         loading,
         dismissToast,
         updateToast,
+        promise,
       }}
     >
       {children}
@@ -99,7 +135,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    // Return fallback no-op so components don't crash if used outside provider
     return {
       toasts: [],
       showToast: () => '',
@@ -109,6 +144,7 @@ export function useToast() {
       loading: () => '',
       dismissToast: () => {},
       updateToast: () => {},
+      promise: async <T,>(p: Promise<T>) => p,
     };
   }
   return context;
@@ -118,22 +154,25 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+    <div
+      aria-live="polite"
+      className="fixed top-5 right-5 z-[999999] flex flex-col gap-3 max-w-md w-[calc(100vw-2.5rem)] sm:w-96 pointer-events-none"
+    >
       {toasts.map((toast) => {
-        let bg = 'bg-slate-900/95 text-white border-slate-700';
+        let bg = 'bg-slate-900 text-white border-slate-700 shadow-2xl shadow-slate-950/60';
         let Icon = Info;
         let iconColor = 'text-sky-400';
 
         if (toast.type === 'success') {
-          bg = 'bg-emerald-950/95 text-emerald-50 border-emerald-800 shadow-emerald-950/40';
+          bg = 'bg-slate-900 text-white border-emerald-500/60 shadow-2xl shadow-emerald-950/50';
           Icon = CheckCircle2;
           iconColor = 'text-emerald-400';
         } else if (toast.type === 'error') {
-          bg = 'bg-rose-950/95 text-rose-50 border-rose-800 shadow-rose-950/40';
+          bg = 'bg-slate-900 text-white border-rose-500/60 shadow-2xl shadow-rose-950/50';
           Icon = AlertCircle;
           iconColor = 'text-rose-400';
         } else if (toast.type === 'loading') {
-          bg = 'bg-slate-900/95 text-slate-100 border-slate-700 shadow-slate-950/40';
+          bg = 'bg-slate-900 text-white border-brand-500/60 shadow-2xl shadow-brand-950/50';
           Icon = Loader2;
           iconColor = 'text-brand-400 animate-spin';
         }
@@ -141,20 +180,27 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto p-4 rounded-2xl border backdrop-blur-xl shadow-xl transition-all duration-300 flex items-start gap-3 animate-in slide-in-from-bottom-5 fade-in ${bg}`}
+            className={`pointer-events-auto p-4 rounded-2xl border-2 backdrop-blur-2xl transition-all duration-300 flex items-start gap-3.5 transform translate-y-0 opacity-100 ${bg}`}
           >
-            <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${iconColor}`} />
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-bold leading-snug">{toast.title}</h4>
+            <div className="p-1 rounded-xl bg-white/10 shrink-0 mt-0.5">
+              <Icon className={`w-5 h-5 ${iconColor}`} />
+            </div>
+            <div className="flex-1 min-w-0 pr-1">
+              <h4 className="text-xs sm:text-sm font-bold leading-tight text-white tracking-wide">
+                {toast.title}
+              </h4>
               {toast.message && (
-                <p className="text-[11px] opacity-80 mt-0.5 leading-relaxed break-words">{toast.message}</p>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed break-words font-medium">
+                  {toast.message}
+                </p>
               )}
             </div>
             <button
               onClick={() => onDismiss(toast.id)}
-              className="p-1 opacity-60 hover:opacity-100 rounded-lg transition-opacity"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all shrink-0"
+              title="Close notification"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         );
