@@ -1,5 +1,5 @@
 // apps/api/src/modules/auth/dto/refresh-token.dto.ts
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RefreshTokenDto {
@@ -16,5 +16,7 @@ export class GoogleLoginDto {
   idToken: string;
 
   @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
   deviceInfo?: string;
 }
