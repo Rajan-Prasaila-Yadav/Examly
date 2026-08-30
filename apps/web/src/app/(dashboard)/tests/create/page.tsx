@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import {
   FileCheck2,
   ArrowLeft,
@@ -109,6 +110,18 @@ function formatPrettyDateTime(dateStr: string, timeStr: string): string {
 
 export default function CreateTestWizardPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isStudent =
+    user?.role === 'STUDENT' ||
+    user?.role === 'Student' ||
+    (typeof user?.role === 'object' && ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
+
+  useEffect(() => {
+    if (isStudent) {
+      router.replace('/tests');
+    }
+  }, [isStudent, router]);
+
   const [batches, setBatches] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);

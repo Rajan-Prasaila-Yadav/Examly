@@ -107,6 +107,7 @@ export default function LiveTestRunnerPage() {
 
   const [startError, setStartError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
+  const [isLoadingTest, setIsLoadingTest] = useState(true);
 
   const flattenQuestions = (testPayload: any) =>
     (testPayload?.sections || []).flatMap((sec: any) =>
@@ -123,14 +124,17 @@ export default function LiveTestRunnerPage() {
   // Load Test metadata & past evaluation (if student previously submitted)
   useEffect(() => {
     const fetchTestAndEvaluation = async () => {
+      setIsLoadingTest(true);
       try {
         const [testRes, keyRes] = await Promise.all([
           api.get(`/tests/${testId}`),
           api.get(`/tests/${testId}/answer-key`).catch(() => null),
         ]);
-        setTest(testRes.data);
-        const baseQuestions = flattenQuestions(testRes.data);
-        setQuestions(baseQuestions);
+        if (testRes?.data) {
+          setTest(testRes.data);
+          const baseQuestions = flattenQuestions(testRes.data);
+          setQuestions(baseQuestions);
+        }
 
         if (keyRes?.data?.answerKey) {
           setAnswerKeyData(keyRes.data.answerKey);
@@ -207,6 +211,8 @@ export default function LiveTestRunnerPage() {
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        setIsLoadingTest(false);
       }
     };
 
@@ -478,6 +484,27 @@ export default function LiveTestRunnerPage() {
   // PHASE 1: RULES & REGULATIONS (SCR-STU-10)
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RULES') {
+    if (isLoadingTest) {
+      return (
+        <div className="max-w-2xl mx-auto py-6 px-3 sm:px-6 space-y-6 animate-pulse">
+          <div className="w-32 h-5 bg-slate-200 rounded-lg" />
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 mx-auto" />
+            <div className="w-2/3 h-7 bg-slate-200 mx-auto rounded-xl" />
+            <div className="w-1/2 h-4 bg-slate-100 mx-auto rounded-lg" />
+            <div className="grid grid-cols-4 gap-2">
+              <div className="h-14 bg-slate-100 rounded-xl" />
+              <div className="h-14 bg-slate-100 rounded-xl" />
+              <div className="h-14 bg-slate-100 rounded-xl" />
+              <div className="h-14 bg-slate-100 rounded-xl" />
+            </div>
+            <div className="h-40 bg-slate-50 rounded-2xl border border-slate-100" />
+            <div className="h-12 bg-slate-200 rounded-xl" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-2xl mx-auto py-6 px-3 sm:px-6 space-y-6">
         <Link
@@ -493,9 +520,12 @@ export default function LiveTestRunnerPage() {
           </div>
 
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">{test?.title || 'Live Mock Examination'}</h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Please read all rules, anti-cheat policies, and scoring instructions carefully before starting.
+            <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 font-mono text-[11px] font-bold border border-purple-200">
+              {test?.batch?.name || test?.subject?.name || 'Mock Examination'}
+            </span>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">{test?.title}</h1>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+              {test?.description || 'Please read all examination rules, anti-cheat instructions, and time policies carefully.'}
             </p>
           </div>
 
@@ -507,7 +537,7 @@ export default function LiveTestRunnerPage() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Completed Attempt Available
                 </span>
                 <span className="text-xs font-bold font-mono text-emerald-700">
-                  Last Score: {pastAttempt.totalScore ?? 0} / {test?.totalMarks || 200} ({pastAttempt.percentage ?? 0}%)
+                  Score: {pastAttempt.totalScore ?? 0} / {test?.totalMarks} ({pastAttempt.percentage ?? 0}%)
                 </span>
               </div>
               <p className="text-[11px] text-slate-600">
@@ -531,76 +561,74 @@ export default function LiveTestRunnerPage() {
           )}
 
           {/* Key Metrics Chips (SCR-STU-10) */}
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 block">Duration</span>
-              <span className="font-bold text-slate-900 font-mono">{test?.durationMinutes || 120} Min</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-medium">Duration</span>
+              <span className="font-bold text-slate-900 font-mono text-sm">{test?.durationMinutes} Min</span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 block">Questions</span>
-              <span className="font-bold text-slate-900 font-mono">{questions.length} Qs</span>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
+              <span className="font-bold text-slate-900 font-mono text-sm">{questions.length} Qs</span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 block">Total Marks</span>
-              <span className="font-bold text-brand-700 font-mono">{test?.totalMarks || 200}</span>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
+              <span className="font-bold text-brand-700 font-mono text-sm">{test?.totalMarks} Marks</span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 block">Pass Mark</span>
-              <span className="font-bold text-emerald-600 font-mono">{test?.passMarks || 80}</span>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <span className="text-[10px] text-slate-400 block font-medium">Pass Mark</span>
+              <span className="font-bold text-emerald-600 font-mono text-sm">{test?.passMarks} Marks</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-950">
-            You get the full <strong>{test?.durationMinutes || 0} minutes</strong>. Last allowed start:{' '}
-            <strong>
-              {test?.lastJoinAt
-                ? new Date(test.lastJoinAt).toLocaleString()
-                : test?.endDateTime
-                ? new Date(
-                    new Date(test.endDateTime).getTime() - (test.durationMinutes || 0) * 60 * 1000,
-                  ).toLocaleString()
-                : '—'}
-            </strong>
-            . After that, joining is blocked so every student gets a full sitting.
-          </div>
+          {/* Timing & Schedule Window */}
+          {test?.startDateTime && (
+            <div className="p-3.5 rounded-2xl bg-brand-50/70 border border-brand-200 text-left text-xs text-brand-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-brand-600 block">Scheduled Examination Window</span>
+                <span className="font-mono text-xs font-semibold">
+                  {new Date(test.startDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {test.endDateTime ? ` → ${new Date(test.endDateTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                </span>
+              </div>
+              <span className="text-[11px] px-2.5 py-1 rounded-lg bg-white border border-brand-200 font-bold text-brand-700 w-fit">
+                ⏱ {test.durationMinutes} Minutes Allotted
+              </span>
+            </div>
+          )}
 
           {/* Rules List (SCR-STU-10 pixel accurate) */}
-          <div className="text-left space-y-2.5 text-xs text-slate-700 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <div className="text-left space-y-2.5 text-xs text-slate-700 p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>1. <strong>Do not leave the test screen:</strong> Tab switches increment anti-cheat strikes.</span>
+              <span>1. <strong>Strict Window Focus:</strong> Tab switches increment anti-cheat strikes.</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>2. <strong>Screenshot & screen recording disabled:</strong> Protected secure stream active.</span>
+              <span>2. <strong>Screenshot & Stream Protected:</strong> DRM stream protection active.</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>3. <strong>Copy-paste blocked:</strong> Text selection and clipboard shortcuts are locked.</span>
+              <span>3. <strong>Anti-Cheat Strike Policy:</strong> Accumulating 3 cheating strikes triggers auto-submission.</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>4. <strong>3 Strikes Rule:</strong> Accumulating 3 cheating strikes triggers automatic auto-submission.</span>
+              <span>4. <strong>Marking Scheme:</strong> +{test?.config?.defaultPositiveMarks || (test?.totalMarks && questions.length ? Number((test.totalMarks / questions.length).toFixed(1)) : 1)} marks for correct, -{test?.negativeMarkRate !== undefined ? test.negativeMarkRate : 1} for incorrect.</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>5. <strong>Submit unlock:</strong> Submit is locked for the first {test?.config?.submitUnlockDelayMins || 5} minute(s).</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>6. <strong>Full duration only:</strong> You cannot start if less than the full duration remains before the end time.</span>
+              <span>5. <strong>Submit Unlock:</strong> Submit button unlocks {test?.config?.submitUnlockDelayMins || 5} min after starting.</span>
             </div>
           </div>
 
           {/* Consent Checkbox */}
-          <label className="flex items-center justify-center gap-2.5 cursor-pointer text-xs pt-2">
+          <label className="flex items-center justify-center gap-2.5 cursor-pointer text-xs pt-1 p-2 rounded-xl hover:bg-slate-50 transition-colors">
             <input
               type="checkbox"
               checked={hasAgreedRules}
               onChange={(e) => setHasAgreedRules(e.target.checked)}
-              className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+              className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
             />
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-slate-800 select-none">
               I have read the rules & regulations and agree to follow.
             </span>
           </label>
@@ -612,7 +640,11 @@ export default function LiveTestRunnerPage() {
           <button
             disabled={!hasAgreedRules || isStarting || questions.length === 0}
             onClick={handleStartExam}
-            className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-brand-600/20 flex items-center justify-center gap-2 transition-all"
+            className={`w-full py-3.5 font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all ${
+              hasAgreedRules && questions.length > 0
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 ring-2 ring-emerald-400/40 scale-[1.01]'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+            }`}
           >
             {isStarting ? (
               <>

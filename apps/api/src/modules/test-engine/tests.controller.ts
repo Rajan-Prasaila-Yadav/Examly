@@ -11,6 +11,7 @@ import {
   Res,
   UseInterceptors,
   UploadedFiles,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
@@ -23,7 +24,7 @@ import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
 import { RequirePermission } from '../../platform/rbac/decorators/require-permission.decorator';
 
 @ApiTags('Test & Examination Engine')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT')
 @UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller('tests')
 export class TestsController {
@@ -37,21 +38,25 @@ export class TestsController {
   // ──────────────────────────────────────────────
 
   @Get()
-  @ApiOperation({ summary: 'List available tests' })
+  @ApiOperation({ summary: 'List tests visible to current institute / user' })
   @RequirePermission('tests', 'read')
   async findAll(@CurrentUser() user: CurrentUserPayload) {
-    return this.testsService.findAll(user.instituteId!, user.roleCode);
+    return this.testsService.findAll(user.instituteId!, user.roleCode, user.batchId);
   }
 
   @Post('ai-parse')
-  @ApiOperation({ summary: 'Parse pasted text / PDF / images into question templates (does not save)' })
+  @ApiOperation({ summary: 'Parse text, images, or PDFs into structured questions' })
   @ApiConsumes('multipart/form-data', 'application/json')
   @RequirePermission('tests', 'create')
   @UseInterceptors(FilesInterceptor('files', 15, { limits: { fileSize: 15 * 1024 * 1024 } }))
   async aiParse(
     @UploadedFiles() files: any[],
     @Body() body: { rawText?: string },
+    @CurrentUser() user: CurrentUserPayload,
   ) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to author or import questions.');
+    }
     const parsed = await this.aiImportService.parse({
       rawText: body?.rawText,
       files: files || [],
@@ -70,6 +75,9 @@ export class TestsController {
   @ApiOperation({ summary: 'Create new test with sections' })
   @RequirePermission('tests', 'create')
   async create(@Body() body: any, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to create tests.');
+    }
     return this.testsService.create(user.instituteId!, body);
   }
 
@@ -77,6 +85,9 @@ export class TestsController {
   @ApiOperation({ summary: 'Update test configuration' })
   @RequirePermission('tests', 'update')
   async update(@Param('id') id: string, @Body() body: any, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to modify tests.');
+    }
     return this.testsService.update(id, user.instituteId!, body);
   }
 
@@ -84,6 +95,9 @@ export class TestsController {
   @ApiOperation({ summary: 'Soft delete test' })
   @RequirePermission('tests', 'delete')
   async delete(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to delete tests.');
+    }
     return this.testsService.delete(id, user.instituteId!);
   }
 
@@ -91,6 +105,9 @@ export class TestsController {
   @ApiOperation({ summary: 'Toggle published / live status of test' })
   @RequirePermission('tests', 'publish')
   async togglePublish(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to publish tests.');
+    }
     return this.testsService.togglePublish(id, user.instituteId!);
   }
 
@@ -101,21 +118,34 @@ export class TestsController {
   @Post(':id/sections')
   @ApiOperation({ summary: 'Add a new section to test' })
   @RequirePermission('tests', 'update')
-  async addSection(@Param('id') testId: string, @Body() body: { name: string }) {
+  async addSection(@Param('id') testId: string, @Body() body: { name: string }, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to manage test sections.');
+    }
     return this.testsService.addSection(testId, body);
   }
 
   @Put('sections/:sectionId')
   @ApiOperation({ summary: 'Update section name or order' })
   @RequirePermission('tests', 'update')
-  async updateSection(@Param('sectionId') sectionId: string, @Body() body: { name?: string; sortOrder?: number }) {
+  async updateSection(
+    @Param('sectionId') sectionId: string,
+    @Body() body: { name?: string; sortOrder?: number },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to manage test sections.');
+    }
     return this.testsService.updateSection(sectionId, body);
   }
 
   @Delete('sections/:sectionId')
   @ApiOperation({ summary: 'Delete section and its questions' })
   @RequirePermission('tests', 'update')
-  async deleteSection(@Param('sectionId') sectionId: string) {
+  async deleteSection(@Param('sectionId') sectionId: string, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to manage test sections.');
+    }
     return this.testsService.deleteSection(sectionId);
   }
 
@@ -126,28 +156,40 @@ export class TestsController {
   @Post(':id/questions')
   @ApiOperation({ summary: 'Add a new question to test section' })
   @RequirePermission('tests', 'create')
-  async addQuestion(@Param('id') testId: string, @Body() body: any) {
+  async addQuestion(@Param('id') testId: string, @Body() body: any, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to author questions.');
+    }
     return this.testsService.addQuestion(testId, body);
   }
 
   @Put('questions/:questionId')
   @ApiOperation({ summary: 'Update existing question' })
   @RequirePermission('tests', 'update')
-  async updateQuestion(@Param('questionId') questionId: string, @Body() body: any) {
+  async updateQuestion(@Param('questionId') questionId: string, @Body() body: any, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to author questions.');
+    }
     return this.testsService.updateQuestion(questionId, body);
   }
 
   @Delete('questions/:questionId')
   @ApiOperation({ summary: 'Delete question' })
   @RequirePermission('tests', 'update')
-  async deleteQuestion(@Param('questionId') questionId: string) {
+  async deleteQuestion(@Param('questionId') questionId: string, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to delete questions.');
+    }
     return this.testsService.deleteQuestion(questionId);
   }
 
   @Post(':id/bulk-import')
   @ApiOperation({ summary: 'Bulk import questions from structured data (SCR-ADM-14)' })
   @RequirePermission('tests', 'create')
-  async bulkImport(@Param('id') testId: string, @Body() body: { questions: any[] }) {
+  async bulkImport(@Param('id') testId: string, @Body() body: { questions: any[] }, @CurrentUser() user: CurrentUserPayload) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to bulk import questions.');
+    }
     return this.testsService.bulkImportQuestions(testId, body.questions);
   }
 

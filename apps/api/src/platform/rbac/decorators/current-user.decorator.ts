@@ -7,6 +7,7 @@ export interface CurrentUserPayload {
   roleCode: string;
   identifier: string;
   email?: string;
+  batchId?: string;
 }
 
 export const CurrentUser = createParamDecorator(
