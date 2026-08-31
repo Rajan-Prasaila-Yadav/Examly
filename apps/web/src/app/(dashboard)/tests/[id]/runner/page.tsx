@@ -1,7 +1,7 @@
 // apps/web/src/app/(dashboard)/tests/[id]/runner/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -38,7 +38,7 @@ import {
 import { renderMath } from '@/lib/render-math';
 import { useAuth } from '@/lib/auth-context';
 
-export default function LiveTestRunnerPage() {
+function LiveTestRunnerContent() {
   const { user } = useAuth();
   const isStudent =
     user?.role === 'STUDENT' ||
@@ -1992,5 +1992,20 @@ export default function LiveTestRunnerPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LiveTestRunnerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[85vh] flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="w-10 h-10 text-brand-600 animate-spin" />
+          <p className="text-xs font-semibold text-slate-500">Loading live test engine...</p>
+        </div>
+      }
+    >
+      <LiveTestRunnerContent />
+    </Suspense>
   );
 }

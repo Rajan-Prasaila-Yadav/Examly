@@ -1,7 +1,7 @@
 // apps/web/src/app/(dashboard)/tests/create/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -108,7 +108,7 @@ function formatPrettyDateTime(dateStr: string, timeStr: string): string {
   return formatDeterministicDateTime(dateObj);
 }
 
-export default function CreateTestWizardPage() {
+function CreateTestWizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramBatchId = searchParams.get('batchId') || '';
@@ -1568,5 +1568,20 @@ export default function CreateTestWizardPage() {
         onApply={applyParsedQuestions}
       />
     </div>
+  );
+}
+
+export default function CreateTestWizardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
+          <p className="text-xs font-semibold text-slate-500">Loading test builder...</p>
+        </div>
+      }
+    >
+      <CreateTestWizardContent />
+    </Suspense>
   );
 }
