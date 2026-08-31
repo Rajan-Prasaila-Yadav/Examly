@@ -1120,11 +1120,20 @@ function LiveTestRunnerContent() {
               <FileSpreadsheet className="w-4 h-4" /> Answer Key & Calculation
             </button>
 
-            {/* Button 3: View Leaderboard */}
+            {/* Button 3: Download PDF Report */}
+            <button
+              type="button"
+              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
+              className="w-full py-2.5 sm:py-3 bg-white hover:bg-slate-50 border-2 border-slate-300 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download className="w-4 h-4 text-brand-600" /> Download PDF Report
+            </button>
+
+            {/* Button 4: View Leaderboard */}
             <button
               type="button"
               onClick={() => router.push(`/tests/${testId}?tab=leaderboard`)}
-              className="w-full py-2.5 sm:py-3 bg-white hover:bg-indigo-50/50 border-2 border-indigo-600 text-indigo-600 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              className="w-full py-2.5 sm:py-3 bg-white hover:bg-indigo-50/50 border border-indigo-200 text-indigo-600 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
             >
               <Trophy className="w-4 h-4 text-indigo-600" /> View Leaderboard
             </button>

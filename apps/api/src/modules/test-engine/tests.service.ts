@@ -1858,22 +1858,35 @@ export class TestsService {
     const data = await this.getAnswerKey(testId, studentId);
     const rows = data.answerKey.map((q) => [
       String(q.questionNumber),
-      q.sectionName,
+      q.sectionName || 'General',
       q.correctAnswer,
-      q.yourAnswer,
-      q.status,
-      q.marks,
-      q.negative,
+      q.yourAnswer || '—',
+      q.status === 'CORRECT' ? 'Correct' : q.status === 'WRONG' ? 'Wrong' : 'Unanswered',
+      `+${q.marks}`,
+      `-${q.negative}`,
     ]);
+
+    const isPassed = data.result?.isPassed ?? false;
+    const testAny = data.test as any;
+    const passMarks = data.test?.passMarks ?? testAny?.config?.passMarks ?? Math.round(0.4 * (data.test?.totalMarks || 100));
+    const passPct = testAny?.config?.passPercentage ?? (data.test?.totalMarks ? Math.round((passMarks / data.test.totalMarks) * 100) : 40);
+
+    const summaryText = [
+      `Total Marks: ${data.test.totalMarks}`,
+      `Score: ${data.result?.totalScore ?? 0} (${data.result?.percentage ?? 0}%)`,
+      `Result: ${isPassed ? 'PASSED' : 'FAILED'} (Pass Mark: ${passMarks} / ${passPct}%)`,
+      `Correct: ${data.result?.totalCorrect ?? 0} | Wrong: ${data.result?.totalWrong ?? 0} | Unanswered: ${data.result?.totalUnanswered ?? 0}`,
+    ].join('  •  ');
+
     const dd = this.pdfWrapper(
-      'Answer Key & Score Table',
-      `Test: ${data.test.title} | Total Marks: ${data.test.totalMarks} | Scored: ${data.result?.totalScore ?? 0}`,
+      'Answer Key & Score Report',
+      `Test: ${data.test.title}\n${summaryText}`,
       [
         {
           style: 'table',
           table: {
             headerRows: 1,
-            widths: [36, 80, 90, 90, 70, 55, 55],
+            widths: [28, 80, 85, 85, 75, 45, 45],
             body: [
               ['Q#', 'Section', 'Correct Answer', 'Your Answer', 'Status', 'Marks', 'Negative'],
               ...rows,
