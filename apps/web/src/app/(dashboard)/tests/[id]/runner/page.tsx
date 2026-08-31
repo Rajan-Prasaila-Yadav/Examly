@@ -313,8 +313,8 @@ function LiveTestRunnerContent() {
       setIsLoadingTest(true);
       try {
         const [testRes, keyRes] = await Promise.all([
-          api.get(`/tests/${testId}`),
-          api.get(`/tests/${testId}/answer-key`).catch(() => null),
+          api.get(`/tests/${testId}`, { bypassCache: true }),
+          api.get(`/tests/${testId}/answer-key`, { bypassCache: true }).catch(() => null),
         ]);
 
         const testData = testRes?.data || null;
@@ -599,8 +599,8 @@ function LiveTestRunnerContent() {
 
         // Immediately fetch post-submission verified questions with step solutions and answer keys
         const [reviewRes, keyRes] = await Promise.all([
-          api.get(`/tests/attempts/${attemptId}/review`).catch(() => null),
-          api.get(`/tests/${testId}/answer-key`).catch(() => null),
+          api.get(`/tests/attempts/${attemptId}/review`, { bypassCache: true }).catch(() => null),
+          api.get(`/tests/${testId}/answer-key`, { bypassCache: true }).catch(() => null),
         ]);
 
         if (reviewRes?.data?.questions) {
