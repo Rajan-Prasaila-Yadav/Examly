@@ -1261,6 +1261,11 @@ export class TestsService {
     const test = await this.prisma.test.findUnique({
       where: { id: testId },
       include: {
+        institute: true,
+        batch: true,
+        subject: true,
+        lesson: true,
+        config: true,
         sections: {
           include: {
             questions: {
@@ -1291,20 +1296,41 @@ export class TestsService {
           include: {
             result: true,
             answers: true,
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                phone: true,
+                avatarUrl: true,
+                studentProfile: true,
+              },
+            },
           },
           orderBy: { submittedAt: 'desc' },
         })
       : null;
 
-    if (studentId && !latestAttempt) {
-      // Check if user is staff / teacher / admin
-      const user = await this.prisma.user.findUnique({
+    let studentUser: any = null;
+    if (studentId) {
+      studentUser = await this.prisma.user.findUnique({
         where: { id: studentId },
-        include: { role: true },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+          studentProfile: true,
+          role: true,
+        },
       });
-      const isAdminOrTeacher = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'].includes(user?.role?.name || '');
-      if (!isAdminOrTeacher) {
-        throw new ForbiddenException('You must complete and submit the test before viewing the answer key and solutions.');
+
+      if (!latestAttempt) {
+        const isAdminOrTeacher = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_ADMIN', 'TEACHER'].includes(studentUser?.role?.name || '');
+        if (!isAdminOrTeacher) {
+          throw new ForbiddenException('You must complete and submit the test before viewing the answer key and solutions.');
+        }
       }
     }
 
@@ -1379,20 +1405,45 @@ export class TestsService {
     const totalScore = latestAttempt?.result?.totalScore ?? answerKey.reduce((sum, a) => sum + a.awardedMarks, 0);
     const percentage = latestAttempt?.result?.percentage ?? (test.totalMarks > 0 ? Math.round((Math.max(0, totalScore) / test.totalMarks) * 10000) / 100 : 0);
 
+    const testAny = test as any;
+    const resolvedPassMarks = test.passMarks ?? testAny.config?.passMarks ?? Math.round(0.4 * (test.totalMarks || 100));
+    const resolvedPassPct = testAny.config?.passPercentage ?? (test.totalMarks > 0 ? Math.round((resolvedPassMarks / test.totalMarks) * 100) : 40);
+
     return {
       test: {
         id: test.id,
         title: test.title,
+        description: test.description,
+        subjectName: testAny.subject?.name || null,
+        lessonTitle: testAny.lesson?.title || null,
+        batchName: testAny.batch?.name || null,
+        instituteName: testAny.institute?.name || null,
         totalMarks: test.totalMarks,
-        passMarks: test.passMarks,
+        passMarks: resolvedPassMarks,
+        passPercentage: resolvedPassPct,
+        negativeMarkRate: test.negativeMarkRate,
         durationMinutes: test.durationMinutes,
+        startDateTime: test.startDateTime,
+        endDateTime: test.endDateTime,
+        config: testAny.config || null,
       },
+      student: latestAttempt?.student || studentUser || null,
+      attempt: latestAttempt
+        ? {
+            id: latestAttempt.id,
+            attemptNumber: latestAttempt.attemptNumber,
+            startedAt: latestAttempt.startedAt,
+            submittedAt: latestAttempt.submittedAt,
+            durationSeconds: latestAttempt.durationSeconds,
+            cheatStrikes: latestAttempt.cheatStrikes,
+          }
+        : null,
       attemptId: latestAttempt?.id || null,
       result: {
         totalScore,
         totalMarks: test.totalMarks,
         percentage,
-        isPassed: latestAttempt?.result?.isPassed ?? (percentage >= (test.passMarks ? (test.passMarks / test.totalMarks) * 100 : 50)),
+        isPassed: latestAttempt?.result?.isPassed ?? (totalScore >= resolvedPassMarks || percentage >= resolvedPassPct),
         totalCorrect,
         totalWrong,
         totalUnanswered,
@@ -1854,47 +1905,557 @@ export class TestsService {
     return { buffer: buf, filename: `leaderboard-${testId}.xlsx` };
   }
 
+  private fmtDateTimeInTz(d: Date | string | null | undefined): string {
+    if (!d) return '-';
+    return new Date(d).toLocaleString('en-US', {
+      timeZone: 'Asia/Kathmandu',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  }
+
   async exportAnswerKeyPdf(testId: string, studentId: string): Promise<{ buffer: Buffer; filename: string }> {
     const data = await this.getAnswerKey(testId, studentId);
-    const rows = data.answerKey.map((q) => [
-      String(q.questionNumber),
-      q.sectionName || 'General',
-      q.correctAnswer,
-      q.yourAnswer || '—',
-      q.status === 'CORRECT' ? 'Correct' : q.status === 'WRONG' ? 'Wrong' : 'Unanswered',
-      `+${q.marks}`,
-      `-${q.negative}`,
-    ]);
+    const nowTz = this.fmtDateTimeInTz(new Date());
 
+    const studentName = data.student?.fullName || 'Student';
+    const studentProfile = (data.student as any)?.studentProfile;
+    const studentCode =
+      studentProfile?.admissionNumber ||
+      studentProfile?.rollNumber ||
+      (data.student?.id ? `EXM-${data.student.id.slice(-6).toUpperCase()}` : 'EXM-STUDENT');
+    const studentEmail = data.student?.email || '—';
+    const studentPhone = data.student?.phone || '—';
+    const batchName = (data.test as any).batchName || 'General Batch';
+    const instituteName = (data.test as any).instituteName || 'Examly Platform';
+
+    const testTitle = data.test.title || 'Examination';
+    const testIdCode = `TST-${data.test.id.slice(-8).toUpperCase()}`;
+    const reportIdCode = `RPT-${(data.attemptId || data.test.id).slice(-8).toUpperCase()}`;
+    const attemptIdCode = data.attemptId ? `ATT-${data.attemptId.slice(-8).toUpperCase()}` : 'ATT-PREVIEW';
+    const subjectName = (data.test as any).subjectName || 'General';
+    const lessonTitle = (data.test as any).lessonTitle || (data.test as any).subjectName || testTitle;
+
+    const startedTimeStr = this.fmtDateTimeInTz(data.attempt?.startedAt || data.test.startDateTime);
+    const submittedTimeStr = this.fmtDateTimeInTz(data.attempt?.submittedAt || data.test.endDateTime);
+    const durationSeconds = data.attempt?.durationSeconds || 0;
+    const durationStr = this.fmtDuration(durationSeconds);
+
+    const totalQuestions = data.answerKey.length;
+    const totalMarks = data.test.totalMarks;
+    const totalScore = data.result?.totalScore ?? 0;
+    const percentage = Number(data.result?.percentage ?? 0).toFixed(2);
     const isPassed = data.result?.isPassed ?? false;
-    const testAny = data.test as any;
-    const passMarks = data.test?.passMarks ?? testAny?.config?.passMarks ?? Math.round(0.4 * (data.test?.totalMarks || 100));
-    const passPct = testAny?.config?.passPercentage ?? (data.test?.totalMarks ? Math.round((passMarks / data.test.totalMarks) * 100) : 40);
+    const passMarks = data.test.passMarks;
+    const passPct = data.test.passPercentage;
 
-    const summaryText = [
-      `Total Marks: ${data.test.totalMarks}`,
-      `Score: ${data.result?.totalScore ?? 0} (${data.result?.percentage ?? 0}%)`,
-      `Result: ${isPassed ? 'PASSED' : 'FAILED'} (Pass Mark: ${passMarks} / ${passPct}%)`,
-      `Correct: ${data.result?.totalCorrect ?? 0} | Wrong: ${data.result?.totalWrong ?? 0} | Unanswered: ${data.result?.totalUnanswered ?? 0}`,
-    ].join('  •  ');
+    const posRate = (data.test.config as any)?.defaultPositiveMarks ?? (totalQuestions > 0 ? Number((totalMarks / totalQuestions).toFixed(2)) : 1);
+    const negRate = (data.test.config as any)?.defaultNegativeMarks ?? (data.test.negativeMarkRate || 1);
 
-    const dd = this.pdfWrapper(
-      'Answer Key & Score Report',
-      `Test: ${data.test.title}\n${summaryText}`,
+    const totalCorrect = data.result?.totalCorrect ?? 0;
+    const totalWrong = data.result?.totalWrong ?? 0;
+    const totalUnanswered = data.result?.totalUnanswered ?? 0;
+    const penaltyTotal = data.result?.negativeMarks ?? 0;
+    const accuracy = data.result?.accuracy ?? 0;
+    const rankStr = data.result?.rank ? `#${data.result.rank}` : 'N/A';
+
+    const correctScoreTotal = Number((totalCorrect * posRate).toFixed(2));
+    const wrongPenaltyTotal = Number((totalWrong * negRate).toFixed(2));
+
+    const attemptRate = totalQuestions > 0 ? Number((((totalCorrect + totalWrong) / totalQuestions) * 100).toFixed(1)) : 0;
+    const correctRate = totalQuestions > 0 ? Number(((totalCorrect / totalQuestions) * 100).toFixed(1)) : 0;
+
+    // Table rows
+    const tableBody: any[] = [
       [
+        { text: 'Q#', style: 'th', alignment: 'center' },
+        { text: 'Section', style: 'th', alignment: 'left' },
+        { text: 'Correct Ans', style: 'th', alignment: 'center' },
+        { text: 'Your Ans', style: 'th', alignment: 'center' },
+        { text: 'Status', style: 'th', alignment: 'center' },
+        { text: 'Awarded', style: 'th', alignment: 'center' },
+        { text: 'Penalty', style: 'th', alignment: 'center' },
+        { text: 'Net Marks', style: 'th', alignment: 'center' },
+      ],
+    ];
+
+    data.answerKey.forEach((q, idx) => {
+      const isEven = idx % 2 === 1;
+      const rowBg = isEven ? '#F8FAFC' : '#FFFFFF';
+
+      let statusCell: any;
+      if (q.status === 'CORRECT') {
+        statusCell = {
+          text: 'CORRECT',
+          fillColor: '#DCFCE7',
+          color: '#15803D',
+          bold: true,
+          alignment: 'center',
+          fontSize: 7.5,
+          margin: [0, 2, 0, 2],
+        };
+      } else if (q.status === 'WRONG') {
+        statusCell = {
+          text: 'WRONG',
+          fillColor: '#FEE2E2',
+          color: '#B91C1C',
+          bold: true,
+          alignment: 'center',
+          fontSize: 7.5,
+          margin: [0, 2, 0, 2],
+        };
+      } else {
+        statusCell = {
+          text: 'UNANSWERED',
+          fillColor: '#F1F5F9',
+          color: '#64748B',
+          alignment: 'center',
+          fontSize: 7,
+          margin: [0, 2, 0, 2],
+        };
+      }
+
+      const awardedText = q.status === 'CORRECT' ? `+${q.marks}` : '0';
+      const penaltyText = q.status === 'WRONG' ? `-${q.negative}` : '0';
+      const netText = q.awardedMarks > 0 ? `+${q.awardedMarks}` : q.awardedMarks < 0 ? `${q.awardedMarks}` : '0';
+
+      tableBody.push([
+        { text: String(q.questionNumber), alignment: 'center', bold: true, fillColor: rowBg, fontSize: 8 },
+        { text: q.sectionName || 'General', alignment: 'left', fillColor: rowBg, fontSize: 8 },
+        { text: `[${q.correctAnswer}]`, alignment: 'center', bold: true, color: '#15803D', fillColor: rowBg, fontSize: 8 },
         {
-          style: 'table',
+          text: q.yourAnswer && q.yourAnswer !== '—' ? `[${q.yourAnswer}]` : '—',
+          alignment: 'center',
+          bold: true,
+          color: q.status === 'CORRECT' ? '#15803D' : q.status === 'WRONG' ? '#B91C1C' : '#64748B',
+          fillColor: rowBg,
+          fontSize: 8,
+        },
+        statusCell,
+        { text: awardedText, alignment: 'center', color: '#15803D', bold: q.status === 'CORRECT', fillColor: rowBg, fontSize: 8 },
+        { text: penaltyText, alignment: 'center', color: '#B91C1C', bold: q.status === 'WRONG', fillColor: rowBg, fontSize: 8 },
+        {
+          text: netText,
+          alignment: 'center',
+          bold: true,
+          color: q.awardedMarks > 0 ? '#15803D' : q.awardedMarks < 0 ? '#B91C1C' : '#64748B',
+          fillColor: rowBg,
+          fontSize: 8,
+        },
+      ]);
+    });
+
+    const dd = {
+      pageSize: 'A4',
+      pageMargins: [36, 48, 36, 42],
+      header: (currentPage: number, pageCount: number) => ({
+        margin: [36, 15, 36, 0],
+        columns: [
+          {
+            text: [
+              { text: 'EXAMLY', bold: true, color: '#1E3A8A', fontSize: 10 },
+              { text: '  •  Multi-Tenant Academic Examination System', color: '#64748B', fontSize: 8 },
+            ],
+            alignment: 'left',
+          },
+          {
+            text: [
+              { text: 'Official Examination Report', color: '#1E3A8A', bold: true, fontSize: 8 },
+              { text: `  |  Page ${currentPage} of ${pageCount}`, color: '#64748B', fontSize: 8 },
+            ],
+            alignment: 'right',
+          },
+        ],
+      }),
+      footer: (currentPage: number, pageCount: number) => ({
+        margin: [36, 10, 36, 0],
+        columns: [
+          {
+            text: `${instituteName}  •  Confidential Academic Record`,
+            fontSize: 7.5,
+            color: '#64748B',
+            alignment: 'left',
+          },
+          {
+            text: `Generated: ${nowTz} (Asia/Kathmandu)`,
+            fontSize: 7.5,
+            color: '#64748B',
+            alignment: 'center',
+          },
+          {
+            text: `Page ${currentPage} of ${pageCount}`,
+            fontSize: 7.5,
+            bold: true,
+            color: '#1E3A8A',
+            alignment: 'right',
+          },
+        ],
+      }),
+      content: [
+        // ── 1. Document Title & Identification Banner ──
+        {
           table: {
-            headerRows: 1,
-            widths: [28, 80, 85, 85, 75, 45, 45],
+            widths: ['*'],
             body: [
-              ['Q#', 'Section', 'Correct Answer', 'Your Answer', 'Status', 'Marks', 'Negative'],
-              ...rows,
+              [
+                {
+                  fillColor: '#1E3A8A',
+                  margin: [8, 8, 8, 8],
+                  stack: [
+                    {
+                      columns: [
+                        {
+                          stack: [
+                            { text: 'ANSWER KEY & SCORE REPORT', fontSize: 15, bold: true, color: '#FFFFFF', letterSpacing: 0.5 },
+                            { text: `Test: ${testTitle}`, fontSize: 11, bold: true, color: '#93C5FD', margin: [0, 2, 0, 0] },
+                          ],
+                          alignment: 'left',
+                        },
+                        {
+                          stack: [
+                            { text: isPassed ? 'STATUS: PASSED' : 'STATUS: FAILED', fontSize: 11, bold: true, color: isPassed ? '#86EFAC' : '#FCA5A5', alignment: 'right' },
+                            { text: `Pass Mark: ${passMarks} / ${totalMarks} (${passPct}%)`, fontSize: 8, color: '#E2E8F0', alignment: 'right', margin: [0, 2, 0, 0] },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      text: `Report ID: ${reportIdCode}   •   Attempt ID: ${attemptIdCode}   •   Test ID: ${testIdCode}   •   Timezone: Asia/Kathmandu`,
+                      fontSize: 7.5,
+                      color: '#CBD5E1',
+                      margin: [0, 4, 0, 0],
+                    },
+                  ],
+                },
+              ],
             ],
           },
+          layout: 'noBorders',
+          margin: [0, 0, 0, 10],
+        },
+
+        // ── 2. Two-Column Metadata: Student Profile (Left) & Test Details (Right) ──
+        {
+          table: {
+            widths: ['49%', '2%', '49%'],
+            body: [
+              [
+                // Left: Student Profile Card
+                {
+                  fillColor: '#F8FAFC',
+                  margin: [8, 6, 8, 6],
+                  stack: [
+                    { text: 'STUDENT PROFILE', fontSize: 9, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 4] },
+                    {
+                      columns: [
+                        { text: 'Student Name:', width: 75, fontSize: 8, color: '#64748B', bold: true },
+                        { text: studentName, fontSize: 8, bold: true, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Student ID / Roll:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: studentCode, fontSize: 8, color: '#0F172A', bold: true },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Email Address:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: studentEmail, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Phone Number:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: studentPhone, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Batch / Section:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: batchName, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                  ],
+                },
+                {}, // Spacer
+                // Right: Test Details Card
+                {
+                  fillColor: '#F8FAFC',
+                  margin: [8, 6, 8, 6],
+                  stack: [
+                    { text: 'EXAMINATION DETAILS', fontSize: 9, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 4] },
+                    {
+                      columns: [
+                        { text: 'Subject / Topic:', width: 75, fontSize: 8, color: '#64748B', bold: true },
+                        { text: `${subjectName} / ${lessonTitle}`, fontSize: 8, color: '#0F172A', bold: true },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Test Started:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: startedTimeStr, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Test Submitted:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: submittedTimeStr, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Time Taken:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: `${durationStr} (Allotted: ${data.test.durationMinutes} mins)`, fontSize: 8, color: '#0F172A', bold: true },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Marking Scheme:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: `+${posRate} for Correct  |  -${negRate} for Wrong`, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                  ],
+                },
+              ],
+            ],
+          },
+          layout: {
+            hLineWidth: (i: number) => 0.5,
+            vLineWidth: (i: number) => 0.5,
+            hLineColor: (i: number) => '#E2E8F0',
+            vLineColor: (i: number) => '#E2E8F0',
+          },
+          margin: [0, 0, 0, 10],
+        },
+
+        // ── 3. Performance Summary Grid (8-Item Scorecard) ──
+        {
+          table: {
+            widths: ['25%', '25%', '25%', '25%'],
+            body: [
+              [
+                {
+                  fillColor: '#EFF6FF',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'FINAL SCORE', fontSize: 7, bold: true, color: '#1E40AF' },
+                    { text: `${totalScore} / ${totalMarks}`, fontSize: 11, bold: true, color: '#1E3A8A' },
+                  ],
+                },
+                {
+                  fillColor: '#EEF2FF',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'PERCENTAGE', fontSize: 7, bold: true, color: '#4338CA' },
+                    { text: `${percentage}%`, fontSize: 11, bold: true, color: '#3730A3' },
+                  ],
+                },
+                {
+                  fillColor: '#ECFDF5',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'CORRECT', fontSize: 7, bold: true, color: '#047857' },
+                    { text: String(totalCorrect), fontSize: 11, bold: true, color: '#065F46' },
+                  ],
+                },
+                {
+                  fillColor: '#FEF2F2',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'WRONG', fontSize: 7, bold: true, color: '#B91C1C' },
+                    { text: String(totalWrong), fontSize: 11, bold: true, color: '#991B1B' },
+                  ],
+                },
+              ],
+              [
+                {
+                  fillColor: '#FFFBEB',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'UNANSWERED', fontSize: 7, bold: true, color: '#B45309' },
+                    { text: String(totalUnanswered), fontSize: 11, bold: true, color: '#92400E' },
+                  ],
+                },
+                {
+                  fillColor: '#FEF2F2',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'PENALTY DEDUCTED', fontSize: 7, bold: true, color: '#B91C1C' },
+                    { text: penaltyTotal > 0 ? `-${penaltyTotal}` : '0', fontSize: 11, bold: true, color: '#991B1B' },
+                  ],
+                },
+                {
+                  fillColor: '#FAF5FF',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'ACCURACY', fontSize: 7, bold: true, color: '#7E22CE' },
+                    { text: `${accuracy}%`, fontSize: 11, bold: true, color: '#6B21A8' },
+                  ],
+                },
+                {
+                  fillColor: isPassed ? '#ECFDF5' : '#FEF2F2',
+                  margin: [4, 4, 4, 4],
+                  alignment: 'center',
+                  stack: [
+                    { text: 'RESULT STATUS', fontSize: 7, bold: true, color: isPassed ? '#047857' : '#B91C1C' },
+                    { text: isPassed ? 'PASSED' : 'FAILED', fontSize: 11, bold: true, color: isPassed ? '#065F46' : '#991B1B' },
+                  ],
+                },
+              ],
+            ],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#E2E8F0',
+            vLineColor: () => '#E2E8F0',
+          },
+          margin: [0, 0, 0, 10],
+        },
+
+        // ── 4. Dynamic Score Calculation Breakdown Box ──
+        {
+          table: {
+            widths: ['*'],
+            body: [
+              [
+                {
+                  fillColor: '#F8FAFC',
+                  margin: [8, 6, 8, 6],
+                  stack: [
+                    { text: 'SCORE CALCULATION & EVALUATION BREAKDOWN', fontSize: 8.5, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 3] },
+                    {
+                      columns: [
+                        { text: `• Total Questions × Marks/Q:  ${totalQuestions} × ${posRate} = ${totalMarks} Marks`, fontSize: 8, color: '#334155' },
+                        { text: `• Correct Answers:  ${totalCorrect} × (+${posRate}) = +${correctScoreTotal} Marks`, fontSize: 8, color: '#15803D', bold: true },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: `• Wrong Answers (Penalty):  ${totalWrong} × (-${negRate}) = -${wrongPenaltyTotal} Marks`, fontSize: 8, color: '#B91C1C', bold: true },
+                        { text: `• Unanswered:  ${totalUnanswered} × 0 = 0 Marks`, fontSize: 8, color: '#64748B' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      text: `Final Score = +${correctScoreTotal} - ${wrongPenaltyTotal} = ${totalScore} / ${totalMarks}  (${percentage}%)  |  Passing Requirement: ${passMarks} Marks (${passPct}%)  →  Result: ${isPassed ? 'PASSED' : 'FAILED'}`,
+                      fontSize: 8,
+                      bold: true,
+                      color: isPassed ? '#15803D' : '#B91C1C',
+                      margin: [0, 3, 0, 0],
+                    },
+                  ],
+                },
+              ],
+            ],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#CBD5E1',
+            vLineColor: () => '#CBD5E1',
+          },
+          margin: [0, 0, 0, 10],
+        },
+
+        // ── 5. Answer Key Table ──
+        {
+          text: 'DETAILED ANSWER KEY & MARKING TABLE',
+          fontSize: 9.5,
+          bold: true,
+          color: '#1E3A8A',
+          margin: [0, 0, 0, 4],
+        },
+        {
+          table: {
+            headerRows: 1,
+            dontBreakRows: true,
+            widths: [24, 75, 55, 55, 75, 40, 40, 40],
+            body: tableBody,
+          },
+          layout: {
+            hLineWidth: (i: number) => 0.5,
+            vLineWidth: (i: number) => 0.5,
+            hLineColor: (i: number) => (i === 1 ? '#1E3A8A' : '#E2E8F0'),
+            vLineColor: () => '#E2E8F0',
+          },
+          margin: [0, 0, 0, 10],
+        },
+
+        // ── 6. Final Performance Analytics & Official Notice ──
+        {
+          table: {
+            widths: ['*'],
+            body: [
+              [
+                {
+                  fillColor: '#F8FAFC',
+                  margin: [8, 6, 8, 6],
+                  stack: [
+                    {
+                      text: `Summary Analytics:  Total Questions: ${totalQuestions}   •   Attempt Rate: ${attemptRate}%   •   Correct Rate: ${correctRate}%   •   Accuracy: ${accuracy}%   •   Rank: ${rankStr}`,
+                      fontSize: 8,
+                      bold: true,
+                      color: '#1E3A8A',
+                    },
+                    {
+                      text: 'Notice: This official examination report is dynamically generated by the Examly Assessment Engine. All scores and timestamps are cryptographically verified against server logs. No physical signature is required.',
+                      fontSize: 7,
+                      color: '#64748B',
+                      margin: [0, 3, 0, 0],
+                    },
+                  ],
+                },
+              ],
+            ],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#CBD5E1',
+            vLineColor: () => '#CBD5E1',
+          },
+          margin: [0, 0, 0, 0],
         },
       ],
-    );
+      styles: {
+        th: {
+          fillColor: '#1E3A8A',
+          color: '#FFFFFF',
+          bold: true,
+          fontSize: 8,
+          margin: [0, 3, 0, 3],
+        },
+      },
+      defaultStyle: {
+        font: 'Helvetica',
+      },
+    };
+
     return { buffer: await this.makePdf(dd), filename: `answer-key-${testId}.pdf` };
   }
 
