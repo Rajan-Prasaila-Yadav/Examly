@@ -386,11 +386,43 @@ export class LessonsService {
 
     const comment = await this.prisma.videoComment.findUnique({
       where: { id: commentId },
-      select: { videoId: true },
+      include: { reactions: true },
     });
 
     if (comment?.videoId) {
-      this.videoGateway.broadcastCommentChange(comment.videoId, 'REACTION', { commentId });
+      const userIds = comment.reactions.map((r) => r.userId);
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          role: { select: { code: true, name: true } },
+        },
+      });
+      const userMap = new Map(users.map((u) => [u.id, u]));
+
+      const counts: Record<string, number> = { LIKE: 0, LOVE: 0, HELPFUL: 0, BRAVO: 0, CELEBRATE: 0 };
+      const usersByReaction: Record<string, any[]> = { LIKE: [], LOVE: [], HELPFUL: [], BRAVO: [], CELEBRATE: [] };
+
+      for (const r of comment.reactions) {
+        counts[r.reactionType] = (counts[r.reactionType] || 0) + 1;
+        const u = userMap.get(r.userId);
+        if (u) {
+          if (!usersByReaction[r.reactionType]) usersByReaction[r.reactionType] = [];
+          usersByReaction[r.reactionType].push(u);
+        }
+      }
+
+      const reactionPayload = {
+        commentId,
+        parentId: comment.parentId,
+        counts,
+        usersByReaction,
+        total: comment.reactions.length,
+      };
+
+      this.videoGateway.broadcastCommentChange(comment.videoId, 'REACTION', reactionPayload);
     }
 
     return { success: true };

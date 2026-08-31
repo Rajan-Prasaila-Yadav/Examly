@@ -123,11 +123,11 @@ export default function SocialVideoPlayerPage() {
   };
 
   // Helper to notify other tabs/windows in real time
-  const notifyBroadcast = (action: string) => {
+  const notifyBroadcast = (action: string, payload?: any) => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window && currentVideo?.id) {
       try {
         const bc = new BroadcastChannel('examly_video_realtime');
-        bc.postMessage({ videoId: currentVideo.id, action, timestamp: Date.now() });
+        bc.postMessage({ videoId: currentVideo.id, action, payload, timestamp: Date.now() });
         bc.close();
       } catch (err) {
         // BroadcastChannel optional fallback
@@ -163,13 +163,115 @@ export default function SocialVideoPlayerPage() {
     if (!currentVideo?.id) return;
     const vidId = currentVideo.id;
 
-    // 1. Socket.IO Live Connection
+    const handleCommentsSyncData = (data: any) => {
+      if (!data) return;
+      const { action, payload } = data;
+      if (action === 'CREATE' && payload) {
+        setComments((prev) => {
+          const exists = prev.some((c) => c.id === payload.id || (c.replies || []).some((r: any) => r.id === payload.id));
+          if (exists) return prev;
+
+          if (payload.parentId) {
+            return prev.map((c) =>
+              c.id === payload.parentId
+                ? { ...c, replies: [...(c.replies || []).filter((r: any) => r.id !== payload.id), payload] }
+                : c
+            );
+          } else {
+            return [payload, ...prev.filter((c) => c.id !== payload.id)];
+          }
+        });
+      } else if (action === 'UPDATE' && payload) {
+        setComments((prev) =>
+          prev.map((c) => {
+            if (c.id === payload.id) {
+              return { ...c, content: payload.content };
+            }
+            if (c.replies) {
+              return {
+                ...c,
+                replies: c.replies.map((r: any) =>
+                  r.id === payload.id ? { ...r, content: payload.content } : r
+                ),
+              };
+            }
+            return c;
+          })
+        );
+      } else if (action === 'DELETE' && payload) {
+        setComments((prev) => {
+          if (payload.parentId) {
+            return prev.map((c) =>
+              c.id === payload.parentId
+                ? { ...c, replies: (c.replies || []).filter((r: any) => r.id !== payload.commentId) }
+                : c
+            );
+          } else {
+            return prev.filter((c) => c.id !== payload.commentId);
+          }
+        });
+      } else if (action === 'REACTION' && payload) {
+        setComments((prev) =>
+          prev.map((c) => {
+            const updateReactionsFromPayload = (target: any) => {
+              let userReaction: string | null = null;
+              if (user?.id) {
+                for (const [rtype, uList] of Object.entries(payload.usersByReaction || {})) {
+                  if (Array.isArray(uList) && uList.some((u: any) => u.id === user.id)) {
+                    userReaction = rtype;
+                    break;
+                  }
+                }
+              }
+              return {
+                ...target,
+                reactionsData: {
+                  counts: payload.counts || {},
+                  usersByReaction: payload.usersByReaction || {},
+                  userReaction: userReaction !== null ? userReaction : target.reactionsData?.userReaction,
+                  total: payload.total || 0,
+                },
+              };
+            };
+
+            if (payload.parentId && c.id === payload.parentId) {
+              return {
+                ...c,
+                replies: (c.replies || []).map((r: any) =>
+                  r.id === payload.commentId ? updateReactionsFromPayload(r) : r
+                ),
+              };
+            } else if (!payload.parentId && c.id === payload.commentId) {
+              return updateReactionsFromPayload(c);
+            }
+            return c;
+          })
+        );
+      } else {
+        fetchComments(vidId, true);
+      }
+    };
+
+    // 1. Socket.IO Live Connection with Global Cloud Deployment Support
     let socket: Socket | null = null;
     try {
-      const socketServerUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+      let socketServerUrl = '';
+      if (typeof window !== 'undefined') {
+        if (API_BASE_URL.startsWith('http')) {
+          socketServerUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+        } else {
+          socketServerUrl = window.location.origin;
+        }
+      }
       const token = typeof window !== 'undefined' ? localStorage.getItem('examly_access_token') || '' : '';
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
       socket = io(`${socketServerUrl}/video`, {
         transports: ['websocket', 'polling'],
+        secure: isHttps,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
         auth: { token },
       });
 
@@ -184,9 +286,7 @@ export default function SocialVideoPlayerPage() {
         }
       });
 
-      socket.on('video_comments_sync', () => {
-        fetchComments(vidId, true);
-      });
+      socket.on('video_comments_sync', handleCommentsSyncData);
     } catch (e) {
       console.warn('Socket connection fallback to polling sync', e);
     }
@@ -198,20 +298,24 @@ export default function SocialVideoPlayerPage() {
         broadcastChannel = new BroadcastChannel('examly_video_realtime');
         broadcastChannel.onmessage = (event) => {
           if (event.data?.videoId === vidId) {
-            fetchReactions(vidId, true);
-            fetchComments(vidId, true);
+            if (event.data.action && event.data.payload) {
+              handleCommentsSyncData({ action: event.data.action.replace('comment_', '').toUpperCase(), payload: event.data.payload });
+            } else {
+              fetchReactions(vidId, true);
+              fetchComments(vidId, true);
+            }
           }
         };
       } catch (err) {}
     }
 
-    // 3. Fast Smart Live Heartbeat (Silent Background Poll every 2.5s when tab is active)
+    // 3. Fast Smart Live Heartbeat (Silent Background Poll every 2s when tab is active)
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchReactions(vidId, true);
         fetchComments(vidId, true);
       }
-    }, 2500);
+    }, 2000);
 
     return () => {
       if (socket) {
@@ -223,9 +327,9 @@ export default function SocialVideoPlayerPage() {
       }
       clearInterval(syncInterval);
     };
-  }, [currentVideo?.id]);
+  }, [currentVideo?.id, user?.id]);
 
-  // Instant Optimistic Reaction Handling
+  // Instant Optimistic Reaction Handling (Exactly 1 reaction per user)
   const handleReact = async (type: 'LIKE' | 'LOVE' | 'HELPFUL' | 'BRAVO' | 'CELEBRATE') => {
     if (!currentVideo || !user) return;
 
@@ -279,7 +383,6 @@ export default function SocialVideoPlayerPage() {
       }
     } catch (e) {
       console.error('Failed to update reaction', e);
-      // Revert if error
       fetchReactions(currentVideo.id);
     }
   };
@@ -292,7 +395,7 @@ export default function SocialVideoPlayerPage() {
   ) => {
     if (!user) return;
 
-    // Optimistically update comment reactions
+    // Optimistically update comment reactions in 0ms (1 reaction per user)
     setComments((prev) =>
       prev.map((c) => {
         const updateReactions = (target: any) => {
@@ -352,38 +455,73 @@ export default function SocialVideoPlayerPage() {
     }
   };
 
+  // 0ms Instant Optimistic Comment and Reply Posting
   const handlePostComment = async (e: React.FormEvent, parentId?: string) => {
     e.preventDefault();
     const content = parentId ? replyTextMap[parentId] : commentText;
-    if (!content || !content.trim() || !currentVideo) return;
+    if (!content || !content.trim() || !currentVideo || !user) return;
 
-    setIsPostingComment(true);
+    const cleanContent = content.trim();
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newCommentObj = {
+      id: tempId,
+      videoId: currentVideo.id,
+      userId: user.id,
+      parentId: parentId || null,
+      content: cleanContent,
+      isPinned: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      author: {
+        id: user.id,
+        fullName: user.fullName || 'You',
+        avatarUrl: (user as any).avatarUrl || null,
+        role: { code: user.role, name: user.role },
+      },
+      replies: [],
+      reactionsData: { counts: { LIKE: 0, LOVE: 0, HELPFUL: 0 }, usersByReaction: {}, userReaction: null, total: 0 },
+    };
+
+    // 0ms Immediate optimistic insertion into UI
+    if (parentId) {
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === parentId ? { ...c, replies: [...(c.replies || []), newCommentObj] } : c
+        )
+      );
+      setReplyTextMap((prev) => ({ ...prev, [parentId]: '' }));
+      setActiveReplyId(null);
+      setExpandedReplies((prev) => ({ ...prev, [parentId]: true }));
+    } else {
+      setComments((prev) => [newCommentObj, ...prev]);
+      setCommentText('');
+    }
+    notifyBroadcast('comment_post', newCommentObj);
+
     try {
       const res = await api.post(`/lessons/videos/${currentVideo.id}/comments`, {
-        content: content.trim(),
+        content: cleanContent,
         parentId: parentId || null,
       });
 
-      if (parentId) {
-        // Append reply and auto-expand replies thread
+      if (res.data) {
         setComments((prev) =>
-          prev.map((c) =>
-            c.id === parentId ? { ...c, replies: [...(c.replies || []), res.data] } : c
-          )
+          prev.map((c) => {
+            if (parentId && c.id === parentId) {
+              return {
+                ...c,
+                replies: (c.replies || []).map((r: any) => (r.id === tempId ? { ...r, id: res.data.id } : r)),
+              };
+            } else if (!parentId && c.id === tempId) {
+              return { ...c, id: res.data.id };
+            }
+            return c;
+          })
         );
-        setReplyTextMap((prev) => ({ ...prev, [parentId]: '' }));
-        setActiveReplyId(null);
-        setExpandedReplies((prev) => ({ ...prev, [parentId]: true }));
-      } else {
-        // Append top-level comment
-        setComments([res.data, ...comments]);
-        setCommentText('');
       }
-      notifyBroadcast('comment_post');
     } catch (e) {
       alert('Failed to post doubt discussion comment');
-    } finally {
-      setIsPostingComment(false);
+      fetchComments(currentVideo.id, true);
     }
   };
 
@@ -558,10 +696,10 @@ export default function SocialVideoPlayerPage() {
             </div>
 
             {/* YouTube-Style Channel / Uploader Bar */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 {/* Channel Avatar */}
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-purple-600/20 shrink-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-purple-600/20 shrink-0">
                   {lesson?.subject?.name ? lesson.subject.name[0] : 'E'}
                 </div>
                 <div className="min-w-0">
@@ -579,66 +717,68 @@ export default function SocialVideoPlayerPage() {
 
               <Link
                 href={`/lessons/${lessonId}`}
-                className="px-4 py-2 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0"
+                className="w-full sm:w-auto text-center px-4 py-2 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0"
               >
                 View Chapter →
               </Link>
             </div>
 
-            {/* Instant Reactions Bar */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap">
-              {reactionConfig.map((r) => {
-                const Icon = r.icon;
-                const isSelected = selectedReaction === r.type;
-                const count = reactionsCount[r.type] || 0;
-                const usersList = usersByReaction[r.type] || [];
-                const isPopping = reactionClickEffect === r.type;
+            {/* Instant Reactions Bar - 2 Clean Lines on Mobile, 1 Line on Desktop */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                {reactionConfig.map((r) => {
+                  const Icon = r.icon;
+                  const isSelected = selectedReaction === r.type;
+                  const count = reactionsCount[r.type] || 0;
+                  const usersList = usersByReaction[r.type] || [];
+                  const isPopping = reactionClickEffect === r.type;
 
-                return (
-                  <div key={r.type} className="relative group/btn">
-                    <button
-                      onClick={() => handleReact(r.type)}
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all transform active:scale-95 ${
-                        isPopping ? 'scale-110' : ''
-                      } ${
-                        isSelected
-                          ? `${r.bg} ${r.border} ${r.color} shadow-sm ring-1 ring-purple-300`
-                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${isSelected ? r.color : 'text-slate-400'} transition-transform group-hover/btn:scale-110`} />
-                      <span>{r.label}</span>
-                      <span className="font-mono text-[11px] font-bold ml-0.5">{count}</span>
-                    </button>
-
-                    {/* Show Users Popup on Click or Pill View */}
-                    {usersList.length > 0 && (
+                  return (
+                    <div key={r.type} className="relative group/btn flex-1 sm:flex-initial min-w-[64px] sm:min-w-0">
                       <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setViewingReactionType(r.type);
-                        }}
-                        title={`See who reacted with ${r.label}`}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                        onClick={() => handleReact(r.type)}
+                        className={`w-full sm:w-auto px-2 sm:px-3.5 py-2 rounded-xl border text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all transform active:scale-95 ${
+                          isPopping ? 'scale-110' : ''
+                        } ${
+                          isSelected
+                            ? `${r.bg} ${r.border} ${r.color} shadow-sm ring-1 ring-purple-300`
+                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                        }`}
                       >
-                        <Users className="w-2.5 h-2.5" />
+                        <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSelected ? r.color : 'text-slate-400'} transition-transform group-hover/btn:scale-110`} />
+                        <span>{r.label}</span>
+                        <span className="font-mono text-[10px] sm:text-[11px] font-bold">{count}</span>
                       </button>
-                    )}
-                  </div>
-                );
-              })}
 
-              {lesson?.notes?.length > 0 && (
-                <a
-                  href={lesson.notes[0].fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-auto px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download Notes
-                </a>
-              )}
+                      {/* Show Users Popup on Click or Pill View */}
+                      {usersList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingReactionType(r.type);
+                          }}
+                          title={`See who reacted with ${r.label}`}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                        >
+                          <Users className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {lesson?.notes?.length > 0 && (
+                  <a
+                    href={lesson.notes[0].fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full sm:w-auto sm:ml-auto px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download Notes
+                  </a>
+                )}
+              </div>
             </div>
           </div>
 
