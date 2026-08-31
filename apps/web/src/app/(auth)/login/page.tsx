@@ -29,8 +29,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [identifier, setIdentifier] = useState('rajanprasaila@gmail.com');
-  const [password, setPassword] = useState('Admin@Examly2026!');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [blockedNotice, setBlockedNotice] = useState<{ email?: string; message: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);

@@ -48,8 +48,23 @@ function normalizeUserRole(rawUser: any) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('examly_user');
+        if (saved) {
+          return normalizeUserRole(JSON.parse(saved));
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('examly_access_token');
+    }
+    return true;
+  });
 
   useEffect(() => {
     const initAuth = async () => {
@@ -57,11 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         try {
           const res = await api.get('/auth/me');
-          setUser(normalizeUserRole(res.data));
+          const normalized = normalizeUserRole(res.data);
+          setUser(normalized);
+          localStorage.setItem('examly_user', JSON.stringify(normalized));
         } catch (e) {
           localStorage.removeItem('examly_access_token');
           localStorage.removeItem('examly_refresh_token');
+          localStorage.removeItem('examly_user');
+          setUser(null);
         }
+      } else {
+        localStorage.removeItem('examly_user');
+        setUser(null);
       }
       setIsLoading(false);
     };
@@ -70,14 +92,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (data: { accessToken: string; refreshToken: string; user: any }) => {
+    const normalized = normalizeUserRole(data.user);
     localStorage.setItem('examly_access_token', data.accessToken);
     localStorage.setItem('examly_refresh_token', data.refreshToken);
-    setUser(normalizeUserRole(data.user));
+    localStorage.setItem('examly_user', JSON.stringify(normalized));
+    setUser(normalized);
+    setIsLoading(false);
   };
 
   const logout = () => {
     localStorage.removeItem('examly_access_token');
     localStorage.removeItem('examly_refresh_token');
+    localStorage.removeItem('examly_user');
     setUser(null);
     window.location.href = '/login';
   };
