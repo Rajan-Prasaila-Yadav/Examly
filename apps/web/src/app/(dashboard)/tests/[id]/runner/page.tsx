@@ -1145,7 +1145,12 @@ function LiveTestRunnerContent() {
             {/* Button 3: Download PDF Report */}
             <button
               type="button"
-              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
+              onClick={() => {
+                const activeAttId = attemptIdParam || pastAttempt?.id || pastAttempt?.attemptId || attemptId;
+                const url = activeAttId ? `/tests/${testId}/export/answer-key/pdf?attemptId=${activeAttId}` : `/tests/${testId}/export/answer-key/pdf`;
+                const fn = `answer-key-${test?.title ? test.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : testId}.pdf`;
+                downloadFile(url, fn);
+              }}
               className="w-full py-2.5 sm:py-3 bg-white hover:bg-slate-50 border-2 border-slate-300 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
             >
               <Download className="w-4 h-4 text-brand-600" /> Download PDF Report
@@ -1955,7 +1960,12 @@ function LiveTestRunnerContent() {
           {/* Bottom Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <button
-              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
+              onClick={() => {
+                const activeAttId = attemptIdParam || pastAttempt?.id || pastAttempt?.attemptId || attemptId;
+                const url = activeAttId ? `/tests/${testId}/export/answer-key/pdf?attemptId=${activeAttId}` : `/tests/${testId}/export/answer-key/pdf`;
+                const fn = `answer-key-${test?.title ? test.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : testId}.pdf`;
+                downloadFile(url, fn);
+              }}
               className="py-3 px-4 rounded-xl border-2 border-brand-600 text-brand-600 font-bold text-xs hover:bg-brand-50 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" /> Download PDF

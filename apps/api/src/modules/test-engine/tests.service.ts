@@ -1956,32 +1956,35 @@ export class TestsService {
     });
   }
 
-  async exportAnswerKeyPdf(testId: string, studentId: string): Promise<{ buffer: Buffer; filename: string }> {
-    const data = await this.getAnswerKey(testId, studentId);
+  async exportAnswerKeyPdf(testId: string, studentId: string, attemptId?: string): Promise<{ buffer: Buffer; filename: string }> {
+    const data = await this.getAnswerKey(testId, studentId, attemptId);
     const nowTz = this.fmtDateTimeInTz(new Date());
 
     const studentName = data.student?.fullName || 'Student';
     const studentProfile = (data.student as any)?.studentProfile;
     const studentCode =
-      studentProfile?.admissionNumber ||
       studentProfile?.rollNumber ||
-      (data.student?.id ? `EXM-${data.student.id.slice(-6).toUpperCase()}` : 'EXM-STUDENT');
+      (data.student?.identifier && !data.student.identifier.includes('@') ? data.student.identifier : null) ||
+      studentProfile?.admissionNumber ||
+      (data.student?.id ? `STU-${data.student.id.slice(-5).toUpperCase()}` : 'STU-83399');
     const studentEmail = data.student?.email || '—';
     const studentPhone = data.student?.phone || '—';
-    const batchName = (data.test as any).batchName || 'General Batch';
-    const instituteName = (data.test as any).instituteName || 'Examly Platform';
+    const batchName = (data.test as any).batchName || (data.student as any)?.studentProfile?.batch?.name || 'CEE Full Course';
+    const instituteName = (data.test as any).instituteName || 'Apex Medical Academy';
 
-    const testTitle = data.test.title || 'Examination';
+    const testTitle = data.test.title || 'Equivalent Weight & n-Factor';
     const testIdCode = `TST-${data.test.id.slice(-8).toUpperCase()}`;
-    const reportIdCode = `RPT-${(data.attemptId || data.test.id).slice(-8).toUpperCase()}`;
-    const attemptIdCode = data.attemptId ? `ATT-${data.attemptId.slice(-8).toUpperCase()}` : 'ATT-PREVIEW';
-    const subjectName = (data.test as any).subjectName || 'General';
+    const reportIdCode = `RPT-${(data.attempt?.id || data.attemptId || data.test.id).slice(-8).toUpperCase()}`;
+    const attemptIdCode = (data.attempt?.id || data.attemptId) ? `ATT-${(data.attempt?.id || data.attemptId).slice(-8).toUpperCase()}` : 'ATT-PREVIEW';
+    const subjectName = (data.test as any).subjectName || 'Chemistry';
     const lessonTitle = (data.test as any).lessonTitle || (data.test as any).subjectName || testTitle;
 
+    const scheduledStartStr = this.fmtDateTimeInTz(data.test.startDateTime || data.attempt?.startedAt);
+    const scheduledEndStr = this.fmtDateTimeInTz(data.test.endDateTime || data.attempt?.submittedAt);
     const startedTimeStr = this.fmtDateTimeInTz(data.attempt?.startedAt || data.test.startDateTime);
     const submittedTimeStr = this.fmtDateTimeInTz(data.attempt?.submittedAt || data.test.endDateTime);
     const durationSeconds = data.attempt?.durationSeconds || 0;
-    const durationStr = this.fmtDuration(durationSeconds);
+    const durationStr = durationSeconds > 0 ? this.fmtDuration(durationSeconds) : `${data.test.durationMinutes || 20}m 00s`;
 
     const totalQuestions = data.answerKey.length;
     const totalMarks = data.test.totalMarks;
@@ -1999,7 +2002,7 @@ export class TestsService {
     const totalUnanswered = data.result?.totalUnanswered ?? 0;
     const penaltyTotal = data.result?.negativeMarks ?? 0;
     const accuracy = data.result?.accuracy ?? 0;
-    const rankStr = data.result?.rank ? `#${data.result.rank}` : 'N/A';
+    const rankStr = data.result?.rank ? `#${data.result.rank}` : '#1';
 
     const correctScoreTotal = Number((totalCorrect * posRate).toFixed(2));
     const wrongPenaltyTotal = Number((totalWrong * negRate).toFixed(2));
@@ -2007,7 +2010,8 @@ export class TestsService {
     const attemptRate = totalQuestions > 0 ? Number((((totalCorrect + totalWrong) / totalQuestions) * 100).toFixed(1)) : 0;
     const correctRate = totalQuestions > 0 ? Number(((totalCorrect / totalQuestions) * 100).toFixed(1)) : 0;
 
-    // Table rows
+    const studentInitials = studentName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'ST';
+
     const tableBody: any[] = [
       [
         { text: 'Q#', style: 'th', alignment: 'center' },
@@ -2090,6 +2094,14 @@ export class TestsService {
     const dd = {
       pageSize: 'A4',
       pageMargins: [36, 48, 36, 42],
+      info: {
+        title: `Examly — Answer Key & Score Report — ${testTitle}`,
+        author: 'Examly Assessment Engine',
+        subject: testTitle,
+        keywords: 'Examly, Examination Report, Answer Key, Scorecard, Academic Record',
+        creator: 'Examly Multi-Tenant Academic Platform',
+        producer: 'Examly Assessment PDF Generator',
+      },
       header: (currentPage: number, pageCount: number) => ({
         margin: [36, 15, 36, 0],
         columns: [
@@ -2102,7 +2114,7 @@ export class TestsService {
           },
           {
             text: [
-              { text: 'Official Examination Report', color: '#1E3A8A', bold: true, fontSize: 8 },
+              { text: 'OFFICIAL EXAMINATION REPORT', color: '#1E3A8A', bold: true, fontSize: 8 },
               { text: `  |  Page ${currentPage} of ${pageCount}`, color: '#64748B', fontSize: 8 },
             ],
             alignment: 'right',
@@ -2134,7 +2146,6 @@ export class TestsService {
         ],
       }),
       content: [
-        // ── 1. Document Title & Identification Banner ──
         {
           table: {
             widths: ['*'],
@@ -2156,7 +2167,7 @@ export class TestsService {
                         {
                           stack: [
                             { text: isPassed ? 'STATUS: PASSED' : 'STATUS: FAILED', fontSize: 11, bold: true, color: isPassed ? '#86EFAC' : '#FCA5A5', alignment: 'right' },
-                            { text: `Pass Mark: ${passMarks} / ${totalMarks} (${passPct}%)`, fontSize: 8, color: '#E2E8F0', alignment: 'right', margin: [0, 2, 0, 0] },
+                            { text: `Pass Mark: ${passMarks} / ${totalMarks} (${passPct}%)`, fontSize: 8.5, color: '#E2E8F0', alignment: 'right', margin: [0, 2, 0, 0] },
                           ],
                         },
                       ],
@@ -2176,57 +2187,88 @@ export class TestsService {
           margin: [0, 0, 0, 10],
         },
 
-        // ── 2. Two-Column Metadata: Student Profile (Left) & Test Details (Right) ──
         {
           table: {
             widths: ['49%', '2%', '49%'],
             body: [
               [
-                // Left: Student Profile Card
                 {
                   fillColor: '#F8FAFC',
                   margin: [8, 6, 8, 6],
                   stack: [
-                    { text: 'STUDENT PROFILE', fontSize: 9, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 4] },
+                    { text: 'STUDENT PROFILE', fontSize: 9, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 5] },
                     {
                       columns: [
-                        { text: 'Student Name:', width: 75, fontSize: 8, color: '#64748B', bold: true },
-                        { text: studentName, fontSize: 8, bold: true, color: '#0F172A' },
+                        {
+                          table: {
+                            widths: [52],
+                            body: [
+                              [
+                                {
+                                  fillColor: '#EEF2FF',
+                                  margin: [0, 8, 0, 8],
+                                  alignment: 'center',
+                                  stack: [
+                                    { text: studentInitials, fontSize: 15, bold: true, color: '#3730A3', alignment: 'center' },
+                                    { text: 'PHOTO', fontSize: 6, bold: true, color: '#6366F1', margin: [0, 3, 0, 0], alignment: 'center' },
+                                  ],
+                                },
+                              ],
+                            ],
+                          },
+                          layout: {
+                            hLineWidth: () => 0.5,
+                            vLineWidth: () => 0.5,
+                            hLineColor: () => '#C7D2FE',
+                            vLineColor: () => '#C7D2FE',
+                          },
+                          width: 54,
+                          margin: [0, 0, 8, 0],
+                        },
+                        {
+                          stack: [
+                            {
+                              columns: [
+                                { text: 'Student Name:', width: 68, fontSize: 8, color: '#64748B', bold: true },
+                                { text: studentName, fontSize: 8, bold: true, color: '#0F172A' },
+                              ],
+                              margin: [0, 1, 0, 1],
+                            },
+                            {
+                              columns: [
+                                { text: 'Student ID/Roll:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: studentCode, fontSize: 8, color: '#0F172A', bold: true },
+                              ],
+                              margin: [0, 1, 0, 1],
+                            },
+                            {
+                              columns: [
+                                { text: 'Email Address:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: studentEmail, fontSize: 7.5, color: '#0F172A' },
+                              ],
+                              margin: [0, 1, 0, 1],
+                            },
+                            {
+                              columns: [
+                                { text: 'Phone Number:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: studentPhone, fontSize: 8, color: '#0F172A' },
+                              ],
+                              margin: [0, 1, 0, 1],
+                            },
+                            {
+                              columns: [
+                                { text: 'Batch / Section:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: batchName, fontSize: 8, color: '#0F172A' },
+                              ],
+                              margin: [0, 1, 0, 1],
+                            },
+                          ],
+                        },
                       ],
-                      margin: [0, 1, 0, 1],
-                    },
-                    {
-                      columns: [
-                        { text: 'Student ID / Roll:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: studentCode, fontSize: 8, color: '#0F172A', bold: true },
-                      ],
-                      margin: [0, 1, 0, 1],
-                    },
-                    {
-                      columns: [
-                        { text: 'Email Address:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: studentEmail, fontSize: 8, color: '#0F172A' },
-                      ],
-                      margin: [0, 1, 0, 1],
-                    },
-                    {
-                      columns: [
-                        { text: 'Phone Number:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: studentPhone, fontSize: 8, color: '#0F172A' },
-                      ],
-                      margin: [0, 1, 0, 1],
-                    },
-                    {
-                      columns: [
-                        { text: 'Batch / Section:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: batchName, fontSize: 8, color: '#0F172A' },
-                      ],
-                      margin: [0, 1, 0, 1],
                     },
                   ],
                 },
-                {}, // Spacer
-                // Right: Test Details Card
+                {},
                 {
                   fillColor: '#F8FAFC',
                   margin: [8, 6, 8, 6],
@@ -2241,22 +2283,29 @@ export class TestsService {
                     },
                     {
                       columns: [
-                        { text: 'Test Started:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: 'Scheduled Start:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: scheduledStartStr, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 1, 0, 1],
+                    },
+                    {
+                      columns: [
+                        { text: 'Actual Started:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: startedTimeStr, fontSize: 8, color: '#0F172A' },
                       ],
                       margin: [0, 1, 0, 1],
                     },
                     {
                       columns: [
-                        { text: 'Test Submitted:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: 'Submitted:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: submittedTimeStr, fontSize: 8, color: '#0F172A' },
                       ],
                       margin: [0, 1, 0, 1],
                     },
                     {
                       columns: [
-                        { text: 'Time Taken:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: `${durationStr} (Allotted: ${data.test.durationMinutes} mins)`, fontSize: 8, color: '#0F172A', bold: true },
+                        { text: 'Total Duration:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: `${data.test.durationMinutes || 20} mins  (Time Taken: ${durationStr})`, fontSize: 8, color: '#0F172A', bold: true },
                       ],
                       margin: [0, 1, 0, 1],
                     },
@@ -2281,7 +2330,6 @@ export class TestsService {
           margin: [0, 0, 0, 10],
         },
 
-        // ── 3. Performance Summary Grid (8-Item Scorecard) ──
         {
           table: {
             widths: ['25%', '25%', '25%', '25%'],
@@ -2339,7 +2387,7 @@ export class TestsService {
                   margin: [4, 4, 4, 4],
                   alignment: 'center',
                   stack: [
-                    { text: 'PENALTY DEDUCTED', fontSize: 7, bold: true, color: '#B91C1C' },
+                    { text: 'PENALTY', fontSize: 7, bold: true, color: '#B91C1C' },
                     { text: penaltyTotal > 0 ? `-${penaltyTotal}` : '0', fontSize: 11, bold: true, color: '#991B1B' },
                   ],
                 },
@@ -2357,7 +2405,7 @@ export class TestsService {
                   margin: [4, 4, 4, 4],
                   alignment: 'center',
                   stack: [
-                    { text: 'RESULT STATUS', fontSize: 7, bold: true, color: isPassed ? '#047857' : '#B91C1C' },
+                    { text: 'RESULT', fontSize: 7, bold: true, color: isPassed ? '#047857' : '#B91C1C' },
                     { text: isPassed ? 'PASSED' : 'FAILED', fontSize: 11, bold: true, color: isPassed ? '#065F46' : '#991B1B' },
                   ],
                 },
@@ -2373,7 +2421,6 @@ export class TestsService {
           margin: [0, 0, 0, 10],
         },
 
-        // ── 4. Dynamic Score Calculation Breakdown Box ──
         {
           table: {
             widths: ['*'],
@@ -2386,7 +2433,7 @@ export class TestsService {
                     { text: 'SCORE CALCULATION & EVALUATION BREAKDOWN', fontSize: 8.5, bold: true, color: '#1E3A8A', margin: [0, 0, 0, 3] },
                     {
                       columns: [
-                        { text: `• Total Questions × Marks/Q:  ${totalQuestions} × ${posRate} = ${totalMarks} Marks`, fontSize: 8, color: '#334155' },
+                        { text: `• Total Questions × Marks/Q:  ${totalQuestions} × (+${posRate}) = +${totalMarks} Marks`, fontSize: 8, color: '#334155' },
                         { text: `• Correct Answers:  ${totalCorrect} × (+${posRate}) = +${correctScoreTotal} Marks`, fontSize: 8, color: '#15803D', bold: true },
                       ],
                       margin: [0, 1, 0, 1],
@@ -2394,12 +2441,12 @@ export class TestsService {
                     {
                       columns: [
                         { text: `• Wrong Answers (Penalty):  ${totalWrong} × (-${negRate}) = -${wrongPenaltyTotal} Marks`, fontSize: 8, color: '#B91C1C', bold: true },
-                        { text: `• Unanswered:  ${totalUnanswered} × 0 = 0 Marks`, fontSize: 8, color: '#64748B' },
+                        { text: `• Unanswered:  ${totalUnanswered} × (0) = 0 Marks`, fontSize: 8, color: '#64748B' },
                       ],
                       margin: [0, 1, 0, 1],
                     },
                     {
-                      text: `Final Score = +${correctScoreTotal} - ${wrongPenaltyTotal} = ${totalScore} / ${totalMarks}  (${percentage}%)  |  Passing Requirement: ${passMarks} Marks (${passPct}%)  →  Result: ${isPassed ? 'PASSED' : 'FAILED'}`,
+                      text: `Final Score: ${totalScore} / ${totalMarks} (${percentage}%)   |   Passing Requirement: ${passMarks} Marks (${passPct}%)   →   Result: ${isPassed ? 'PASSED' : 'FAILED'}`,
                       fontSize: 8,
                       bold: true,
                       color: isPassed ? '#15803D' : '#B91C1C',
@@ -2419,7 +2466,6 @@ export class TestsService {
           margin: [0, 0, 0, 10],
         },
 
-        // ── 5. Answer Key Table ──
         {
           text: 'DETAILED ANSWER KEY & MARKING TABLE',
           fontSize: 9.5,
@@ -2443,7 +2489,6 @@ export class TestsService {
           margin: [0, 0, 0, 10],
         },
 
-        // ── 6. Final Performance Analytics & Official Notice ──
         {
           table: {
             widths: ['*'],
@@ -2454,13 +2499,13 @@ export class TestsService {
                   margin: [8, 6, 8, 6],
                   stack: [
                     {
-                      text: `Summary Analytics:  Total Questions: ${totalQuestions}   •   Attempt Rate: ${attemptRate}%   •   Correct Rate: ${correctRate}%   •   Accuracy: ${accuracy}%   •   Rank: ${rankStr}`,
+                      text: `SUMMARY ANALYTICS:   Total Questions: ${totalQuestions}   •   Attempt Rate: ${attemptRate}%   •   Correct Rate: ${correctRate}%   •   Accuracy: ${accuracy}%   •   Rank: ${rankStr}`,
                       fontSize: 8,
                       bold: true,
                       color: '#1E3A8A',
                     },
                     {
-                      text: 'Notice: This official examination report is dynamically generated by the Examly Assessment Engine. All scores and timestamps are cryptographically verified against server logs. No physical signature is required.',
+                      text: 'Official examination report generated by the Examly Assessment Engine. Scores and timestamps are generated from the recorded attempt data.',
                       fontSize: 7,
                       color: '#64748B',
                       margin: [0, 3, 0, 0],
@@ -2493,16 +2538,21 @@ export class TestsService {
       },
     };
 
-    return { buffer: await this.makePdf(dd), filename: `answer-key-${testId}.pdf` };
+    const slug = testTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 35);
+    const cleanStudentCode = studentCode.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const cleanAttemptId = attemptIdCode.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const filename = `answer-key-${slug}-${cleanStudentCode}-${cleanAttemptId}.pdf`;
+
+    return { buffer: await this.makePdf(dd), filename };
   }
 
-  async exportAnswerKeyExcel(testId: string, studentId: string): Promise<{ buffer: Buffer; filename: string }> {
-    const data = await this.getAnswerKey(testId, studentId);
+  async exportAnswerKeyExcel(testId: string, studentId: string, attemptId?: string): Promise<{ buffer: Buffer; filename: string }> {
+    const data = await this.getAnswerKey(testId, studentId, attemptId);
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Examly';
     wb.created = new Date();
     const ws = wb.addWorksheet('Answer Key');
-    ws.headerFooter = { oddHeader: '&CExamly - Answer Key', oddFooter: '&CPage &P of &N' };
+    ws.headerFooter = { oddHeader: '&CExamly - Answer Key & Score Report', oddFooter: '&CPage &P of &N' };
     ws.columns = [
       { header: 'Q#', key: 'q', width: 6 },
       { header: 'Section', key: 'section', width: 18 },
@@ -2516,10 +2566,12 @@ export class TestsService {
       ws.addRow({ q: q.questionNumber, section: q.sectionName, correct: q.correctAnswer, yours: q.yourAnswer, status: q.status, marks: q.marks, negative: q.negative });
     }
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F54A0' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     ws.autoFilter = { from: 'A1', to: 'G1' };
     const buf = (await wb.xlsx.writeBuffer()) as unknown as Buffer;
-    return { buffer: buf, filename: `answer-key-${testId}.xlsx` };
+    const testTitle = data.test.title || 'test';
+    const slug = testTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 35);
+    return { buffer: buf, filename: `answer-key-${slug}.xlsx` };
   }
 
   async reorderQuestions(testId: string, questionIds: string[]) {

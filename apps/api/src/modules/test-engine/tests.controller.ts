@@ -318,18 +318,36 @@ export class TestsController {
   @Get(':id/export/answer-key/pdf')
   @ApiOperation({ summary: 'Download answer key / score table as PDF' })
   @RequirePermission('tests', 'read')
-  async exportAnswerKeyPdf(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload, @Res() res: Response) {
-    const { buffer, filename } = await this.testsService.exportAnswerKeyPdf(id, user.userId);
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': buffer.length });
+  async exportAnswerKeyPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserPayload,
+    @Res() res: Response,
+    @Query('attemptId') attemptId?: string,
+  ) {
+    const { buffer, filename } = await this.testsService.exportAnswerKeyPdf(id, user.userId, attemptId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
     res.end(buffer);
   }
 
   @Get(':id/export/answer-key/excel')
   @ApiOperation({ summary: 'Download answer key / score table as Excel (xlsx)' })
   @RequirePermission('tests', 'read')
-  async exportAnswerKeyExcel(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload, @Res() res: Response) {
-    const { buffer, filename } = await this.testsService.exportAnswerKeyExcel(id, user.userId);
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': buffer.length });
+  async exportAnswerKeyExcel(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserPayload,
+    @Res() res: Response,
+    @Query('attemptId') attemptId?: string,
+  ) {
+    const { buffer, filename } = await this.testsService.exportAnswerKeyExcel(id, user.userId, attemptId);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
     res.end(buffer);
   }
 
