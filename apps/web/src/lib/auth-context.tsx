@@ -48,25 +48,20 @@ function normalizeUserRole(rawUser: any) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('examly_user');
-        if (saved) {
-          return normalizeUserRole(JSON.parse(saved));
-        }
-      } catch (e) {}
-    }
-    return null;
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem('examly_access_token');
-    }
-    return true;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // 1. Immediately hydrate from localStorage on client mount (0ms)
+    try {
+      const saved = localStorage.getItem('examly_user');
+      if (saved) {
+        setUser(normalizeUserRole(JSON.parse(saved)));
+        setIsLoading(false);
+      }
+    } catch (e) {}
+
+    // 2. Validate token and user session in background
     const initAuth = async () => {
       const token = localStorage.getItem('examly_access_token');
       if (token) {

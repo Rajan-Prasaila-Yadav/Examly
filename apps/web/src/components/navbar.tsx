@@ -47,14 +47,14 @@ export function Navbar() {
           className="flex items-center gap-2 pl-2 border-l border-slate-200 hover:opacity-90 transition-opacity"
           title="View My Profile"
         >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-xs flex items-center justify-center shadow-sm overflow-hidden">
+          <div suppressHydrationWarning className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-xs flex items-center justify-center shadow-sm overflow-hidden">
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
             ) : (
               user?.fullName ? user.fullName[0] : 'U'
             )}
           </div>
-          <div className="hidden md:block text-left">
+          <div suppressHydrationWarning className="hidden md:block text-left">
             <span className="block text-xs font-bold text-slate-900 leading-tight">
               {user?.fullName || (isStudent ? 'Student' : 'Admin')}
             </span>
