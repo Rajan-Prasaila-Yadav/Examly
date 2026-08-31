@@ -15,6 +15,7 @@ import {
   Bookmark,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   ArrowLeft,
   X,
   RotateCcw,
@@ -34,9 +35,183 @@ import {
   Trophy,
   BarChart3,
   PieChart,
+  Lightbulb,
+  MessageSquare,
+  LayoutGrid,
+  Search,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
 import { useAuth } from '@/lib/auth-context';
+
+// ── Solution Step Parser & Timeline Renderer ────────────────────────────────
+interface ParsedSolutionStep {
+  stepNumber: number;
+  title?: string;
+  content: string;
+}
+
+function parseSolutionSteps(rawText: string | null | undefined): ParsedSolutionStep[] {
+  if (!rawText || !rawText.trim()) return [];
+  const text = rawText.trim();
+
+  // Pattern 1: Check for explicit step headers like Step 1, Step 2, ①, ②, 1., 2.
+  const hasStepMarkers =
+    /step\s*\d+/i.test(text) ||
+    /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
+    /(?:^|\n)\s*\d+[\.)]\s+/.test(text);
+
+  if (hasStepMarkers) {
+    const rawSteps = text.split(/(?=(?:Step\s*\d+[:.]?|\b\d+[\.)]\s+|[①②③④⑤⑥⑦⑧⑨⑩]))/i);
+    const validSteps = rawSteps.map((s) => s.trim()).filter(Boolean);
+
+    if (validSteps.length > 1) {
+      return validSteps.map((stepStr, idx) => {
+        let title: string | undefined;
+        let content = stepStr;
+
+        const match = stepStr.match(/^(?:Step\s*\d+[:.]?|\d+[\.)]\s+|[①②③④⑤⑥⑦⑧⑨⑩])\s*([^\n]+)?\n*([\s\S]*)$/i);
+        if (match) {
+          const firstLine = match[1]?.trim();
+          const rest = match[2]?.trim();
+          if (firstLine && rest) {
+            title = firstLine;
+            content = rest;
+          } else if (firstLine && !rest) {
+            content = firstLine;
+          }
+        }
+
+        return {
+          stepNumber: idx + 1,
+          title,
+          content: content || stepStr,
+        };
+      });
+    }
+  }
+
+  // Pattern 2: Multi-paragraph equations/calculations
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  if (paragraphs.length > 1 && paragraphs.length <= 6) {
+    return paragraphs.map((p, idx) => ({
+      stepNumber: idx + 1,
+      content: p,
+    }));
+  }
+
+  return [{ stepNumber: 1, content: text }];
+}
+
+function StepByStepSolutionRenderer({ solutionText }: { solutionText: string }) {
+  const steps = parseSolutionSteps(solutionText);
+
+  if (steps.length <= 1) {
+    return (
+      <div className="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed font-sans text-xs sm:text-sm">
+        {renderMath(solutionText)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 pt-1">
+      {steps.map((step, idx) => {
+        const isLast = idx === steps.length - 1;
+        return (
+          <div key={step.stepNumber} className="relative flex gap-3 sm:gap-4">
+            {/* Step Circle & Connector */}
+            <div className="flex flex-col items-center shrink-0">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-purple-600 dark:bg-purple-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                {step.stepNumber}
+              </div>
+              {!isLast && <div className="w-0.5 flex-1 bg-purple-200 dark:bg-purple-800 my-1" />}
+            </div>
+
+            {/* Step Body */}
+            <div className={`flex-1 ${!isLast ? 'pb-3' : ''}`}>
+              {step.title && (
+                <h4 className="font-bold text-purple-950 dark:text-purple-200 text-xs sm:text-sm mb-1">
+                  {step.title}
+                </h4>
+              )}
+              <div className="text-slate-800 dark:text-slate-200 leading-relaxed font-sans text-xs sm:text-sm">
+                {renderMath(step.content)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReviewAccordion({
+  icon,
+  title,
+  isOpen,
+  onToggle,
+  colorScheme,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  colorScheme: 'amber' | 'blue' | 'purple';
+  children: React.ReactNode;
+}) {
+  const styles = {
+    amber: {
+      card: 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-800/50',
+      header: 'text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 dark:hover:bg-amber-950/40',
+      iconBg: 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300',
+      border: 'border-amber-200/70 dark:border-amber-800/40',
+    },
+    blue: {
+      card: 'bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/90 dark:border-blue-800/50',
+      header: 'text-blue-900 dark:text-blue-200 hover:bg-blue-100/60 dark:hover:bg-blue-950/40',
+      iconBg: 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300',
+      border: 'border-blue-200/70 dark:border-blue-800/40',
+    },
+    purple: {
+      card: 'bg-purple-50/70 dark:bg-purple-950/20 border-purple-200/90 dark:border-purple-800/50',
+      header: 'text-purple-900 dark:text-purple-200 hover:bg-purple-100/60 dark:hover:bg-purple-950/40',
+      iconBg: 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300',
+      border: 'border-purple-200/70 dark:border-purple-800/40',
+    },
+  }[colorScheme];
+
+  return (
+    <div className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs ${styles.card}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={`w-full p-3.5 sm:p-4 flex items-center justify-between transition-colors cursor-pointer text-left ${styles.header}`}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0 ${styles.iconBg}`}>
+            {icon}
+          </div>
+          <span className="font-bold text-xs sm:text-sm tracking-tight">{title}</span>
+        </div>
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        >
+          <ChevronDown className="w-4 h-4 opacity-75" />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className={`p-4 pt-3 border-t text-xs sm:text-sm leading-relaxed ${styles.border}`}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function LiveTestRunnerContent() {
   const { user } = useAuth();
@@ -93,7 +268,7 @@ function LiveTestRunnerContent() {
   // Review & Answer Key states
   const [reviewFilter, setReviewFilter] = useState<'ALL' | 'CORRECT' | 'WRONG' | 'UNANSWERED' | 'REVIEW'>('ALL');
   const [reviewIndex, setReviewIndex] = useState(0);
-  const [expandedSolutions, setExpandedSolutions] = useState<Record<number, boolean>>({});
+  const [reviewOpenSections, setReviewOpenSections] = useState<Record<string, { hint?: boolean; explanation?: boolean; solution?: boolean }>>({});
   const [answerKeyData, setAnswerKeyData] = useState<any[]>([]);
   const [isSubmittingExam, setIsSubmittingExam] = useState(false);
 
@@ -1024,85 +1199,152 @@ function LiveTestRunnerContent() {
     const activeReviewQ = filteredQs[reviewIndex] || filteredQs[0] || questions[0] || {};
     const activeStatus = getQuestionStatus(activeReviewQ);
 
+    // Current question index within full test
+    const globalQIndex = questions.findIndex(
+      (q) => (q.id || q.questionId) === (activeReviewQ.id || activeReviewQ.questionId),
+    );
+    const displayQNum = activeReviewQ.questionNumber || (globalQIndex >= 0 ? globalQIndex + 1 : reviewIndex + 1);
+    const totalQuestions = questions.length || 1;
+    const progressPct = Math.min(100, Math.max(0, Math.round((displayQNum / totalQuestions) * 100)));
+
+    // Active question accordion states (stored per question ID)
+    const activeQKey = activeReviewQ.id || activeReviewQ.questionId || `q-${reviewIndex}`;
+
+    // Toggle helper
+    const toggleAccordion = (type: 'hint' | 'explanation' | 'solution') => {
+      const current = reviewOpenSections[activeQKey] || { hint: false, explanation: false, solution: true };
+      setReviewOpenSections((prev) => ({
+        ...prev,
+        [activeQKey]: {
+          ...current,
+          [type]: !current[type],
+        },
+      }));
+    };
+
+    const currentSections = reviewOpenSections[activeQKey] || {
+      hint: false,
+      explanation: false,
+      solution: true,
+    };
+
+    const posMarks = activeReviewQ.marksPositive || test?.config?.defaultPositiveMarks || 1;
+    const negMarks = activeReviewQ.marksNegative || test?.config?.defaultNegativeMarks || 0;
+
     return (
-      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
-        {/* Top Header & Tab Mode Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setPhase('REVIEW')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                phase === 'REVIEW'
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" /> Solutions & Review
-            </button>
-            <button
-              onClick={() => setPhase('ANSWER_KEY')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key & Calculation
-            </button>
+      <div className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-5">
+        {/* ── 1. Top Header App Bar ── */}
+        <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => setPhase('RESULT')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+              className="p-2 -ml-1 text-slate-600 dark:text-slate-300 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all flex items-center justify-center cursor-pointer shrink-0"
+              title="Back to Scorecard"
             >
-              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                Solutions & Review
+              </h1>
+              <p className="text-[11px] text-slate-500 truncate">
+                {test?.title || 'Mock Examination'}
+              </p>
+            </div>
           </div>
 
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Palette Trigger */}
+            <button
+              onClick={() => setIsMobilePaletteOpen(true)}
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-brand-600" />
+              <span className="hidden sm:inline">Palette</span>
+              <span className="text-[10px] font-mono bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded-md">
+                {displayQNum}/{totalQuestions}
+              </span>
+            </button>
+
+            <button
+              onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white px-2 py-1 transition-colors"
+            >
+              Exit
+            </button>
+          </div>
+        </div>
+
+        {/* ── 2. Review Mode Tabs (Segmented Control) ── */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-inner">
           <button
-            onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors self-end sm:self-auto"
+            onClick={() => setPhase('REVIEW')}
+            className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              phase === 'REVIEW'
+                ? 'bg-brand-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-white/60 dark:hover:bg-slate-700/60'
+            }`}
           >
-            ← Exit Test
+            <Eye className="w-3.5 h-3.5" />
+            <span className="truncate">Solutions</span>
+          </button>
+          <button
+            onClick={() => setPhase('ANSWER_KEY')}
+            className="py-2 px-2 sm:px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-white/60 dark:hover:bg-slate-700/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="truncate">Answer Key</span>
+          </button>
+          <button
+            onClick={() => setPhase('RESULT')}
+            className="py-2 px-2 sm:px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-white/60 dark:hover:bg-slate-700/60 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Award className="w-3.5 h-3.5 text-purple-600" />
+            <span className="truncate">Scorecard</span>
           </button>
         </div>
 
-        {/* Interactive Question Palette Quick-Bar */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-900">Question Palette Navigator</h3>
-            <span className="text-[11px] text-slate-500">Tap any question number to view answers & solution</span>
+        {/* ── 3. Question Progress Card ── */}
+        <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold font-mono text-slate-900 dark:text-white">
+                Q{displayQNum} <span className="text-slate-400 font-normal">of {totalQuestions}</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold border border-purple-100 dark:border-purple-800/50">
+                {activeReviewQ.sectionName || 'General Section'}
+              </span>
+            </div>
+
+            {/* Answer Status Pill */}
+            <div>
+              {activeStatus.hasAns && activeStatus.isCorrect ? (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Correct (+{posMarks})
+                </span>
+              ) : activeStatus.hasAns ? (
+                <span className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-mono text-[11px] font-bold border border-rose-200 dark:border-rose-800/60 flex items-center gap-1">
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" /> Incorrect (-{negMarks})
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono text-[11px] font-bold border border-slate-200 dark:border-slate-700">
+                  Unanswered (0)
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {questions.map((q, idx) => {
-              const { hasAns, isCorrect } = getQuestionStatus(q);
-              const isCurrent = (activeReviewQ.id || activeReviewQ.questionId) === (q.id || q.questionId);
 
-              let badgeStyle = 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200';
-              if (hasAns && isCorrect) {
-                badgeStyle = 'bg-emerald-500 text-white border-emerald-600 shadow-sm';
-              } else if (hasAns && !isCorrect) {
-                badgeStyle = 'bg-rose-500 text-white border-rose-600 shadow-sm';
-              }
-
-              return (
-                <button
-                  key={q.id || q.questionId || idx}
-                  onClick={() => {
-                    setReviewFilter('ALL');
-                    const targetIdx = questions.findIndex(
-                      (item) => (item.id || item.questionId) === (q.id || q.questionId),
-                    );
-                    setReviewIndex(Math.max(0, targetIdx));
-                  }}
-                  className={`w-9 h-9 rounded-xl font-bold font-mono text-xs border flex items-center justify-center transition-all ${badgeStyle} ${
-                    isCurrent ? 'ring-2 ring-slate-900 ring-offset-2 scale-110 font-extrabold shadow-md' : ''
-                  }`}
-                  title={`Question ${idx + 1}: ${hasAns ? (isCorrect ? 'Correct' : 'Wrong') : 'Unanswered'}`}
-                >
-                  {idx + 1}
-                </button>
-              );
-            })}
+          {/* Smooth Linear Progress Bar */}
+          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-600 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </div>
 
-        {/* Filter Chips Bar (SCR-STU-15) */}
-        <div className="flex flex-wrap gap-2">
+        {/* ── 4. Quick Filter Chips Bar ── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[
             { key: 'ALL', label: `All (${questions.length})` },
             { key: 'CORRECT', label: `Correct (${countCorrect})` },
@@ -1116,10 +1358,10 @@ function LiveTestRunnerContent() {
                 setReviewFilter(f.key as any);
                 setReviewIndex(0);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 reviewFilter === f.key
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
               }`}
             >
               {f.label}
@@ -1127,149 +1369,273 @@ function LiveTestRunnerContent() {
           ))}
         </div>
 
-        {/* Review Question Card */}
+        {/* ── 5. Question Statement & Options Card ── */}
         {activeReviewQ && (activeReviewQ.id || activeReviewQ.questionId || activeReviewQ.contentHtml) ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center">
-                  Q{activeReviewQ.questionNumber || reviewIndex + 1}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold">
-                  {activeReviewQ.sectionName || 'General Section'}
-                </span>
+          <div className="space-y-4">
+            {/* Question Statement Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm space-y-4">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Question Statement
+              </div>
+              <div className="text-sm sm:text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed font-sans">
+                {renderMath(activeReviewQ.contentHtml)}
               </div>
 
-              {/* Status Badge */}
-              <div>
-                {activeStatus.hasAns && activeStatus.isCorrect ? (
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-mono text-xs font-bold border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Correct (+{activeReviewQ.marksPositive || 4})
-                  </span>
-                ) : activeStatus.hasAns ? (
-                  <span className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 font-mono text-xs font-bold border border-rose-200 flex items-center gap-1">
-                    <XCircle className="w-3.5 h-3.5" /> Incorrect (-{activeReviewQ.marksNegative || 1})
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-mono text-xs font-bold">
-                    Not Attempted (0)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Question Statement */}
-            <div className="text-sm font-medium text-slate-900 leading-relaxed space-y-3">
-              <div>{renderMath(activeReviewQ.contentHtml)}</div>
               {activeReviewQ.diagramUrl && (
-                <div className="mt-3 p-2 bg-slate-50 rounded-2xl border border-slate-200 inline-block">
-                  <img src={activeReviewQ.diagramUrl} alt="Question Diagram" className="max-h-72 rounded-xl object-contain" />
+                <div className="p-2 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 inline-block">
+                  <img
+                    src={activeReviewQ.diagramUrl}
+                    alt="Question Diagram"
+                    className="max-h-72 rounded-xl object-contain"
+                  />
                 </div>
               )}
             </div>
 
-            {/* Options with Visual Comparison */}
-            <div className="space-y-2.5">
-              {(activeReviewQ.options || []).map((opt: any) => {
-                const isSelected = activeStatus.selectedIds.includes(opt.id);
-                const isCorrect = opt.isCorrect;
+            {/* Answer Options Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm space-y-3">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-0.5">
+                Answer Options
+              </div>
 
-                let borderStyle = 'bg-slate-50 border-slate-200 text-slate-700';
-                if (isCorrect) {
-                  borderStyle = 'bg-emerald-50/90 border-emerald-400 font-semibold text-emerald-950 ring-2 ring-emerald-500/20';
-                } else if (isSelected && !isCorrect) {
-                  borderStyle = 'bg-rose-50/90 border-rose-400 font-semibold text-rose-950 ring-2 ring-rose-500/20';
-                }
+              <div className="space-y-2.5">
+                {(activeReviewQ.options || []).map((opt: any) => {
+                  const isSelected = activeStatus.selectedIds.includes(opt.id);
+                  const isCorrect = opt.isCorrect;
 
-                return (
-                  <div key={opt.id} className={`p-4 rounded-2xl border flex items-center gap-3 text-xs ${borderStyle}`}>
+                  let containerStyle =
+                    'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200';
+                  let badgeStyle =
+                    'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
+
+                  if (isCorrect) {
+                    containerStyle =
+                      'bg-emerald-50/90 dark:bg-emerald-950/40 border-2 border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold shadow-xs';
+                    badgeStyle = 'bg-emerald-600 text-white border-emerald-600 shadow-2xs';
+                  } else if (isSelected && !isCorrect) {
+                    containerStyle =
+                      'bg-rose-50/90 dark:bg-rose-950/40 border-2 border-rose-500 text-rose-950 dark:text-rose-100 font-semibold shadow-xs';
+                    badgeStyle = 'bg-rose-600 text-white border-rose-600 shadow-2xs';
+                  }
+
+                  return (
                     <div
-                      className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center shrink-0 ${
-                        isCorrect
-                          ? 'bg-emerald-600 text-white'
-                          : isSelected
-                          ? 'bg-rose-600 text-white'
-                          : 'bg-white border border-slate-300 text-slate-600'
-                      }`}
+                      key={opt.id}
+                      className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs sm:text-sm transition-all ${containerStyle}`}
                     >
-                      {opt.optionLabel}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 border ${badgeStyle}`}
+                        >
+                          {opt.optionLabel}
+                        </div>
+                        <div className="flex-1 leading-relaxed text-slate-900 dark:text-slate-100">
+                          {renderMath(opt.contentHtml)}
+                        </div>
+                      </div>
+
+                      {/* Right Tag */}
+                      <div className="shrink-0">
+                        {isCorrect && (
+                          <span className="text-[10px] sm:text-xs font-bold uppercase text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/60 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" /> Correct Answer
+                          </span>
+                        )}
+                        {isSelected && !isCorrect && (
+                          <span className="text-[10px] sm:text-xs font-bold uppercase text-rose-800 dark:text-rose-200 bg-rose-100 dark:bg-rose-900/60 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-rose-200 dark:border-rose-800">
+                            <X className="w-3.5 h-3.5 stroke-[2.5]" /> Your Answer
+                          </span>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex-1 text-[13px]">{renderMath(opt.contentHtml)}</div>
-
-                    {isCorrect && (
-                      <span className="text-[10px] font-extrabold uppercase text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
-                        ✔ Correct Answer
-                      </span>
-                    )}
-
-                    {isSelected && !isCorrect && (
-                      <span className="text-[10px] font-extrabold uppercase text-rose-700 bg-rose-100 px-2.5 py-1 rounded-lg">
-                        ✖ Your Choice
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
-            {/* 3-Tier Expandable Solutions (SCR-STU-15) */}
-            <div className="pt-3 border-t border-slate-100 space-y-3">
-              {/* Hint */}
+            {/* ── 6. Interactive 3-Tier Solutions Accordions ── */}
+            <div className="space-y-3">
+              {/* Accordion 1: Hint */}
               {activeReviewQ.solution?.hintHtml && (
-                <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 text-xs">
-                  <span className="font-bold text-amber-900 flex items-center gap-1.5 mb-1 text-[11px]">
-                    💡 Hint:
-                  </span>
-                  <div className="text-amber-950 leading-relaxed">{renderMath(activeReviewQ.solution.hintHtml)}</div>
-                </div>
-              )}
-
-              {/* Short Explanation */}
-              {activeReviewQ.solution?.shortExplanation && (
-                <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200 text-xs">
-                  <span className="font-bold text-blue-900 flex items-center gap-1.5 mb-1 text-[11px]">
-                    💬 Short Explanation:
-                  </span>
-                  <div className="text-blue-950 leading-relaxed">{renderMath(activeReviewQ.solution.shortExplanation)}</div>
-                </div>
-              )}
-
-              {/* Step-by-Step Solution */}
-              {(activeReviewQ.solution?.stepByStepHtml || activeReviewQ.solution?.contentHtml) && (
-                <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200 text-xs space-y-1.5">
-                  <span className="font-bold text-purple-900 flex items-center gap-1.5 text-[11px]">
-                    📋 Step-by-Step Solution:
-                  </span>
-                  <div className="text-slate-800 whitespace-pre-line leading-relaxed font-sans pt-1">
-                    {renderMath(activeReviewQ.solution.stepByStepHtml || activeReviewQ.solution.contentHtml)}
+                <ReviewAccordion
+                  icon={<Lightbulb className="w-3.5 h-3.5" />}
+                  title="Hint"
+                  isOpen={currentSections.hint ?? false}
+                  onToggle={() => toggleAccordion('hint')}
+                  colorScheme="amber"
+                >
+                  <div className="text-amber-950 dark:text-amber-200 leading-relaxed font-sans text-xs sm:text-sm">
+                    {renderMath(activeReviewQ.solution.hintHtml)}
                   </div>
-                </div>
+                </ReviewAccordion>
+              )}
+
+              {/* Accordion 2: Short Explanation */}
+              {activeReviewQ.solution?.shortExplanation && (
+                <ReviewAccordion
+                  icon={<MessageSquare className="w-3.5 h-3.5" />}
+                  title="Short Explanation"
+                  isOpen={currentSections.explanation ?? false}
+                  onToggle={() => toggleAccordion('explanation')}
+                  colorScheme="blue"
+                >
+                  <div className="text-blue-950 dark:text-blue-200 leading-relaxed font-sans text-xs sm:text-sm">
+                    {renderMath(activeReviewQ.solution.shortExplanation)}
+                  </div>
+                </ReviewAccordion>
+              )}
+
+              {/* Accordion 3: Step-by-Step Solution */}
+              {(activeReviewQ.solution?.stepByStepHtml || activeReviewQ.solution?.contentHtml) && (
+                <ReviewAccordion
+                  icon={<FileText className="w-3.5 h-3.5" />}
+                  title="Step-by-Step Solution"
+                  isOpen={currentSections.solution ?? true}
+                  onToggle={() => toggleAccordion('solution')}
+                  colorScheme="purple"
+                >
+                  <StepByStepSolutionRenderer
+                    solutionText={activeReviewQ.solution.stepByStepHtml || activeReviewQ.solution.contentHtml}
+                  />
+                </ReviewAccordion>
               )}
             </div>
 
-            {/* Previous / Next Review Question Buttons */}
-            <div className="flex justify-between items-center pt-2">
+            {/* ── 7. Question Navigation Bar (Bottom) ── */}
+            <div className="sticky bottom-3 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between gap-2">
               <button
                 disabled={reviewIndex === 0}
                 onClick={() => setReviewIndex((prev) => Math.max(0, prev - 1))}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                className="px-3.5 sm:px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-35 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
               >
-                <ChevronLeft className="w-4 h-4" /> Previous Question
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden xs:inline">Previous</span>
+              </button>
+
+              {/* Center Trigger to Open Palette */}
+              <button
+                type="button"
+                onClick={() => setIsMobilePaletteOpen(true)}
+                className="flex flex-col items-center justify-center px-3 py-1 text-center hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold text-slate-900 dark:text-white font-mono">
+                  Q {displayQNum} / {totalQuestions}
+                </span>
+                <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-0.5">
+                  <LayoutGrid className="w-2.5 h-2.5" /> Jump to Question
+                </span>
               </button>
 
               <button
                 disabled={reviewIndex >= filteredQs.length - 1}
                 onClick={() => setReviewIndex((prev) => Math.min(filteredQs.length - 1, prev + 1))}
-                className="px-5 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+                className="px-4 sm:px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-35 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                Next Question <ChevronRight className="w-4 h-4" />
+                <span className="hidden xs:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-500 text-xs">
-            No questions match this filter.
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center text-slate-500 text-xs sm:text-sm">
+            No questions match the selected filter.
+          </div>
+        )}
+
+        {/* ── 8. Question Navigator Palette Modal ── */}
+        {isMobilePaletteOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <LayoutGrid className="w-4 h-4 text-brand-600" /> Question Navigator
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Tap any number to view question & solution</p>
+                </div>
+                <button
+                  onClick={() => setIsMobilePaletteOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status Summary Filter Bar */}
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                {[
+                  { key: 'ALL', label: `All (${questions.length})` },
+                  { key: 'CORRECT', label: `Correct (${countCorrect})` },
+                  { key: 'WRONG', label: `Wrong (${countWrong})` },
+                  { key: 'UNANSWERED', label: `Unanswered (${countUnanswered})` },
+                  { key: 'REVIEW', label: `Marked (${countMarked})` },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setReviewFilter(f.key as any)}
+                    className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                      reviewFilter === f.key
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Question Badges Grid */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-2 pt-1">
+                  {questions.map((q, idx) => {
+                    const { hasAns, isCorrect } = getQuestionStatus(q);
+                    const isCurrent = (activeReviewQ.id || activeReviewQ.questionId) === (q.id || q.questionId);
+
+                    let badgeStyle =
+                      'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200';
+                    if (hasAns && isCorrect) {
+                      badgeStyle = 'bg-emerald-500 text-white border-emerald-600 shadow-2xs';
+                    } else if (hasAns && !isCorrect) {
+                      badgeStyle = 'bg-rose-500 text-white border-rose-600 shadow-2xs';
+                    }
+
+                    return (
+                      <button
+                        key={q.id || q.questionId || idx}
+                        onClick={() => {
+                          setReviewFilter('ALL');
+                          const targetIdx = questions.findIndex(
+                            (item) => (item.id || item.questionId) === (q.id || q.questionId),
+                          );
+                          setReviewIndex(Math.max(0, targetIdx));
+                          setIsMobilePaletteOpen(false);
+                        }}
+                        className={`h-10 rounded-xl font-bold font-mono text-xs border flex items-center justify-center transition-all cursor-pointer ${badgeStyle} ${
+                          isCurrent
+                            ? 'ring-2 ring-brand-600 ring-offset-2 scale-105 font-black shadow-md'
+                            : ''
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Palette Legend */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Correct ({countCorrect})
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Wrong ({countWrong})
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700" /> Unanswered ({countUnanswered})
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>
