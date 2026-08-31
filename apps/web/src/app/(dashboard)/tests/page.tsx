@@ -30,6 +30,7 @@ import {
   AlertCircle,
   FileSpreadsheet,
 } from 'lucide-react';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 export default function TestsPortalPage() {
   const { user } = useAuth();
@@ -314,9 +315,12 @@ export default function TestsPortalPage() {
               <div className="space-y-3">
                 {/* Header Badge Strip */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60 truncate max-w-[150px]">
-                    {t.batch?.name || 'General Batch'}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {!isStudent && <ReorderHandle title="Drag to reorder test" className="p-0.5" />}
+                    <span className="px-2.5 py-0.5 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60 truncate max-w-[150px]">
+                      {t.batch?.name || 'General Batch'}
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {ended ? (

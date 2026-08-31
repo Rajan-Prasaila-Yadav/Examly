@@ -34,9 +34,13 @@ import {
   FileText,
   FolderPlus,
   History,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import katex from 'katex';
 import { useAuth } from '@/lib/auth-context';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 export default function TestDetailPage() {
   const { user } = useAuth();
@@ -367,6 +371,74 @@ export default function TestDetailPage() {
     }
   };
 
+  const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
+
+  const handleQuestionDragStart = (e: React.DragEvent, qId: string) => {
+    e.dataTransfer.setData('text/plain', qId);
+    setDraggedQuestionId(qId);
+  };
+
+  const handleQuestionDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleQuestionDrop = async (e: React.DragEvent, targetQId: string, section: any) => {
+    e.preventDefault();
+    if (!draggedQuestionId || draggedQuestionId === targetQId) {
+      setDraggedQuestionId(null);
+      return;
+    }
+    const currentQuestions = [...(section.questions || [])];
+    const sourceIdx = currentQuestions.findIndex((q) => q.id === draggedQuestionId);
+    const targetIdx = currentQuestions.findIndex((q) => q.id === targetQId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const [moved] = currentQuestions.splice(sourceIdx, 1);
+    currentQuestions.splice(targetIdx, 0, moved);
+
+    setTest((prev: any) => ({
+      ...prev,
+      sections: prev.sections.map((s: any) =>
+        s.id === section.id ? { ...s, questions: currentQuestions } : s,
+      ),
+    }));
+    setDraggedQuestionId(null);
+
+    try {
+      await api.put(`/tests/${testId}/questions/reorder`, {
+        questionIds: currentQuestions.map((q) => q.id),
+      });
+    } catch (err) {
+      console.error(err);
+      fetchTestDetails();
+    }
+  };
+
+  const moveQuestion = async (section: any, idx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const currentQuestions = [...(section.questions || [])];
+    if (targetIdx < 0 || targetIdx >= currentQuestions.length) return;
+
+    const [moved] = currentQuestions.splice(idx, 1);
+    currentQuestions.splice(targetIdx, 0, moved);
+
+    setTest((prev: any) => ({
+      ...prev,
+      sections: prev.sections.map((s: any) =>
+        s.id === section.id ? { ...s, questions: currentQuestions } : s,
+      ),
+    }));
+
+    try {
+      await api.put(`/tests/${testId}/questions/reorder`, {
+        questionIds: currentQuestions.map((q) => q.id),
+      });
+    } catch (err) {
+      console.error(err);
+      fetchTestDetails();
+    }
+  };
+
   const renderMath = (text: string) => {
     if (!text || typeof text !== 'string') return null;
     try {
@@ -639,10 +711,26 @@ export default function TestDetailPage() {
                 {(section.questions || []).map((q: any, idx: number) => (
                   <div
                     key={q.id}
-                    className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-brand-300 transition-all group"
+                    draggable={!isStudent}
+                    onDragStart={(e) => handleQuestionDragStart(e, q.id)}
+                    onDragOver={handleQuestionDragOver}
+                    onDrop={(e) => handleQuestionDrop(e, q.id, section)}
+                    onDragEnd={() => setDraggedQuestionId(null)}
+                    className={`bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-brand-300 transition-all group relative ${
+                      draggedQuestionId === q.id ? 'opacity-40 border-dashed border-brand-500 ring-2 ring-brand-400/40' : ''
+                    }`}
                   >
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2">
+                        {!isStudent && (
+                          <ReorderHandle
+                            title="Drag or click arrows to reorder question sequence"
+                            onMoveUp={() => moveQuestion(section, idx, 'up')}
+                            onMoveDown={() => moveQuestion(section, idx, 'down')}
+                            canMoveUp={idx > 0}
+                            canMoveDown={idx < (section.questions || []).length - 1}
+                          />
+                        )}
                         <span className="w-7 h-7 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center">
                           {idx + 1}
                         </span>

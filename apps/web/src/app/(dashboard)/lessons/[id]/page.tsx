@@ -31,6 +31,7 @@ import {
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 export default function LessonDetailPage() {
   const { user } = useAuth();
@@ -374,8 +375,9 @@ export default function LessonDetailPage() {
                     </span>
                   </Link>
 
-                  <div className="p-4 sm:p-5">
-                    <Link href={`/lessons/${lessonId}/videos/${v.id}`} className="block">
+                  <div className="p-4 sm:p-5 flex items-start gap-2">
+                    {!isStudent && <ReorderHandle title="Drag to reorder video" className="p-0.5 mt-0.5" />}
+                    <Link href={`/lessons/${lessonId}/videos/${v.id}`} className="block flex-1">
                       <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2">
                         {v.title}
                       </h3>
@@ -441,7 +443,8 @@ export default function LessonDetailPage() {
               className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
+                  {!isStudent && <ReorderHandle title="Drag to reorder note" className="p-0.5 mt-1" />}
                   <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>

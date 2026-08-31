@@ -41,6 +41,7 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/lib/toast-context';
 import { DetailPageSkeleton } from '@/components/skeleton';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 const batchDetailCache = new Map<string, any>();
 
@@ -601,6 +602,52 @@ export default function BatchDetailPage() {
     }
   };
 
+  const moveSubject = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const currentSubjects = [...(batch?.subjects || [])];
+    if (targetIndex < 0 || targetIndex >= currentSubjects.length) return;
+
+    const [moved] = currentSubjects.splice(index, 1);
+    currentSubjects.splice(targetIndex, 0, moved);
+
+    setBatch((prev: any) => ({ ...prev, subjects: currentSubjects }));
+
+    try {
+      await api.put('/subjects/reorder', { ids: currentSubjects.map((s) => s.id) });
+      toast.success('Subjects Reordered', 'Subject sequence updated.');
+    } catch (err) {
+      console.error(err);
+      fetchBatchDetail();
+    }
+  };
+
+  const moveLesson = async (subjectId: string, index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const currentSubject = batch?.subjects?.find((s: any) => s.id === subjectId);
+    if (!currentSubject) return;
+
+    const currentLessons = [...(currentSubject.lessons || [])];
+    if (targetIndex < 0 || targetIndex >= currentLessons.length) return;
+
+    const [moved] = currentLessons.splice(index, 1);
+    currentLessons.splice(targetIndex, 0, moved);
+
+    setBatch((prev: any) => ({
+      ...prev,
+      subjects: prev.subjects.map((s: any) =>
+        s.id === subjectId ? { ...s, lessons: currentLessons } : s,
+      ),
+    }));
+
+    try {
+      await api.put('/lessons/reorder', { ids: currentLessons.map((l) => l.id) });
+      toast.success('Lessons Reordered', 'Lesson sequence updated.');
+    } catch (err) {
+      console.error(err);
+      fetchBatchDetail();
+    }
+  };
+
   if (isLoading) {
     return <DetailPageSkeleton />;
   }
@@ -774,12 +821,21 @@ export default function BatchDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.map((sub: any) => {
+            {subjects.map((sub: any, subIdx: number) => {
               const lessons = sub.lessons || [];
               return (
                 <div key={sub.id} className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
+                      {!isStudent && (
+                        <ReorderHandle
+                          title="Drag or click arrows to reorder subject"
+                          onMoveUp={() => moveSubject(subIdx, 'up')}
+                          onMoveDown={() => moveSubject(subIdx, 'down')}
+                          canMoveUp={subIdx > 0}
+                          canMoveDown={subIdx < subjects.length - 1}
+                        />
+                      )}
                       <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold">
                         <BookOpen className="w-5 h-5" />
                       </div>
@@ -825,11 +881,21 @@ export default function BatchDetailPage() {
 
                   {/* Lessons list */}
                   <div className="space-y-2 pt-2 border-t border-slate-100">
-                    {lessons.map((ls: any) => (
+                    {lessons.map((ls: any, lsIdx: number) => (
                       <div
                         key={ls.id}
-                        className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors"
+                        className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2.5 hover:bg-slate-100/60 transition-colors"
                       >
+                        {!isStudent && (
+                          <ReorderHandle
+                            title="Drag or click arrows to reorder lesson"
+                            className="p-0.5"
+                            onMoveUp={() => moveLesson(sub.id, lsIdx, 'up')}
+                            onMoveDown={() => moveLesson(sub.id, lsIdx, 'down')}
+                            canMoveUp={lsIdx > 0}
+                            canMoveDown={lsIdx < lessons.length - 1}
+                          />
+                        )}
                         <Link href={`/lessons/${ls.id}`} className="flex-1 min-w-0 font-bold text-xs text-slate-800 hover:text-brand-600 truncate">
                           {ls.name}
                         </Link>

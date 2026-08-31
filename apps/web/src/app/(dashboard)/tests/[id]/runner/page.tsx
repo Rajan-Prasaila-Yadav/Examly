@@ -29,6 +29,8 @@ import {
   ListFilter,
   Check,
   Loader2,
+  Star,
+  Calculator,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
 import { useAuth } from '@/lib/auth-context';
@@ -1057,247 +1059,250 @@ export default function LiveTestRunnerPage() {
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'ANSWER_KEY') {
     const dataList = answerKeyData.length > 0 ? answerKeyData : questions;
-    const calcCorrect = dataList.filter((a: any) => a.status === 'CORRECT' || a.isCorrect).length;
-    const calcWrong = dataList.filter((a: any) => (a.status === 'WRONG' || (a.selectedOptionIds?.length > 0 && !a.isCorrect))).length;
-    const calcUnanswered = dataList.length - (calcCorrect + calcWrong);
+
+    // Rates from test config or defaults
+    const posRate = test?.config?.defaultPositiveMarks ?? (test?.totalMarks && questions.length ? Number((test.totalMarks / questions.length).toFixed(2)) : 4);
+    const negRate = test?.config?.defaultNegativeMarks ?? (test?.negativeMarkRate !== undefined ? Number(test.negativeMarkRate) : 1);
+
+    // Map rows cleanly
+    const rows = dataList.map((item: any, idx: number) => {
+      let qNum = idx + 1;
+      let correctAns = '-';
+      let yourAns = '—';
+      let isCorrect = false;
+      let isWrong = false;
+      let marks = 0;
+      let neg = 0;
+
+      if (answerKeyData.length > 0) {
+        qNum = item.questionNumber || idx + 1;
+        correctAns = item.correctAnswer || '-';
+        yourAns = item.yourAnswer && item.yourAnswer !== '-' ? item.yourAnswer : '—';
+        isCorrect = item.status === 'CORRECT' || item.status === '✔ Correct';
+        isWrong = item.status === 'WRONG' || item.status === '✖ Wrong';
+        marks = isCorrect ? (Number(item.marks) || posRate) : 0;
+        neg = isWrong ? (Number(item.negative) > 0 ? -Number(item.negative) : -negRate) : 0;
+      } else {
+        const q = item;
+        const ans = userAnswers[q.id];
+        const hasAns = ans && ans.selectedOptionIds?.length > 0;
+        const correctOpts = (q.options || []).filter((o: any) => o.isCorrect);
+        correctAns = correctOpts.map((o: any) => o.optionLabel).join(', ') || '-';
+
+        if (hasAns) {
+          const selectedOpts = (q.options || []).filter((o: any) => ans.selectedOptionIds.includes(o.id));
+          yourAns = selectedOpts.map((o: any) => o.optionLabel).join(', ') || '—';
+          isCorrect =
+            correctOpts.length > 0 &&
+            correctOpts.length === selectedOpts.length &&
+            correctOpts.every((o: any) => ans.selectedOptionIds.includes(o.id));
+          if (isCorrect) {
+            marks = q.marksPositive || posRate;
+          } else {
+            isWrong = true;
+            neg = -(q.marksNegative || negRate);
+          }
+        } else {
+          yourAns = '—';
+        }
+      }
+
+      return {
+        qNum,
+        correctAns,
+        yourAns,
+        isCorrect,
+        isWrong,
+        isUnanswered: !isCorrect && !isWrong,
+        marks,
+        neg,
+      };
+    });
+
+    const correctCount = rows.filter((r) => r.isCorrect).length;
+    const wrongCount = rows.filter((r) => r.isWrong).length;
+    const unansweredCount = rows.length - (correctCount + wrongCount);
+
+    const totalPossible = test?.totalMarks || Number((rows.length * posRate).toFixed(2));
+    const correctTotal = Number((correctCount * posRate).toFixed(2));
+    const wrongTotal = Number((wrongCount * negRate).toFixed(2));
+    const rawScore = Number((correctTotal - wrongTotal).toFixed(2));
+    const finalScore = submitResult?.totalScore ?? rawScore;
+    const percentage = submitResult?.percentage ?? (totalPossible > 0 ? Number(((finalScore / totalPossible) * 100).toFixed(2)) : 0);
+    const passMarks = test?.passMarks || 40;
+    const isPassed = submitResult?.isPassed ?? (percentage >= passMarks);
 
     return (
-      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
-        {/* Top Header & Tab Mode Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setPhase('REVIEW')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
-            >
-              <Eye className="w-3.5 h-3.5" /> Solutions & Review
-            </button>
-            <button
-              onClick={() => setPhase('ANSWER_KEY')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition-all flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Answer Key & Calculation
-            </button>
-            <button
-              onClick={() => setPhase('RESULT')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
-            >
-              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
-            </button>
-          </div>
+      <div className="max-w-xl mx-auto py-4 sm:py-6 px-3 sm:px-4 space-y-5 bg-slate-50 min-h-screen">
+        {/* Top Header with Back Arrow & Title */}
+        <div className="flex items-center justify-between pb-1">
+          <button
+            onClick={() => setPhase('RESULT')}
+            className="p-2 -ml-2 text-brand-700 hover:bg-brand-50 rounded-full transition-colors flex items-center justify-center"
+            title="Back to Scorecard"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+          </button>
+          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight text-center flex-1 pr-5">
+            Answer Key & Calculation
+          </h1>
+        </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-            <button
-              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
-              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-rose-200"
-            >
-              <FileText className="w-3.5 h-3.5" /> PDF
-            </button>
-            <button
-              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/excel`, `answer-key-${testId}.xlsx`)}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-emerald-200"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-            </button>
+        {/* Legend / Key Label */}
+        <div className="bg-white px-3.5 py-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between text-[11px] text-slate-600 font-medium flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <span><strong className="text-brand-700 font-bold">CA</strong> = Correct Ans</span>
+            <span><strong className="text-brand-700 font-bold">YA</strong> = Your Ans</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-emerald-700 font-semibold"><Check className="w-3.5 h-3.5 stroke-[2.5]" /> Correct</span>
+            <span className="flex items-center gap-1 text-rose-700 font-semibold"><X className="w-3.5 h-3.5 stroke-[2.5]" /> Wrong</span>
+            <span className="flex items-center gap-1 text-slate-500 font-semibold"><span className="font-bold text-slate-400">—</span> Unanswered</span>
           </div>
         </div>
 
-        {/* Calculation Metrics Overview Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
-          <div className="p-3 rounded-2xl bg-brand-50/50 border border-brand-100">
-            <span className="text-[10px] text-brand-600 block font-medium">Final Score</span>
-            <span className="text-lg font-extrabold text-brand-700 font-mono">
-              {submitResult?.totalScore ?? 0} / {test?.totalMarks || 200}
-            </span>
-          </div>
-          <div className="p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100">
-            <span className="text-[10px] text-emerald-600 block font-medium">Correct (+Marks)</span>
-            <span className="text-lg font-extrabold text-emerald-700 font-mono">
-              {calcCorrect} Qs
-            </span>
-          </div>
-          <div className="p-3 rounded-2xl bg-rose-50/50 border border-rose-100">
-            <span className="text-[10px] text-rose-600 block font-medium">Wrong (-Negative)</span>
-            <span className="text-lg font-extrabold text-rose-700 font-mono">
-              {calcWrong} Qs
-            </span>
-          </div>
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] text-slate-500 block font-medium">Percentage</span>
-            <span className="text-lg font-extrabold text-slate-800 font-mono">
-              {submitResult?.percentage ?? 0}%
-            </span>
-          </div>
-        </div>
-
-        {/* Answer Key Grid (SCR-STU-16 Table) */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-6">
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Answer Key & Question Evaluation Table
-          </h2>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+        {/* Answer Key Grid Table matching reference image */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="w-full">
+            <table className="w-full text-center text-xs border-collapse table-fixed">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="pb-3">Q.No</th>
-                  <th className="pb-3">Section</th>
-                  <th className="pb-3">Correct Ans</th>
-                  <th className="pb-3">Your Ans</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Marks</th>
-                  <th className="pb-3 text-right">Neg</th>
+                <tr className="bg-[#EEF0FF] text-brand-700 font-bold text-[11px] border-b border-indigo-100/80">
+                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[15%]">Q.No</th>
+                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[16%]" title="Correct Answer">CA</th>
+                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[16%]" title="Your Answer">YA</th>
+                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[19%]">Status</th>
+                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[17%]">Marks</th>
+                  <th className="py-3 px-1 font-bold w-[17%]">Negative</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {(answerKeyData.length > 0 ? answerKeyData : questions).map((item, idx) => {
-                  if (answerKeyData.length > 0) {
-                    const isCorrect = item.status === 'CORRECT' || item.status === '✔ Correct';
-                    const isWrong = item.status === 'WRONG' || item.status === '✖ Wrong';
-                    return (
-                      <tr key={item.questionId || idx} className="hover:bg-slate-50 font-mono">
-                        <td className="py-2.5 font-bold text-slate-900">{item.questionNumber || idx + 1}</td>
-                        <td className="py-2.5 text-slate-500 font-sans text-[11px]">{item.sectionName || 'General'}</td>
-                        <td className="py-2.5 font-bold text-emerald-700">{item.correctAnswer || '-'}</td>
-                        <td className="py-2.5 font-bold text-slate-900">{item.yourAnswer || '-'}</td>
-                        <td className="py-2.5 font-sans text-[11px]">
-                          <span
-                            className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                              isCorrect
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : isWrong
-                                ? 'bg-rose-50 text-rose-700'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {isCorrect ? '✔ Correct' : isWrong ? '✖ Wrong' : 'Not Answered'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-emerald-600">
-                          {Number(item.marks) > 0 ? `+${item.marks}` : '0'}
-                        </td>
-                        <td className="py-2.5 text-right font-bold text-rose-600">
-                          {Number(item.negative) > 0 ? `-${item.negative}` : '0'}
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  const q = item;
-                  const ans = userAnswers[q.id];
-                  const hasAns = ans && ans.selectedOptionIds?.length > 0;
-                  const correctOpts = (q.options || []).filter((o: any) => o.isCorrect);
-                  const correctLabel = correctOpts.map((o: any) => o.optionLabel).join(', ');
-
-                  let yourLabel = '-';
-                  let status = 'Not Answered';
-                  let marks = 0;
-                  let neg = 0;
-
-                  if (hasAns) {
-                    const selectedOpts = (q.options || []).filter((o: any) => ans.selectedOptionIds.includes(o.id));
-                    yourLabel = selectedOpts.map((o: any) => o.optionLabel).join(', ');
-                    const isCorrect =
-                      correctOpts.length > 0 &&
-                      correctOpts.length === selectedOpts.length &&
-                      correctOpts.every((o: any) => ans.selectedOptionIds.includes(o.id));
-                    if (isCorrect) {
-                      status = '✔ Correct';
-                      marks = q.marksPositive || 4;
-                    } else {
-                      status = '✖ Wrong';
-                      neg = -(q.marksNegative || 1);
-                    }
-                  }
-
-                  return (
-                    <tr key={q.id || idx} className="hover:bg-slate-50 font-mono">
-                      <td className="py-2.5 font-bold text-slate-900">{idx + 1}</td>
-                      <td className="py-2.5 text-slate-500 font-sans text-[11px]">{q.sectionName || 'General'}</td>
-                      <td className="py-2.5 font-bold text-emerald-700">{correctLabel || '-'}</td>
-                      <td className="py-2.5 font-bold text-slate-900">{yourLabel}</td>
-                      <td className="py-2.5 font-sans text-[11px]">
-                        <span
-                          className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                            status.includes('Correct')
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : status.includes('Wrong')
-                              ? 'bg-rose-50 text-rose-700'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-right font-bold text-emerald-600">{marks > 0 ? `+${marks}` : '0'}</td>
-                      <td className="py-2.5 text-right font-bold text-rose-600">{neg < 0 ? `${neg}` : '0'}</td>
-                    </tr>
-                  );
-                })}
+              <tbody className="divide-y divide-slate-100 text-slate-800 text-xs font-sans">
+                {rows.map((row) => (
+                  <tr key={row.qNum} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
+                      {row.qNum}
+                    </td>
+                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
+                      {row.correctAns}
+                    </td>
+                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
+                      {row.yourAns}
+                    </td>
+                    <td className="py-2.5 px-1 border-r border-slate-100">
+                      {row.isCorrect ? (
+                        <Check className="w-4 h-4 text-emerald-600 mx-auto stroke-[2.5]" />
+                      ) : row.isWrong ? (
+                        <X className="w-4 h-4 text-rose-600 mx-auto stroke-[2.5]" />
+                      ) : (
+                        <span className="text-slate-400 font-bold text-sm select-none">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
+                      {row.marks}
+                    </td>
+                    <td className="py-2.5 px-1 font-bold text-slate-900">
+                      {row.neg}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+        </div>
 
-          {/* Mathematical Calculation Breakdown Box (doc 19 & SCR-STU-16) */}
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 font-mono text-xs">
-            <span className="font-bold text-slate-900 font-sans block text-sm">Score Calculation Breakdown</span>
-            {(() => {
-              const posRate = test?.config?.defaultPositiveMarks ?? (test?.totalMarks && questions.length ? Number((test.totalMarks / questions.length).toFixed(2)) : 1);
-              const negRate = test?.config?.defaultNegativeMarks ?? (test?.negativeMarkRate !== undefined ? Number(test.negativeMarkRate) : 1);
-              const totalPossible = test?.totalMarks || Number((questions.length * posRate).toFixed(2));
-              const correctTotal = Number(((submitResult?.totalCorrect || 0) * posRate).toFixed(2));
-              const wrongTotal = Number(((submitResult?.totalWrong || 0) * negRate).toFixed(2));
+        {/* Score Calculation Card matching reference image */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 text-xs font-sans">
+          {/* Card Title */}
+          <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm sm:text-base">
+            <div className="w-7 h-7 rounded-xl bg-purple-100 text-brand-700 flex items-center justify-center">
+              <Calculator className="w-4 h-4" />
+            </div>
+            <span>Score Calculation</span>
+          </div>
 
-              return (
-                <div className="space-y-1.5 divide-y divide-slate-200/70 text-slate-700">
-                  <div className="flex justify-between pt-1">
-                    <span>Total Questions × Marks per Q</span>
-                    <span className="font-bold">
-                      = {questions.length} × {posRate} = {totalPossible}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 text-emerald-700">
-                    <span>Correct Answers (+{posRate} per correct)</span>
-                    <span className="font-bold">
-                      = {submitResult?.totalCorrect || 0} × (+{posRate}) = +{correctTotal}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 text-rose-700">
-                    <span>Wrong Answers (Negative: -{negRate} per wrong)</span>
-                    <span className="font-bold">
-                      = {submitResult?.totalWrong || 0} × (-{negRate}) = -{wrongTotal}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 text-slate-500">
-                    <span>Unanswered</span>
-                    <span className="font-bold">= {submitResult?.totalUnanswered || 0} × 0 = 0</span>
-                  </div>
-                  {/* Anti-Cheating Penalties */}
-                  {Number(test?.config?.antiCheatPenaltyPerStrike) > 0 && antiCheatStrikes > 0 && (
-                    <div className="flex justify-between pt-1.5 pb-1 text-rose-700 font-bold border-t border-rose-200">
-                      <span>⚠️ Anti-Cheat Penalty ({antiCheatStrikes} strike{antiCheatStrikes > 1 ? 's' : ''} × {test.config.antiCheatPenaltyPerStrike} marks)</span>
-                      <span className="font-mono font-extrabold">
-                        = -{antiCheatStrikes * Number(test.config.antiCheatPenaltyPerStrike)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 border-t-2 border-slate-300 font-bold text-sm text-brand-900 font-mono">
-                    <span>Final Awarded Score</span>
-                    <span>= {submitResult?.totalScore || 0} / {totalPossible}</span>
-                  </div>
-                  <div className="flex justify-between pt-1 font-bold text-slate-900">
-                    <span>Percentage</span>
-                    <span>= {submitResult?.percentage || 0}%</span>
-                  </div>
-                  <div className="flex justify-between pt-1 font-bold">
-                    <span>Evaluation Result</span>
-                    <span className={submitResult?.isPassed ? 'text-emerald-700' : 'text-rose-700'}>
-                      {submitResult?.isPassed ? '✔ PASSED' : '✖ FAILED (Pass Mark: 40%)'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
+          {/* Formulas */}
+          <div className="space-y-2 text-slate-700 font-medium">
+            <div className="flex items-center justify-between">
+              <span>Total Questions × Marks per Q</span>
+              <span className="font-mono text-slate-900 font-bold">
+                = {rows.length} × {posRate} = {totalPossible}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-emerald-600 font-semibold">
+              <span>Correct</span>
+              <span className="font-mono text-emerald-600 font-bold">
+                {correctCount} × {posRate} = +{correctTotal}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-rose-600 font-semibold">
+              <span>Wrong</span>
+              <span className="font-mono text-rose-600 font-bold">
+                {wrongCount} × (-{negRate}) = -{wrongTotal}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-slate-500">
+              <span>Unanswered</span>
+              <span className="font-mono text-slate-800 font-bold">
+                {unansweredCount} × 0 = 0
+              </span>
+            </div>
+          </div>
+
+          {/* Dashed Separator */}
+          <div className="border-t border-dashed border-slate-200 pt-1" />
+
+          {/* Final Score */}
+          <div className="flex items-center justify-between font-bold text-slate-900 text-sm sm:text-base">
+            <span>Final Score</span>
+            <span className="font-mono font-extrabold text-slate-900">
+              = {finalScore} / {totalPossible}
+            </span>
+          </div>
+
+          {/* Percentage Box */}
+          <div className="p-3 bg-[#EEF0FF] rounded-xl border border-indigo-100 flex items-center justify-between font-bold text-brand-700">
+            <span>Percentage</span>
+            <span className="font-mono font-extrabold text-sm text-brand-700">
+              = {Number(percentage).toFixed(2)}%
+            </span>
+          </div>
+
+          {/* Result Passed/Failed Box */}
+          <div
+            className={`p-3 rounded-xl border flex items-center gap-2 font-bold text-xs ${
+              isPassed
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                isPassed ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+              }`}
+            >
+              <Star className="w-3 h-3 fill-current" />
+            </div>
+            <span>
+              Result: <span className="uppercase font-extrabold">{isPassed ? 'PASSED' : 'FAILED'}</span> (Pass mark {passMarks}%)
+            </span>
+          </div>
+
+          {/* Bottom Action Buttons */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
+              className="py-3 px-4 rounded-xl border-2 border-brand-600 text-brand-600 font-bold text-xs hover:bg-brand-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Download PDF
+            </button>
+            <button
+              onClick={() => setPhase('RESULT')}
+              className="py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-600/20"
+            >
+              Back to Result
+            </button>
           </div>
         </div>
       </div>

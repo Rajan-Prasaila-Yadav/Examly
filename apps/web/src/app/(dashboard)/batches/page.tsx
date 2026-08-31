@@ -23,10 +23,14 @@ import {
   FileCheck2,
   FileText,
   Loader2,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/lib/toast-context';
 import { CardGridSkeleton } from '@/components/skeleton';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 let cachedBatches: any[] = [];
 
@@ -188,6 +192,55 @@ export default function BatchesPage() {
     }
   };
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', index.toString());
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+    const updated = [...batches];
+    const [moved] = updated.splice(draggedIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    setBatches(updated);
+    setDraggedIndex(null);
+
+    try {
+      await api.put('/batches/reorder', { ids: updated.map((b) => b.id) });
+      toast.success('Batches Reordered', 'New batch order saved.');
+    } catch (err) {
+      console.error(err);
+      fetchBatches();
+    }
+  };
+
+  const moveBatch = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= batches.length) return;
+    const updated = [...batches];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, moved);
+    setBatches(updated);
+
+    try {
+      await api.put('/batches/reorder', { ids: updated.map((b) => b.id) });
+      toast.success('Batches Reordered', 'New batch order saved.');
+    } catch (err) {
+      console.error(err);
+      fetchBatches();
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Header */}
@@ -199,7 +252,7 @@ export default function BatchesPage() {
           <p className="text-xs text-slate-500 mt-0.5">
             {isStudent
               ? 'Browse your assigned classes, subjects, notes, and examinations.'
-              : 'Full CRUD: Create, Edit details, Hide/Unhide, Manage Curriculum, and Enroll students.'}
+              : 'Full CRUD: Drag to reorder, Edit details, Hide/Unhide, Manage Curriculum, and Enroll students.'}
           </p>
         </div>
 
@@ -218,18 +271,34 @@ export default function BatchesPage() {
         <CardGridSkeleton count={6} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {batches.map((b) => (
+          {batches.map((b, idx) => (
             <div
               key={b.id}
-              className={`bg-white rounded-3xl border p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group ${
+              draggable={!isStudent}
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, idx)}
+              onDragEnd={() => setDraggedIndex(null)}
+              className={`bg-white rounded-3xl border p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative ${
                 b.status === 'HIDDEN' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200/90'
-              }`}
+              } ${draggedIndex === idx ? 'opacity-40 border-dashed border-brand-500 ring-2 ring-brand-400/40' : ''}`}
             >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
-                  {b.code}
-                </span>
+                <div className="flex items-center gap-2">
+                  {!isStudent && (
+                    <ReorderHandle
+                      title="Drag or click arrows to reorder batch"
+                      onMoveUp={() => moveBatch(idx, 'up')}
+                      onMoveDown={() => moveBatch(idx, 'down')}
+                      canMoveUp={idx > 0}
+                      canMoveDown={idx < batches.length - 1}
+                    />
+                  )}
+                  <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
+                    {b.code}
+                  </span>
+                </div>
 
                 <div className="flex items-center gap-1.5">
                   {b.status === 'HIDDEN' ? (

@@ -18,6 +18,7 @@ import {
   BookOpen,
   Sparkles,
 } from 'lucide-react';
+import { ReorderHandle } from '@/components/reorder-handle';
 
 export default function CurriculumPage() {
   const router = useRouter();
@@ -106,7 +107,8 @@ export default function CurriculumPage() {
         {(selectedBatch?.subjects || []).map((sub: any, idx: number) => (
           <div key={sub.id || idx} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
+                {!isStudent && <ReorderHandle title="Drag to reorder subject" className="p-0.5" />}
                 <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 font-bold flex items-center justify-center text-xs">
                   {sub.name[0]}
                 </div>
@@ -131,9 +133,12 @@ export default function CurriculumPage() {
                   className="block p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-brand-300 hover:bg-brand-50/20 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-800 group-hover:text-brand-600 transition-colors truncate">
-                      {les.name}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {!isStudent && <ReorderHandle title="Drag to reorder lesson" className="p-0" />}
+                      <span className="text-xs font-semibold text-slate-800 group-hover:text-brand-600 transition-colors truncate">
+                        {les.name}
+                      </span>
+                    </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-600 shrink-0 ml-1" />
                   </div>
 
