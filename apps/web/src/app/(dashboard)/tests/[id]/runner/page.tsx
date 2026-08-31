@@ -1239,7 +1239,7 @@ function LiveTestRunnerContent() {
               {(activeReviewQ.solution?.stepByStepHtml || activeReviewQ.solution?.contentHtml) && (
                 <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200 text-xs space-y-1.5">
                   <span className="font-bold text-purple-900 flex items-center gap-1.5 text-[11px]">
-                    📋 Step-by-Step KaTeX Solution:
+                    📋 Step-by-Step Solution:
                   </span>
                   <div className="text-slate-800 whitespace-pre-line leading-relaxed font-sans pt-1">
                     {renderMath(activeReviewQ.solution.stepByStepHtml || activeReviewQ.solution.contentHtml)}

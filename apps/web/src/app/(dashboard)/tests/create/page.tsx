@@ -642,7 +642,7 @@ function CreateTestWizardContent() {
             {[
               { num: 1, label: 'Settings', sub: 'Identity & Scheme' },
               { num: 2, label: 'Engine Settings', sub: 'Proctoring & Timing' },
-              { num: 3, label: 'Questions', sub: 'LaTeX KaTeX Builder' },
+              { num: 3, label: 'Questions', sub: 'Questions Builder' },
               { num: 4, label: 'Publish', sub: 'Schedule & Launch' },
             ].map((step) => {
               const isCompleted = currentStep > step.num;

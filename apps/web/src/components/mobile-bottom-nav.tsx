@@ -43,7 +43,7 @@ export function MobileBottomNav() {
     { name: 'Curriculum Tree', href: '/curriculum', icon: FolderTree, desc: 'Subjects, lessons & videos', show: true },
     { name: 'Students Roster', href: '/students', icon: Users, desc: 'Enrolled student directory', show: !isStudent },
     { name: 'Faculty Teachers', href: '/teachers', icon: UserSquare2, desc: 'Faculty & staff accounts', show: !isStudent },
-    { name: 'Test Builder', href: '/tests/builder', icon: Sparkles, desc: 'KaTeX Question Creator', show: !isStudent },
+    { name: 'Test Builder', href: '/tests/builder', icon: Sparkles, desc: 'Question & Test Builder', show: !isStudent },
     { name: 'Roles & Permissions', href: '/settings/roles', icon: ShieldCheck, desc: 'RBAC Access Matrix', show: !isStudent },
     { name: 'Institute Settings', href: '/settings', icon: Settings, desc: 'Branding & preferences', show: !isStudent },
   ].filter((item) => item.show);
