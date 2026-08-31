@@ -1,4 +1,4 @@
-// apps/api/src/main.ts
+// apps/api/src/main.ts — build: 2026-09-01T02:04Z
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

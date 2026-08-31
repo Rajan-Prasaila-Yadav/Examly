@@ -13,6 +13,8 @@
     "build:api": "npm run build --workspace=@examly/api",
     "build:web": "npm run build --workspace=@examly/web",
     "build": "npm run build --workspaces --if-present",
+    "postinstall": "npm run db:generate --workspace=@examly/database",
+    "vercel-build": "npm run db:generate --workspace=@examly/database && npm run build:api",
     "db:push": "npm run db:push --workspace=@examly/database",
     "db:migrate": "npm run db:migrate --workspace=@examly/database",
     "db:generate": "npm run db:generate --workspace=@examly/database",
