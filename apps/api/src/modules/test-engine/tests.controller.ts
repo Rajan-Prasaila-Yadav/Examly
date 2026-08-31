@@ -163,6 +163,20 @@ export class TestsController {
     return this.testsService.addQuestion(testId, body);
   }
 
+  @Put(':id/questions/reorder')
+  @ApiOperation({ summary: 'Bulk reorder questions in a test' })
+  @RequirePermission('tests', 'update')
+  async reorderQuestions(
+    @Param('id') testId: string,
+    @Body() body: { questionIds: string[] },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    if (user.roleCode === 'STUDENT') {
+      throw new ForbiddenException('Students are not permitted to author questions.');
+    }
+    return this.testsService.reorderQuestions(testId, body.questionIds || []);
+  }
+
   @Put('questions/:questionId')
   @ApiOperation({ summary: 'Update existing question' })
   @RequirePermission('tests', 'update')

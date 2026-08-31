@@ -11,13 +11,16 @@ export class TestsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(instituteId?: string, roleCode?: string, batchId?: string, userId?: string) {
-    if (roleCode === 'STUDENT' && batchId) {
+    if (roleCode === 'STUDENT') {
+      const studentWhere: any = {
+        isPublished: true,
+        status: RecordStatus.ACTIVE,
+      };
+      if (batchId) {
+        studentWhere.batchId = batchId;
+      }
       return this.prisma.test.findMany({
-        where: {
-          batchId,
-          isPublished: true,
-          status: RecordStatus.ACTIVE,
-        },
+        where: studentWhere,
         include: {
           config: true,
           batch: { select: { name: true, code: true } },
@@ -1823,5 +1826,17 @@ export class TestsService {
     ws.autoFilter = { from: 'A1', to: 'G1' };
     const buf = (await wb.xlsx.writeBuffer()) as unknown as Buffer;
     return { buffer: buf, filename: `answer-key-${testId}.xlsx` };
+  }
+
+  async reorderQuestions(testId: string, questionIds: string[]) {
+    if (!Array.isArray(questionIds) || questionIds.length === 0) return { success: true };
+    const updates = questionIds.map((id, index) =>
+      this.prisma.question.update({
+        where: { id },
+        data: { sortOrder: index },
+      }),
+    );
+    await this.prisma.$transaction(updates);
+    return { success: true, count: questionIds.length };
   }
 }

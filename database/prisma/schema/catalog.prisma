@@ -144,6 +144,20 @@ model VideoComment {
   video           Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
   parent          VideoComment?   @relation("ThreadedComment", fields: [parentId], references: [id], onDelete: Cascade)
   replies         VideoComment[]  @relation("ThreadedComment")
+  reactions       CommentReaction[]
 
   @@index([videoId, parentId])
 }
+
+model CommentReaction {
+  id              String          @id @default(cuid())
+  commentId       String
+  userId          String
+  reactionType    ReactionType    @default(LIKE)
+  createdAt       DateTime        @default(now())
+
+  comment         VideoComment    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+}
+

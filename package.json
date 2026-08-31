@@ -18,5 +18,9 @@
     "db:generate": "npm run db:generate --workspace=@examly/database",
     "db:seed": "npm run db:seed --workspace=@examly/database",
     "db:studio": "npm run db:studio --workspace=@examly/database"
+  },
+  "dependencies": {
+    "@types/node": "^26.4.0",
+    "socket.io-client": "^4.8.3"
   }
 }
