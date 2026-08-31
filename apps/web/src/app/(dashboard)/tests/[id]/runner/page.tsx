@@ -68,16 +68,8 @@ export default function LiveTestRunnerPage() {
   };
 
   // Phase: 'RULES' -> 'RUNNING' -> 'RESULT' | 'REVIEW' | 'ANSWER_KEY'
-  const [phase, setPhase] = useState<'RULES' | 'RUNNING' | 'RESULT' | 'REVIEW' | 'ANSWER_KEY'>(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const v = urlParams.get('view');
-      if (v === 'REVIEW') return 'REVIEW';
-      if (v === 'ANSWER_KEY') return 'ANSWER_KEY';
-      if (v === 'RESULT') return 'RESULT';
-    }
-    return 'RULES';
-  });
+  const [phase, setPhase] = useState<'RULES' | 'RUNNING' | 'RESULT' | 'REVIEW' | 'ANSWER_KEY'>('RULES');
+  const [mounted, setMounted] = useState(false);
   const [hasAgreedRules, setHasAgreedRules] = useState(false);
 
   // Test & Attempt State
@@ -119,6 +111,10 @@ export default function LiveTestRunnerPage() {
       (sec.questions || []).map((q: any) => ({ ...q, sectionName: sec.name })),
     );
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Keep phase in sync with view query parameter changes
   useEffect(() => {
     if (viewParam === 'REVIEW') setPhase('REVIEW');
@@ -135,24 +131,15 @@ export default function LiveTestRunnerPage() {
           api.get(`/tests/${testId}`),
           api.get(`/tests/${testId}/answer-key`).catch(() => null),
         ]);
-        if (testRes?.data) {
-          setTest(testRes.data);
-          const baseQuestions = flattenQuestions(testRes.data);
-          setQuestions(baseQuestions);
-        }
 
-        if (keyRes?.data?.answerKey) {
-          setAnswerKeyData(keyRes.data.answerKey);
-        }
+        const testData = testRes?.data || null;
+        let loadedQuestions = flattenQuestions(testData);
+
         if (keyRes?.data?.questions && keyRes.data.questions.length > 0) {
-          setQuestions(keyRes.data.questions);
-        }
-        if (keyRes?.data?.result) {
-          setPastAttempt(keyRes.data.result);
-          setSubmitResult(keyRes.data.result);
+          loadedQuestions = keyRes.data.questions;
         }
 
-        // Restore user answers from evaluation so question palette and filters work
+        // Restore user answers in atomic pass to eliminate UI jumping / delayed renders
         const restored: Record<string, { selectedOptionIds: string[]; isMarkedForReview: boolean }> = {};
         (keyRes?.data?.questions || keyRes?.data?.answerKey || []).forEach((q: any) => {
           const sIds = q.selectedOptionIds || (q.options || []).filter((o: any) => o.isSelected).map((o: any) => o.id) || [];
@@ -163,8 +150,20 @@ export default function LiveTestRunnerPage() {
             };
           }
         });
-        if (Object.keys(restored).length > 0) {
-          setUserAnswers(restored);
+
+        // Batch update state in 1 go
+        setTest(testData);
+        setQuestions(loadedQuestions);
+        setUserAnswers(restored);
+        if (keyRes?.data?.answerKey) {
+          setAnswerKeyData(keyRes.data.answerKey);
+        }
+        if (keyRes?.data?.result) {
+          setPastAttempt(keyRes.data.result);
+          setSubmitResult(keyRes.data.result);
+          if (keyRes.data.result.durationSeconds) {
+            setElapsedSeconds(keyRes.data.result.durationSeconds);
+          }
         }
 
         // Check if there is an active running attempt to resume automatically (e.g. after refresh or device restart)
@@ -212,6 +211,8 @@ export default function LiveTestRunnerPage() {
         } else if (viewParam === 'ANSWER_KEY') {
           setPhase('ANSWER_KEY');
         } else if (viewParam === 'RESULT') {
+          setPhase('RESULT');
+        } else if (keyRes?.data?.result) {
           setPhase('RESULT');
         }
       } catch (e) {
@@ -500,6 +501,18 @@ export default function LiveTestRunnerPage() {
   const pageQuestions = questions.slice(pageStart, pageStart + questionsPerScreen);
 
   // ══════════════════════════════════════════════════════════════════════════════
+  // LOADING / HYDRATION GUARD
+  // ══════════════════════════════════════════════════════════════════════════════
+  if (!mounted || (isLoadingTest && !test)) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-10 h-10 text-brand-600 animate-spin" />
+        <p className="text-xs font-semibold text-slate-500">Loading examination system & results...</p>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
   // PHASE 1: RULES & REGULATIONS (SCR-STU-10)
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RULES') {
@@ -685,88 +698,114 @@ export default function LiveTestRunnerPage() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // PHASE 3: SUBMITTED RESULT SUMMARY (Matching Image 2 Design Pixel-Accurate)
+  // PHASE 3: SUBMITTED RESULT SUMMARY (Single-screen Viewport Fit + Celebration Animations)
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RESULT') {
     const totalMarks = test?.totalMarks || 200;
-    const finalScore = submitResult?.totalScore ?? 0;
-    const pct = submitResult?.percentage ?? (totalMarks > 0 ? Math.round((Math.max(0, finalScore) / totalMarks) * 100) : 0);
-    const circumference = 2 * Math.PI * 46;
+    const finalScore = submitResult?.totalScore ?? pastAttempt?.totalScore ?? 0;
+    const pct =
+      submitResult?.percentage ??
+      pastAttempt?.percentage ??
+      (totalMarks > 0 ? Math.round((Math.max(0, finalScore) / totalMarks) * 100) : 0);
+    const circumference = 2 * Math.PI * 40;
     const strokeDashoffset = circumference - (Math.min(100, Math.max(0, pct)) / 100) * circumference;
 
+    const timeTakenSeconds = submitResult?.durationSeconds ?? pastAttempt?.durationSeconds ?? elapsedSeconds ?? 0;
+    const negDeducted =
+      submitResult?.negativeMarks !== undefined
+        ? submitResult.negativeMarks
+        : ((submitResult?.totalWrong || pastAttempt?.totalWrong || 0) * (test?.negativeMarkRate || 1));
+    const displayRank = submitResult?.rank ?? pastAttempt?.rank ?? 1;
+
+    // Check pass criteria dynamically from test settings
+    let passMarksVal = 0;
+    let passPct = 0;
+    if (test?.config?.passPercentage !== undefined && test.config.passPercentage !== null) {
+      passPct = Number(test.config.passPercentage);
+      passMarksVal = Math.round((passPct / 100) * totalMarks * 100) / 100;
+    } else if (test?.passMarks !== undefined && test.passMarks !== null) {
+      passMarksVal = Number(test.passMarks);
+      passPct = totalMarks > 0 ? Math.round((passMarksVal / totalMarks) * 100) : 40;
+    } else {
+      passPct = 40;
+      passMarksVal = Math.round(0.4 * totalMarks);
+    }
+    const isPassed =
+      submitResult?.isPassed ??
+      pastAttempt?.isPassed ??
+      (finalScore >= passMarksVal || pct >= passPct);
+
     return (
-      <div className="min-h-[90vh] bg-gradient-to-b from-[#e8faea] via-[#f2faf3] to-slate-50 py-8 px-4 flex flex-col items-center justify-center">
+      <div className="min-h-[88vh] bg-gradient-to-b from-[#eaf9eb] via-[#f4faf4] to-slate-50 py-3 sm:py-5 px-3 flex flex-col items-center justify-center animate-in fade-in duration-300">
         {/* Top Floating Pill Badge */}
-        <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-700/90 text-white text-xs font-bold shadow-md shadow-emerald-700/20 mb-5">
-          <CheckCircle2 className="w-4 h-4 fill-white text-emerald-700" />
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-700/90 text-white text-[11px] font-bold shadow-md shadow-emerald-700/20 mb-2 sm:mb-3">
+          <CheckCircle2 className="w-3.5 h-3.5 fill-white text-emerald-700" />
           <span>Test submitted successfully</span>
         </div>
 
         {/* 3D Celebration Hero with Checkmark & Confetti */}
-        <div className="relative mb-3 flex items-center justify-center">
+        <div className="relative mb-2 flex items-center justify-center">
           {/* Confetti Particles */}
-          <span className="absolute -top-3 -left-6 w-3 h-4 rounded-sm bg-purple-500 rotate-12 animate-pulse" />
-          <span className="absolute top-2 -left-10 w-2 h-4 rounded-sm bg-amber-400 -rotate-45" />
-          <span className="absolute -top-4 right-2 w-3 h-3 rounded-full bg-blue-500" />
-          <span className="absolute top-4 -right-10 w-3.5 h-2 rounded-sm bg-emerald-400 rotate-45" />
-          <span className="absolute bottom-0 -left-8 w-2.5 h-2.5 rounded-sm bg-rose-400 rotate-12" />
-          <span className="absolute bottom-1 -right-8 w-3 h-3 rounded-full bg-amber-500" />
+          <span className="absolute -top-2 -left-5 w-2.5 h-3.5 rounded-xs bg-purple-500 rotate-12 animate-pulse" />
+          <span className="absolute top-1 -left-8 w-2 h-3.5 rounded-xs bg-amber-400 -rotate-45" />
+          <span className="absolute -top-3 right-1 w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span className="absolute top-3 -right-8 w-3 h-1.5 rounded-xs bg-emerald-400 rotate-45" />
+          <span className="absolute bottom-0 -left-6 w-2 h-2 rounded-xs bg-rose-400 rotate-12" />
+          <span className="absolute bottom-1 -right-6 w-2.5 h-2.5 rounded-full bg-amber-500" />
 
           {/* 3D Checkmark Orb */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-b from-[#4ade80] to-[#15803d] p-1.5 shadow-[0_16px_32px_rgba(22,163,74,0.35),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center relative z-10">
-            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#22c55e] via-[#16a34a] to-[#15803d] flex items-center justify-center shadow-[inset_0_-4px_6px_rgba(0,0,0,0.25)]">
-              <Check className="w-12 h-12 sm:w-14 sm:h-14 text-white stroke-[3.5]" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-b from-[#4ade80] to-[#15803d] p-1 shadow-[0_10px_20px_rgba(22,163,74,0.3),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center relative z-10 animate-in zoom-in duration-500">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#22c55e] via-[#16a34a] to-[#15803d] flex items-center justify-center shadow-[inset_0_-3px_5px_rgba(0,0,0,0.25)]">
+              <Check className="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[3.5]" />
             </div>
           </div>
         </div>
 
         {/* Title & Subtitle */}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-center">
+        <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight text-center">
           Test Submitted Successfully!
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 font-medium text-center mt-1">
+        <p className="text-[11px] sm:text-xs text-slate-500 font-medium text-center mt-0.5 mb-2 sm:mb-3">
           Your answers have been recorded securely.
         </p>
 
-        {/* White Results Card (Exact Layout from Image 2) */}
-        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-5 sm:p-7 mt-5 space-y-5">
+        {/* White Results Card (Fits single viewport on Desktop & Mobile) */}
+        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/90 shadow-xl p-4 sm:p-5 space-y-3 sm:space-y-3.5">
           {/* Top Grab Bar & Status Badge */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-12 h-1 bg-slate-200 rounded-full" />
-            <div className="w-full flex justify-end">
-              <span
-                className={`px-3.5 py-1 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm ${
-                  submitResult?.isPassed
-                    ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200'
-                    : 'bg-amber-100/90 text-amber-800 border border-amber-200'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4 fill-emerald-600 text-white" />
-                {submitResult?.isPassed ? 'PASSED' : 'NEEDS PRACTICE'}
-              </span>
-            </div>
+          <div className="flex items-center justify-between">
+            <div className="w-8 h-1 bg-slate-200 rounded-full" />
+            <span
+              className={`px-3 py-0.5 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs ${
+                isPassed
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${isPassed ? 'fill-emerald-600 text-white' : 'fill-amber-600 text-white'}`} />
+              {isPassed ? 'PASSED' : 'NEEDS PRACTICE'}
+            </span>
           </div>
 
           {/* Main Middle Section: Circular Gauge (Left) + 2x2 Stats Grid (Right) */}
-          <div className="grid grid-cols-12 gap-3 items-center">
+          <div className="grid grid-cols-12 gap-2 sm:gap-3 items-center">
             {/* Left: Circular Progress Gauge */}
-            <div className="col-span-6 flex flex-col items-center justify-center">
-              <div className="relative w-36 h-36 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 110 110">
+            <div className="col-span-5 flex flex-col items-center justify-center">
+              <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle
-                    cx="55"
-                    cy="55"
-                    r="46"
-                    stroke="#e2e8f0"
-                    strokeWidth="8"
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="#f1f5f9"
+                    strokeWidth="7"
                     fill="none"
                   />
                   <circle
-                    cx="55"
-                    cy="55"
-                    r="46"
-                    stroke="url(#scoreGradient)"
-                    strokeWidth="8"
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="url(#scoreGradientCompact)"
+                    strokeWidth="7"
                     strokeDasharray={circumference}
                     strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
@@ -774,9 +813,9 @@ export default function LiveTestRunnerPage() {
                     className="transition-all duration-1000 ease-out"
                   />
                   <defs>
-                    <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <linearGradient id="scoreGradientCompact" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#4f46e5" />
-                      <stop offset="100%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#2563eb" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -784,14 +823,14 @@ export default function LiveTestRunnerPage() {
                 {/* Score in Center */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                   <div className="flex items-baseline gap-0.5">
-                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                    <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
                       {finalScore}
                     </span>
-                    <span className="text-xs font-bold text-slate-400 font-mono">
+                    <span className="text-[11px] font-bold text-slate-400 font-mono">
                       / {totalMarks}
                     </span>
                   </div>
-                  <span className="text-xl font-black text-indigo-600 font-mono mt-0.5">
+                  <span className="text-base sm:text-lg font-black text-indigo-600 font-mono">
                     {pct}%
                   </span>
                 </div>
@@ -799,75 +838,75 @@ export default function LiveTestRunnerPage() {
             </div>
 
             {/* Right: 2x2 Stats Grid with Styled Icons */}
-            <div className="col-span-6 grid grid-cols-2 gap-2 text-center">
+            <div className="col-span-7 grid grid-cols-2 gap-1.5 sm:gap-2 text-center">
               {/* Time Taken */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-1 shadow-inner">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <div className="p-2 bg-slate-50/90 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-0.5 shadow-inner">
+                  <Clock className="w-3 h-3 text-blue-600" />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">Time Taken</span>
-                <span className="text-xs font-bold font-mono text-slate-900">{formatTimer(elapsedSeconds)}</span>
+                <span className="text-[9px] font-semibold text-slate-500">Time Taken</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{formatTimer(timeTakenSeconds)}</span>
               </div>
 
               {/* Percentage */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1 shadow-inner font-bold text-[11px]">
+              <div className="p-2 bg-slate-50/90 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-0.5 shadow-inner font-bold text-[10px]">
                   %
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">Percentage</span>
+                <span className="text-[9px] font-semibold text-slate-500">Percentage</span>
                 <span className="text-xs font-bold font-mono text-slate-900">{pct}%</span>
               </div>
 
               {/* Correct */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+              <div className="p-2 bg-slate-50/90 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">Correct</span>
-                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalCorrect ?? 0}</span>
+                <span className="text-[9px] font-semibold text-slate-500">Correct</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalCorrect ?? pastAttempt?.totalCorrect ?? 0}</span>
               </div>
 
               {/* Wrong */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center mb-1">
-                  <XCircle className="w-4 h-4 text-rose-600 fill-rose-100" />
+              <div className="p-2 bg-slate-50/90 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center mb-0.5">
+                  <XCircle className="w-3.5 h-3.5 text-rose-600 fill-rose-100" />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">Wrong</span>
-                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalWrong ?? 0}</span>
+                <span className="text-[9px] font-semibold text-slate-500">Wrong</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalWrong ?? pastAttempt?.totalWrong ?? 0}</span>
               </div>
             </div>
           </div>
 
           {/* Bottom 4-Item Horizontal Stat Strip */}
-          <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50/70 grid grid-cols-4 gap-1 items-center text-center">
+          <div className="p-2 sm:p-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 grid grid-cols-4 gap-1 items-center text-center">
             {/* Unanswered */}
             <div className="flex flex-col items-center">
-              <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-xs font-black flex items-center justify-center mb-0.5">
+              <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-black flex items-center justify-center mb-0.5">
                 ?
               </div>
               <span className="text-[9px] text-slate-500 font-semibold">Unanswered</span>
-              <span className="text-xs font-bold text-slate-900 font-mono">{submitResult?.totalUnanswered ?? 0}</span>
+              <span className="text-xs font-bold text-slate-900 font-mono">{submitResult?.totalUnanswered ?? pastAttempt?.totalUnanswered ?? 0}</span>
             </div>
 
             {/* Negative */}
             <div className="flex flex-col items-center">
-              <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-black flex items-center justify-center mb-0.5">
+              <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-700 text-[11px] font-black flex items-center justify-center mb-0.5">
                 -
               </div>
               <span className="text-[9px] text-slate-500 font-semibold">Negative</span>
               <span className="text-xs font-bold text-rose-600 font-mono">
-                {submitResult?.negativeMarks ? `-${submitResult.negativeMarks}` : '-0'}
+                {negDeducted > 0 ? `-${negDeducted}` : '0'}
               </span>
             </div>
 
             {/* Rank */}
             <div className="flex flex-col items-center">
-              <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs flex items-center justify-center mb-0.5">
-                <Trophy className="w-3.5 h-3.5 text-purple-600" />
+              <div className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-xs flex items-center justify-center mb-0.5">
+                <Trophy className="w-3 h-3 text-purple-600" />
               </div>
               <span className="text-[9px] text-slate-500 font-semibold">Rank</span>
               <span className="text-xs font-bold text-purple-700 font-mono">
-                #{submitResult?.rank ?? 1}
+                #{displayRank}
               </span>
             </div>
 
@@ -877,37 +916,46 @@ export default function LiveTestRunnerPage() {
               onClick={() => router.push(`/tests/${testId}?tab=leaderboard`)}
               className="flex flex-col items-center text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer group"
             >
-              <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center mb-0.5 group-hover:scale-110 transition-transform">
-                <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
+              <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center mb-0.5 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-3 h-3 text-indigo-600" />
               </div>
               <span className="text-[9px] font-bold text-indigo-600 group-hover:underline flex items-center gap-0.5">
-                Leaderboard <ChevronRight className="w-2.5 h-2.5" />
+                Leaderboard <ChevronRight className="w-2 h-2" />
               </span>
             </button>
           </div>
 
           {/* Action Buttons */}
-          <div className="space-y-3 pt-1">
-            {/* Primary: Check Answers */}
+          <div className="space-y-2 pt-1">
+            {/* Button 1: Solutions & Review */}
             <button
               type="button"
               onClick={() => setPhase('REVIEW')}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="w-full py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <FileText className="w-4 h-4" /> Check Answers
+              <Eye className="w-4 h-4" /> Solutions & Review
             </button>
 
-            {/* Secondary: View Leaderboard */}
+            {/* Button 2: Answer Key & Calculation */}
+            <button
+              type="button"
+              onClick={() => setPhase('ANSWER_KEY')}
+              className="w-full py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Answer Key & Calculation
+            </button>
+
+            {/* Button 3: View Leaderboard */}
             <button
               type="button"
               onClick={() => router.push(`/tests/${testId}?tab=leaderboard`)}
-              className="w-full py-3.5 bg-white hover:bg-indigo-50/50 border-2 border-indigo-600 text-indigo-600 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+              className="w-full py-2.5 sm:py-3 bg-white hover:bg-indigo-50/50 border-2 border-indigo-600 text-indigo-600 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
             >
               <Trophy className="w-4 h-4 text-indigo-600" /> View Leaderboard
             </button>
 
             {/* Retake Exam & Return Link */}
-            <div className="flex items-center justify-between pt-2 px-1 text-xs">
+            <div className="flex items-center justify-between pt-1 px-1 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -916,13 +964,13 @@ export default function LiveTestRunnerPage() {
                   setSubmitResult(null);
                   handleStartExam();
                 }}
-                className="text-slate-500 hover:text-emerald-700 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                className="text-slate-500 hover:text-emerald-700 font-semibold flex items-center gap-1 transition-colors cursor-pointer text-[11px]"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Start Retake Exam
+                <RotateCcw className="w-3 h-3" /> Start Retake Exam
               </button>
               <Link
                 href={isStudent ? '/tests' : '/tests/builder'}
-                className="text-slate-500 hover:text-slate-900 font-semibold transition-colors"
+                className="text-slate-500 hover:text-slate-900 font-semibold transition-colors text-[11px]"
               >
                 ← Back to My Tests
               </Link>
@@ -1301,25 +1349,64 @@ export default function LiveTestRunnerPage() {
     const correctTotal = Number((correctCount * posRate).toFixed(2));
     const wrongTotal = Number((wrongCount * negRate).toFixed(2));
     const rawScore = Number((correctTotal - wrongTotal).toFixed(2));
-    const finalScore = submitResult?.totalScore ?? rawScore;
-    const percentage = submitResult?.percentage ?? (totalPossible > 0 ? Number(((finalScore / totalPossible) * 100).toFixed(2)) : 0);
-    const passMarks = test?.passMarks || 40;
-    const isPassed = submitResult?.isPassed ?? (percentage >= passMarks);
+    const finalScore = submitResult?.totalScore ?? pastAttempt?.totalScore ?? rawScore;
+    const percentage =
+      submitResult?.percentage ??
+      pastAttempt?.percentage ??
+      (totalPossible > 0 ? Number(((finalScore / totalPossible) * 100).toFixed(2)) : 0);
+
+    // Support both direct mark setting and percentage setting dynamically
+    let passMarksVal = 0;
+    let passPct = 0;
+    if (test?.config?.passPercentage !== undefined && test.config.passPercentage !== null) {
+      passPct = Number(test.config.passPercentage);
+      passMarksVal = Math.round((passPct / 100) * totalPossible * 100) / 100;
+    } else if (test?.passMarks !== undefined && test.passMarks !== null) {
+      passMarksVal = Number(test.passMarks);
+      passPct = totalPossible > 0 ? Math.round((passMarksVal / totalPossible) * 100) : 40;
+    } else {
+      passPct = 40;
+      passMarksVal = Math.round(0.4 * totalPossible);
+    }
+
+    const isPassed =
+      submitResult?.isPassed !== undefined
+        ? submitResult.isPassed
+        : pastAttempt?.isPassed !== undefined
+        ? pastAttempt.isPassed
+        : finalScore >= passMarksVal || percentage >= passPct;
 
     return (
-      <div className="max-w-xl mx-auto py-4 sm:py-6 px-3 sm:px-4 space-y-5 bg-slate-50 min-h-screen">
-        {/* Top Header with Back Arrow & Title */}
-        <div className="flex items-center justify-between pb-1">
+      <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
+        {/* Top Header & Tab Mode Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setPhase('REVIEW')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5 text-brand-600" /> Solutions & Review
+            </button>
+            <button
+              onClick={() => setPhase('ANSWER_KEY')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Answer Key & Calculation
+            </button>
+            <button
+              onClick={() => setPhase('RESULT')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
+            </button>
+          </div>
+
           <button
-            onClick={() => setPhase('RESULT')}
-            className="p-2 -ml-2 text-brand-700 hover:bg-brand-50 rounded-full transition-colors flex items-center justify-center"
-            title="Back to Scorecard"
+            onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors self-end sm:self-auto cursor-pointer"
           >
-            <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+            ← Exit Test
           </button>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight text-center flex-1 pr-5">
-            Answer Key & Calculation
-          </h1>
         </div>
 
         {/* Legend / Key Label */}
@@ -1383,7 +1470,7 @@ export default function LiveTestRunnerPage() {
           </div>
         </div>
 
-        {/* Score Calculation Card matching reference image */}
+        {/* Score Calculation Card */}
         <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 text-xs font-sans">
           {/* Card Title */}
           <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm sm:text-base">
@@ -1445,35 +1532,40 @@ export default function LiveTestRunnerPage() {
 
           {/* Result Passed/Failed Box */}
           <div
-            className={`p-3 rounded-xl border flex items-center gap-2 font-bold text-xs ${
+            className={`p-3.5 rounded-2xl border flex items-center gap-2.5 font-bold text-xs shadow-xs ${
               isPassed
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : 'bg-rose-50 border-rose-200 text-rose-800'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                : 'bg-rose-50 border-rose-300 text-rose-800'
             }`}
           >
             <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 shadow-xs ${
                 isPassed ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
               }`}
             >
-              <Star className="w-3 h-3 fill-current" />
+              <Star className="w-3.5 h-3.5 fill-current" />
             </div>
-            <span>
-              Result: <span className="uppercase font-extrabold">{isPassed ? 'PASSED' : 'FAILED'}</span> (Pass mark {passMarks}%)
-            </span>
+            <div className="flex-1 flex flex-wrap items-center justify-between gap-1">
+              <span>
+                Result: <span className="uppercase font-extrabold">{isPassed ? 'PASSED' : 'FAILED'}</span>
+              </span>
+              <span className="text-[11px] font-mono opacity-90">
+                (Pass mark: {passMarksVal} Marks / {passPct}%)
+              </span>
+            </div>
           </div>
 
           {/* Bottom Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <button
               onClick={() => downloadFile(`/tests/${testId}/export/answer-key/pdf`, `answer-key-${testId}.pdf`)}
-              className="py-3 px-4 rounded-xl border-2 border-brand-600 text-brand-600 font-bold text-xs hover:bg-brand-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              className="py-3 px-4 rounded-xl border-2 border-brand-600 text-brand-600 font-bold text-xs hover:bg-brand-50 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" /> Download PDF
             </button>
             <button
               onClick={() => setPhase('RESULT')}
-              className="py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-600/20"
+              className="py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 cursor-pointer"
             >
               Back to Result
             </button>
