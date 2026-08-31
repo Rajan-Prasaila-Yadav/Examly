@@ -2232,35 +2232,42 @@ export class TestsService {
                                 { text: 'Student Name:', width: 68, fontSize: 8, color: '#64748B', bold: true },
                                 { text: studentName, fontSize: 8, bold: true, color: '#0F172A' },
                               ],
-                              margin: [0, 1, 0, 1],
+                              margin: [0, 0.5, 0, 0.5],
                             },
                             {
                               columns: [
                                 { text: 'Student ID/Roll:', width: 68, fontSize: 8, color: '#64748B' },
                                 { text: studentCode, fontSize: 8, color: '#0F172A', bold: true },
                               ],
-                              margin: [0, 1, 0, 1],
+                              margin: [0, 0.5, 0, 0.5],
                             },
                             {
                               columns: [
                                 { text: 'Email Address:', width: 68, fontSize: 8, color: '#64748B' },
                                 { text: studentEmail, fontSize: 7.5, color: '#0F172A' },
                               ],
-                              margin: [0, 1, 0, 1],
+                              margin: [0, 0.5, 0, 0.5],
                             },
                             {
                               columns: [
                                 { text: 'Phone Number:', width: 68, fontSize: 8, color: '#64748B' },
                                 { text: studentPhone, fontSize: 8, color: '#0F172A' },
                               ],
-                              margin: [0, 1, 0, 1],
+                              margin: [0, 0.5, 0, 0.5],
                             },
                             {
                               columns: [
-                                { text: 'Batch / Section:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: 'Batch:', width: 68, fontSize: 8, color: '#64748B' },
                                 { text: batchName, fontSize: 8, color: '#0F172A' },
                               ],
-                              margin: [0, 1, 0, 1],
+                              margin: [0, 0.5, 0, 0.5],
+                            },
+                            {
+                              columns: [
+                                { text: 'Section:', width: 68, fontSize: 8, color: '#64748B' },
+                                { text: (data.student as any)?.studentProfile?.section?.name || 'Section A', fontSize: 8, color: '#0F172A' },
+                              ],
+                              margin: [0, 0.5, 0, 0.5],
                             },
                           ],
                         },
@@ -2279,42 +2286,56 @@ export class TestsService {
                         { text: 'Subject / Topic:', width: 75, fontSize: 8, color: '#64748B', bold: true },
                         { text: `${subjectName} / ${lessonTitle}`, fontSize: 8, color: '#0F172A', bold: true },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                     {
                       columns: [
                         { text: 'Scheduled Start:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: scheduledStartStr, fontSize: 8, color: '#0F172A' },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
+                    },
+                    {
+                      columns: [
+                        { text: 'Scheduled End:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: scheduledEndStr, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                     {
                       columns: [
                         { text: 'Actual Started:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: startedTimeStr, fontSize: 8, color: '#0F172A' },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                     {
                       columns: [
                         { text: 'Submitted:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: submittedTimeStr, fontSize: 8, color: '#0F172A' },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                     {
                       columns: [
                         { text: 'Total Duration:', width: 75, fontSize: 8, color: '#64748B' },
                         { text: `${data.test.durationMinutes || 20} mins  (Time Taken: ${durationStr})`, fontSize: 8, color: '#0F172A', bold: true },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
+                    },
+                    {
+                      columns: [
+                        { text: 'Questions / Marks:', width: 75, fontSize: 8, color: '#64748B' },
+                        { text: `${totalQuestions} Questions  /  ${totalMarks} Marks`, fontSize: 8, color: '#0F172A' },
+                      ],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                     {
                       columns: [
                         { text: 'Marking Scheme:', width: 75, fontSize: 8, color: '#64748B' },
-                        { text: `+${posRate} for Correct  |  -${negRate} for Wrong`, fontSize: 8, color: '#0F172A' },
+                        { text: `+${posRate} Correct  |  -${negRate} Wrong  |  0 Unanswered`, fontSize: 8, color: '#0F172A' },
                       ],
-                      margin: [0, 1, 0, 1],
+                      margin: [0, 0.5, 0, 0.5],
                     },
                   ],
                 },
