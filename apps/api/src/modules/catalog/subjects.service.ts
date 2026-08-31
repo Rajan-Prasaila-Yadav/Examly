@@ -7,12 +7,18 @@ import { RecordStatus } from '@prisma/client';
 export class SubjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByBatch(batchId: string) {
+  async findByBatch(batchId: string, userRole?: string) {
+    const isStudent = userRole === 'STUDENT';
     return this.prisma.subject.findMany({
-      where: { batchId, status: { not: RecordStatus.DELETED } },
+      where: {
+        batchId,
+        status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+      },
       include: {
         lessons: {
-          where: { status: { not: RecordStatus.DELETED } },
+          where: {
+            status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+          },
           include: {
             _count: { select: { videos: true, notes: true, resources: true, tests: true } },
           },
@@ -24,18 +30,35 @@ export class SubjectsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userRole?: string) {
+    const isStudent = userRole === 'STUDENT';
     const subject = await this.prisma.subject.findFirst({
-      where: { id, status: { not: RecordStatus.DELETED } },
+      where: {
+        id,
+        status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+      },
       include: {
         batch: true,
         lessons: {
-          where: { status: { not: RecordStatus.DELETED } },
+          where: {
+            status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+          },
           include: {
-            videos: { where: { status: { not: RecordStatus.DELETED } }, orderBy: { sortOrder: 'asc' } },
-            notes: { where: { status: { not: RecordStatus.DELETED } }, orderBy: { sortOrder: 'asc' } },
+            videos: {
+              where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } },
+              orderBy: { sortOrder: 'asc' },
+            },
+            notes: {
+              where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } },
+              orderBy: { sortOrder: 'asc' },
+            },
             resources: { orderBy: { sortOrder: 'asc' } },
-            tests: { where: { status: { not: RecordStatus.DELETED } } },
+            tests: {
+              where: {
+                status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+                ...(isStudent ? { isPublished: true } : {}),
+              },
+            },
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -87,5 +110,17 @@ export class SubjectsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async reorder(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return { success: true };
+    const updates = ids.map((id, index) =>
+      this.prisma.subject.update({
+        where: { id },
+        data: { sortOrder: index },
+      }),
+    );
+    await this.prisma.$transaction(updates);
+    return { success: true, count: ids.length };
   }
 }

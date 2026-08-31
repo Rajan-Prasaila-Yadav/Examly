@@ -195,12 +195,14 @@ export default function BatchesPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
     setDraggedIndex(index);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
@@ -286,15 +288,6 @@ export default function BatchesPage() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  {!isStudent && (
-                    <ReorderHandle
-                      title="Drag or click arrows to reorder batch"
-                      onMoveUp={() => moveBatch(idx, 'up')}
-                      onMoveDown={() => moveBatch(idx, 'down')}
-                      canMoveUp={idx > 0}
-                      canMoveDown={idx < batches.length - 1}
-                    />
-                  )}
                   <span className="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60">
                     {b.code}
                   </span>
@@ -342,7 +335,7 @@ export default function BatchesPage() {
                 </div>
               </div>
 
-              <Link href={`/batches/${b.id}`} className="block">
+              <Link href={`/batches/${b.id}`} draggable={false} className="block select-none">
                 <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors flex items-center justify-between">
                   <span>{b.name}</span>
                   <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />

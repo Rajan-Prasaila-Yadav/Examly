@@ -75,7 +75,7 @@ export class BatchesService {
             lessons: {
               where: { status: { not: RecordStatus.DELETED } },
               include: {
-                _count: { select: { videos: true, notes: true, tests: true } },
+                _count: { select: { videos: true, notes: true, resources: true, tests: true } },
               },
               orderBy: { sortOrder: 'asc' },
             },
@@ -267,5 +267,17 @@ export class BatchesService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async reorder(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return { success: true };
+    const updates = ids.map((id, index) =>
+      this.prisma.batch.update({
+        where: { id },
+        data: { sortOrder: index },
+      }),
+    );
+    await this.prisma.$transaction(updates);
+    return { success: true, count: ids.length };
   }
 }

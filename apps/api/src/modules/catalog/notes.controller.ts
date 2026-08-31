@@ -34,6 +34,13 @@ export class NotesController {
     return this.notesService.create(lessonId, body);
   }
 
+  @Put('reorder')
+  @ApiOperation({ summary: 'Bulk reorder notes' })
+  @RequirePermission('notes', 'update')
+  async reorder(@Body() body: { ids: string[] }) {
+    return this.notesService.reorder(body.ids || []);
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Update note' })
   @RequirePermission('notes', 'update')

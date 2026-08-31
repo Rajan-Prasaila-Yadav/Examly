@@ -35,6 +35,13 @@ export class BatchesController {
     return this.batchesService.create(user?.instituteId, body);
   }
 
+  @Put('reorder')
+  @ApiOperation({ summary: 'Bulk reorder batches' })
+  @RequirePermission('batches', 'update')
+  async reorder(@Body() body: { ids: string[] }) {
+    return this.batchesService.reorder(body.ids || []);
+  }
+
   @Put(':id')
   @ApiOperation({ summary: 'Update batch' })
   @RequirePermission('batches', 'update')

@@ -5,6 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { SubjectsService } from './subjects.service';
 import { PermissionGuard } from '../../platform/rbac/guards/permission.guard';
 import { RequirePermission } from '../../platform/rbac/decorators/require-permission.decorator';
+import { CurrentUser } from '../../platform/rbac/decorators/current-user.decorator';
 
 @ApiTags('Academic Catalog - Subjects')
 @ApiBearerAuth()
@@ -16,15 +17,15 @@ export class SubjectsController {
   @Get('batch/:batchId')
   @ApiOperation({ summary: 'Get all subjects for a batch' })
   @RequirePermission('subjects', 'read')
-  async findByBatch(@Param('batchId') batchId: string) {
-    return this.subjectsService.findByBatch(batchId);
+  async findByBatch(@Param('batchId') batchId: string, @CurrentUser() user: any) {
+    return this.subjectsService.findByBatch(batchId, user?.roleCode);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get subject detail with lessons' })
   @RequirePermission('subjects', 'read')
-  async findOne(@Param('id') id: string) {
-    return this.subjectsService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.subjectsService.findOne(id, user?.roleCode);
   }
 
   @Post('batch/:batchId')
@@ -32,6 +33,13 @@ export class SubjectsController {
   @RequirePermission('subjects', 'create')
   async create(@Param('batchId') batchId: string, @Body() body: any) {
     return this.subjectsService.create(batchId, body);
+  }
+
+  @Put('reorder')
+  @ApiOperation({ summary: 'Bulk reorder subjects' })
+  @RequirePermission('subjects', 'update')
+  async reorder(@Body() body: { ids: string[] }) {
+    return this.subjectsService.reorder(body.ids || []);
   }
 
   @Put(':id')

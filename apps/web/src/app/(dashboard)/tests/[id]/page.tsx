@@ -374,12 +374,14 @@ export default function TestDetailPage() {
   const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
 
   const handleQuestionDragStart = (e: React.DragEvent, qId: string) => {
+    e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', qId);
     setDraggedQuestionId(qId);
   };
 
   const handleQuestionDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const handleQuestionDrop = async (e: React.DragEvent, targetQId: string, section: any) => {
@@ -722,15 +724,6 @@ export default function TestDetailPage() {
                   >
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2">
-                        {!isStudent && (
-                          <ReorderHandle
-                            title="Drag or click arrows to reorder question sequence"
-                            onMoveUp={() => moveQuestion(section, idx, 'up')}
-                            onMoveDown={() => moveQuestion(section, idx, 'down')}
-                            canMoveUp={idx > 0}
-                            canMoveDown={idx < (section.questions || []).length - 1}
-                          />
-                        )}
                         <span className="w-7 h-7 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center">
                           {idx + 1}
                         </span>

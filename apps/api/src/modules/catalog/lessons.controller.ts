@@ -1,5 +1,5 @@
 // apps/api/src/modules/catalog/lessons.controller.ts
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LessonsService } from './lessons.service';
@@ -14,11 +14,25 @@ import { CurrentUser } from '../../platform/rbac/decorators/current-user.decorat
 export class LessonsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
+  @Get('meta/youtube')
+  @ApiOperation({ summary: 'Extract YouTube metadata: title, exact duration hr:min:sec, thumbnail' })
+  @RequirePermission('videos', 'read')
+  async getYouTubeMetadata(@Query('url') url: string) {
+    return this.lessonsService.getYouTubeMetadata(url);
+  }
+
+  @Get('meta/playlist')
+  @ApiOperation({ summary: 'Extract full YouTube playlist: all video titles, thumbnails, durations' })
+  @RequirePermission('videos', 'read')
+  async getPlaylistMetadata(@Query('url') url: string) {
+    return this.lessonsService.getPlaylistMetadata(url);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get lesson details with videos, notes, and resource folder tree' })
   @RequirePermission('lessons', 'read')
-  async findOne(@Param('id') id: string) {
-    return this.lessonsService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.lessonsService.findOne(id, user?.roleCode);
   }
 
   @Post('subject/:subjectId')
@@ -26,6 +40,34 @@ export class LessonsController {
   @RequirePermission('lessons', 'create')
   async create(@Param('subjectId') subjectId: string, @Body() body: any) {
     return this.lessonsService.create(subjectId, body);
+  }
+
+  @Put('reorder')
+  @ApiOperation({ summary: 'Bulk reorder lessons' })
+  @RequirePermission('lessons', 'update')
+  async reorderLessons(@Body() body: { ids: string[] }) {
+    return this.lessonsService.reorderLessons(body.ids || []);
+  }
+
+  @Put('videos/reorder')
+  @ApiOperation({ summary: 'Bulk reorder videos' })
+  @RequirePermission('videos', 'update')
+  async reorderVideos(@Body() body: { ids: string[] }) {
+    return this.lessonsService.reorderVideos(body.ids || []);
+  }
+
+  @Put('notes/reorder')
+  @ApiOperation({ summary: 'Bulk reorder notes' })
+  @RequirePermission('notes', 'update')
+  async reorderNotes(@Body() body: { ids: string[] }) {
+    return this.lessonsService.reorderNotes(body.ids || []);
+  }
+
+  @Put('resources/reorder')
+  @ApiOperation({ summary: 'Bulk reorder resources' })
+  @RequirePermission('resources', 'update')
+  async reorderResources(@Body() body: { ids: string[] }) {
+    return this.lessonsService.reorderResources(body.ids || []);
   }
 
   @Put(':id')
@@ -47,6 +89,13 @@ export class LessonsController {
   @RequirePermission('videos', 'create')
   async addVideo(@Param('id') lessonId: string, @Body() body: any) {
     return this.lessonsService.addVideo(lessonId, body);
+  }
+
+  @Post(':id/videos/bulk')
+  @ApiOperation({ summary: 'Bulk upload / attach multiple videos from playlist to lesson' })
+  @RequirePermission('videos', 'create')
+  async addVideosBulk(@Param('id') lessonId: string, @Body() body: { videos: any[] }) {
+    return this.lessonsService.addVideosBulk(lessonId, body.videos || []);
   }
 
   @Put('videos/:videoId')
@@ -128,8 +177,8 @@ export class LessonsController {
 
   @Get('videos/:videoId/comments')
   @ApiOperation({ summary: 'Get video discussion / doubt comments' })
-  async getVideoComments(@Param('videoId') videoId: string) {
-    return this.lessonsService.getVideoComments(videoId);
+  async getVideoComments(@Param('videoId') videoId: string, @CurrentUser() user: any) {
+    return this.lessonsService.getVideoComments(videoId, user?.userId);
   }
 
   @Post('videos/:videoId/comments')
@@ -140,6 +189,26 @@ export class LessonsController {
     @CurrentUser() user: any,
   ) {
     return this.lessonsService.addVideoComment(videoId, user.userId, body.content, body.parentId);
+  }
+
+  @Post('videos/comments/:commentId/reactions')
+  @ApiOperation({ summary: 'Toggle comment reaction (LIKE, LOVE, HELPFUL, BRAVO, CELEBRATE)' })
+  async toggleCommentReaction(
+    @Param('commentId') commentId: string,
+    @Body() body: { reactionType: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.toggleCommentReaction(commentId, user.userId, body.reactionType as any);
+  }
+
+  @Put('videos/comments/:commentId')
+  @ApiOperation({ summary: 'Update video comment or reply' })
+  async updateVideoComment(
+    @Param('commentId') commentId: string,
+    @Body() body: { content: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.lessonsService.updateVideoComment(commentId, user.userId, body.content, user.roleCode);
   }
 
   @Delete('videos/comments/:commentId')

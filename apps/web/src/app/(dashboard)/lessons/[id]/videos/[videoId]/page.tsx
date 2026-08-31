@@ -4,24 +4,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, API_BASE_URL } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl, isDirectVideo } from '@/lib/video-utils';
+import { io, Socket } from 'socket.io-client';
 import {
   Play,
-  Pause,
-  RotateCcw,
-  RotateCw,
-  Maximize,
   ThumbsUp,
   Heart,
   Lightbulb,
   Award,
+  Flame,
   Download,
   Pin,
   Send,
   ArrowLeft,
-  ArrowRight,
   Video,
   FileText,
   FileCheck2,
@@ -30,8 +27,36 @@ import {
   Shield,
   MessageSquare,
   Trash2,
+  Edit2,
+  CheckCircle2,
+  CornerDownRight,
+  MoreVertical,
+  X,
+  Users,
 } from 'lucide-react';
 import katex from 'katex';
+
+function formatRelativeTime(dateString?: string | Date) {
+  if (!dateString) return 'Just now';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
+
+  if (diffInSeconds < 30) return 'Just now';
+  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears}y ago`;
+}
 
 export default function SocialVideoPlayerPage() {
   const params = useParams();
@@ -43,7 +68,6 @@ export default function SocialVideoPlayerPage() {
 
   const [lesson, setLesson] = useState<any>(null);
   const [currentVideo, setCurrentVideo] = useState<any>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState('1.0');
   const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
   const [reactionsCount, setReactionsCount] = useState<Record<string, number>>({
     LIKE: 0,
@@ -52,21 +76,36 @@ export default function SocialVideoPlayerPage() {
     BRAVO: 0,
     CELEBRATE: 0,
   });
+  const [usersByReaction, setUsersByReaction] = useState<Record<string, any[]>>({
+    LIKE: [],
+    LOVE: [],
+    HELPFUL: [],
+    BRAVO: [],
+    CELEBRATE: [],
+  });
+
+  // Reaction Users Modal
+  const [viewingReactionType, setViewingReactionType] = useState<string | null>(null);
+  const [reactionClickEffect, setReactionClickEffect] = useState<string | null>(null);
 
   // Live Comments State
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<any[]>([]);
   const [replyTextMap, setReplyTextMap] = useState<Record<string, string>>({});
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [isPostingComment, setIsPostingComment] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchReactions = async (vidId: string) => {
+  const fetchReactions = async (vidId: string, bypassCache = true) => {
     try {
-      const res = await api.get(`/lessons/videos/${vidId}/reactions`);
+      const res = await api.get(`/lessons/videos/${vidId}/reactions`, { bypassCache });
       if (res.data) {
         setReactionsCount(res.data.counts || {});
+        setUsersByReaction(res.data.usersByReaction || {});
         setSelectedReaction(res.data.userReaction || null);
       }
     } catch (e) {
@@ -74,25 +113,38 @@ export default function SocialVideoPlayerPage() {
     }
   };
 
-  const fetchComments = async (vidId: string) => {
+  const fetchComments = async (vidId: string, bypassCache = true) => {
     try {
-      const res = await api.get(`/lessons/videos/${vidId}/comments`);
+      const res = await api.get(`/lessons/videos/${vidId}/comments`, { bypassCache });
       setComments(res.data || []);
     } catch (e) {
       console.error('Failed to load comments', e);
     }
   };
 
+  // Helper to notify other tabs/windows in real time
+  const notifyBroadcast = (action: string) => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window && currentVideo?.id) {
+      try {
+        const bc = new BroadcastChannel('examly_video_realtime');
+        bc.postMessage({ videoId: currentVideo.id, action, timestamp: Date.now() });
+        bc.close();
+      } catch (err) {
+        // BroadcastChannel optional fallback
+      }
+    }
+  };
+
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const res = await api.get(`/lessons/${lessonId}`);
+        const res = await api.get(`/lessons/${lessonId}`, { bypassCache: true });
         setLesson(res.data);
         const v = res.data.videos?.find((x: any) => x.id === videoId) || res.data.videos?.[0];
         setCurrentVideo(v);
         if (v) {
-          fetchReactions(v.id);
-          fetchComments(v.id);
+          fetchReactions(v.id, true);
+          fetchComments(v.id, true);
         }
       } catch (e) {
         console.error(e);
@@ -106,18 +158,197 @@ export default function SocialVideoPlayerPage() {
     }
   }, [lessonId, videoId]);
 
-  const handleReact = async (type: 'LIKE' | 'LOVE' | 'HELPFUL' | 'BRAVO') => {
-    if (!currentVideo) return;
+  // ── Real-Time Live Sync: WebSockets, Multi-Tab Broadcast, and Live Heartbeat ──
+  useEffect(() => {
+    if (!currentVideo?.id) return;
+    const vidId = currentVideo.id;
+
+    // 1. Socket.IO Live Connection
+    let socket: Socket | null = null;
+    try {
+      const socketServerUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('examly_access_token') || '' : '';
+      socket = io(`${socketServerUrl}/video`, {
+        transports: ['websocket', 'polling'],
+        auth: { token },
+      });
+
+      socket.on('connect', () => {
+        socket?.emit('join_video', { videoId: vidId });
+      });
+
+      socket.on('video_reaction_updated', (data: any) => {
+        if (data) {
+          setReactionsCount(data.counts || {});
+          setUsersByReaction(data.usersByReaction || {});
+        }
+      });
+
+      socket.on('video_comments_sync', () => {
+        fetchComments(vidId, true);
+      });
+    } catch (e) {
+      console.warn('Socket connection fallback to polling sync', e);
+    }
+
+    // 2. BroadcastChannel Multi-Tab Live Sync (instant <10ms sync across tabs/accounts in same browser)
+    let broadcastChannel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        broadcastChannel = new BroadcastChannel('examly_video_realtime');
+        broadcastChannel.onmessage = (event) => {
+          if (event.data?.videoId === vidId) {
+            fetchReactions(vidId, true);
+            fetchComments(vidId, true);
+          }
+        };
+      } catch (err) {}
+    }
+
+    // 3. Fast Smart Live Heartbeat (Silent Background Poll every 2.5s when tab is active)
+    const syncInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchReactions(vidId, true);
+        fetchComments(vidId, true);
+      }
+    }, 2500);
+
+    return () => {
+      if (socket) {
+        socket.emit('leave_video', { videoId: vidId });
+        socket.disconnect();
+      }
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+      clearInterval(syncInterval);
+    };
+  }, [currentVideo?.id]);
+
+  // Instant Optimistic Reaction Handling
+  const handleReact = async (type: 'LIKE' | 'LOVE' | 'HELPFUL' | 'BRAVO' | 'CELEBRATE') => {
+    if (!currentVideo || !user) return;
+
+    // Visual trigger effect
+    setReactionClickEffect(type);
+    setTimeout(() => setReactionClickEffect(null), 600);
+
+    const prevSelected = selectedReaction;
+    const isRemoving = prevSelected === type;
+    const newSelected = isRemoving ? null : type;
+
+    // Optimistically update counts & users list immediately!
+    setSelectedReaction(newSelected);
+    setReactionsCount((prev) => {
+      const next = { ...prev };
+      if (prevSelected) {
+        next[prevSelected] = Math.max(0, (next[prevSelected] || 0) - 1);
+      }
+      if (!isRemoving) {
+        next[type] = (next[type] || 0) + 1;
+      }
+      return next;
+    });
+
+    setUsersByReaction((prev) => {
+      const next = { ...prev };
+      if (prevSelected && next[prevSelected]) {
+        next[prevSelected] = next[prevSelected].filter((u: any) => u.id !== user.id);
+      }
+      if (!isRemoving) {
+        const currentUserProfile = {
+          id: user.id,
+          fullName: user.fullName || 'You',
+          avatarUrl: (user as any).avatarUrl || null,
+          role: { code: user.role, name: user.role },
+        };
+        next[type] = [currentUserProfile, ...(next[type] || [])];
+      }
+      return next;
+    });
+
     try {
       const res = await api.post(`/lessons/videos/${currentVideo.id}/reactions`, {
         reactionType: type,
       });
       if (res.data) {
         setReactionsCount(res.data.counts || {});
+        setUsersByReaction(res.data.usersByReaction || {});
         setSelectedReaction(res.data.userReaction || null);
+        notifyBroadcast('video_reaction');
       }
     } catch (e) {
       console.error('Failed to update reaction', e);
+      // Revert if error
+      fetchReactions(currentVideo.id);
+    }
+  };
+
+  const handleCommentReact = async (
+    commentId: string,
+    type: 'LIKE' | 'LOVE' | 'HELPFUL',
+    isReply = false,
+    parentId?: string
+  ) => {
+    if (!user) return;
+
+    // Optimistically update comment reactions
+    setComments((prev) =>
+      prev.map((c) => {
+        const updateReactions = (target: any) => {
+          const rData = target.reactionsData || { counts: { LIKE: 0, LOVE: 0, HELPFUL: 0 }, userReaction: null, usersByReaction: {} };
+          const prevReaction = rData.userReaction;
+          const isRemoving = prevReaction === type;
+          const newReaction = isRemoving ? null : type;
+
+          const newCounts = { ...rData.counts };
+          if (prevReaction) {
+            newCounts[prevReaction] = Math.max(0, (newCounts[prevReaction] || 0) - 1);
+          }
+          if (!isRemoving) {
+            newCounts[type] = (newCounts[type] || 0) + 1;
+          }
+
+          const newUsersByReaction = { ...rData.usersByReaction };
+          if (prevReaction && newUsersByReaction[prevReaction]) {
+            newUsersByReaction[prevReaction] = newUsersByReaction[prevReaction].filter((u: any) => u.id !== user.id);
+          }
+          if (!isRemoving) {
+            const currentUser = { id: user.id, fullName: user.fullName || 'You', avatarUrl: (user as any).avatarUrl, role: { code: user.role, name: user.role } };
+            newUsersByReaction[type] = [currentUser, ...(newUsersByReaction[type] || [])];
+          }
+
+          return {
+            ...target,
+            reactionsData: {
+              ...rData,
+              userReaction: newReaction,
+              counts: newCounts,
+              usersByReaction: newUsersByReaction,
+              total: Object.values(newCounts).reduce((a: any, b: any) => (a || 0) + (b || 0), 0),
+            },
+          };
+        };
+
+        if (isReply && parentId && c.id === parentId) {
+          return {
+            ...c,
+            replies: (c.replies || []).map((r: any) => (r.id === commentId ? updateReactions(r) : r)),
+          };
+        } else if (!isReply && c.id === commentId) {
+          return updateReactions(c);
+        }
+        return c;
+      })
+    );
+
+    try {
+      await api.post(`/lessons/videos/comments/${commentId}/reactions`, {
+        reactionType: type,
+      });
+      notifyBroadcast('comment_reaction');
+    } catch (e) {
+      console.error('Failed to react to comment', e);
     }
   };
 
@@ -134,17 +365,21 @@ export default function SocialVideoPlayerPage() {
       });
 
       if (parentId) {
-        // Append reply
+        // Append reply and auto-expand replies thread
         setComments((prev) =>
-          prev.map((c) => (c.id === parentId ? { ...c, replies: [...(c.replies || []), res.data] } : c))
+          prev.map((c) =>
+            c.id === parentId ? { ...c, replies: [...(c.replies || []), res.data] } : c
+          )
         );
         setReplyTextMap((prev) => ({ ...prev, [parentId]: '' }));
         setActiveReplyId(null);
+        setExpandedReplies((prev) => ({ ...prev, [parentId]: true }));
       } else {
         // Append top-level comment
         setComments([res.data, ...comments]);
         setCommentText('');
       }
+      notifyBroadcast('comment_post');
     } catch (e) {
       alert('Failed to post doubt discussion comment');
     } finally {
@@ -152,11 +387,53 @@ export default function SocialVideoPlayerPage() {
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Delete this comment?')) return;
+  const handleUpdateComment = async (commentId: string, isReply = false, parentId?: string) => {
+    if (!editCommentText.trim()) return;
+    try {
+      await api.put(`/lessons/videos/comments/${commentId}`, {
+        content: editCommentText.trim(),
+      });
+
+      setComments((prev) =>
+        prev.map((c) => {
+          if (c.id === commentId) {
+            return { ...c, content: editCommentText.trim() };
+          }
+          if (c.replies) {
+            return {
+              ...c,
+              replies: c.replies.map((r: any) =>
+                r.id === commentId ? { ...r, content: editCommentText.trim() } : r
+              ),
+            };
+          }
+          return c;
+        })
+      );
+      setEditingCommentId(null);
+      setEditCommentText('');
+      notifyBroadcast('comment_update');
+    } catch (e) {
+      alert('Failed to update comment');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string, parentId?: string) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
     try {
       await api.delete(`/lessons/videos/comments/${commentId}`);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      if (parentId) {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === parentId
+              ? { ...c, replies: (c.replies || []).filter((r: any) => r.id !== commentId) }
+              : c
+          )
+        );
+      } else {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      }
+      notifyBroadcast('comment_delete');
     } catch (e) {
       alert('Failed to delete comment');
     }
@@ -181,7 +458,7 @@ export default function SocialVideoPlayerPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -194,18 +471,26 @@ export default function SocialVideoPlayerPage() {
   const currentIndex = videoList.findIndex((v: any) => v.id === currentVideo?.id);
   const nextVideo = currentIndex >= 0 && currentIndex < videoList.length - 1 ? videoList[currentIndex + 1] : null;
 
+  const reactionConfig = [
+    { type: 'LIKE' as const, label: 'Like', icon: ThumbsUp, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+    { type: 'LOVE' as const, label: 'Love', icon: Heart, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
+    { type: 'HELPFUL' as const, label: 'Helpful', icon: Lightbulb, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
+    { type: 'BRAVO' as const, label: 'Bravo', icon: Award, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+    { type: 'CELEBRATE' as const, label: 'Fire', icon: Flame, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Breadcrumb Navigation */}
+      {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Link
           href={`/lessons/${lessonId}`}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-purple-600 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to {lesson?.name || 'Lesson'}
         </Link>
 
-        <span className="text-xs text-slate-400 font-mono">
+        <span className="text-xs text-slate-500 font-semibold">
           {lesson?.subject?.batch?.name} • {lesson?.subject?.name}
         </span>
       </div>
@@ -214,13 +499,13 @@ export default function SocialVideoPlayerPage() {
         {/* Main Video Stream Player & Details (2 Cols) */}
         <div className="lg:col-span-2 space-y-5">
           {/* 16:9 Video Player Container with Anti-Leak Watermark */}
-          <div className="relative rounded-3xl overflow-hidden bg-slate-950 shadow-2xl border border-slate-800 aspect-video group">
+          <div className="relative rounded-3xl overflow-hidden bg-black shadow-2xl border border-slate-900 aspect-video group">
             {embedUrl ? (
               <iframe
-                src={embedUrl}
+                src={`${embedUrl}${embedUrl.includes('?') ? '&' : '?'}modestbranding=1&rel=0&iv_load_policy=3&controls=1&showinfo=0`}
                 title={currentVideo?.title}
                 className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
             ) : isDirect ? (
@@ -240,82 +525,107 @@ export default function SocialVideoPlayerPage() {
               </div>
             )}
 
-            {/* Floating Anti-Leak Watermark (Nepal Compliance) */}
-            <div className="absolute top-4 right-4 pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1.5 border border-white/10">
-              <Shield className="w-3 h-3 text-brand-400" />
-              <span>{user?.fullName || 'Aarav Sharma'} • 12A-034</span>
+            {/* Floating Anti-Leak Watermark */}
+            <div className="absolute top-4 right-4 pointer-events-none opacity-40 group-hover:opacity-80 transition-opacity px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1.5 border border-white/10 shadow-lg">
+              <Shield className="w-3 h-3 text-purple-400" />
+              <span>{user?.fullName || 'Student'} • ENROLLED</span>
             </div>
           </div>
 
-          {/* Video Metadata Header */}
+          {/* Video Metadata Header & YouTube Channel Info */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-200">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-100">
                   {lesson?.subject?.name || 'Physics'}
                 </span>
                 {currentVideo?.isFreePreview && (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
                     Free Preview
                   </span>
                 )}
-                <span className="text-[11px] text-slate-400 font-mono">
-                  {Math.floor((currentVideo?.durationSeconds || 2700) / 60)} Mins Duration
+                <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  {Math.floor((currentVideo?.durationSeconds || 2700) / 60)} Mins Length
                 </span>
               </div>
-              <h1 className="text-xl font-extrabold text-slate-900 leading-snug">{currentVideo?.title}</h1>
-              <p className="text-xs text-slate-400 mt-1">1.2K views • Published by Faculty • #CEE2026 #NEET</p>
+              <h1 className="text-xl font-extrabold text-slate-900 leading-snug break-words">
+                {currentVideo?.title}
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">
+                {lesson?.subject?.batch?.name || 'Batch'} • Lecture {currentIndex + 1} of {videoList.length}
+              </p>
             </div>
 
-            {/* Faculty Instructor Card */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
-                  {lesson?.subject?.name ? lesson.subject.name[0] : 'F'}
+            {/* YouTube-Style Channel / Uploader Bar */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Channel Avatar */}
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-md shadow-purple-600/20 shrink-0">
+                  {lesson?.subject?.name ? lesson.subject.name[0] : 'E'}
                 </div>
-                <div>
-                  <span className="font-bold text-xs text-slate-900 block">
-                    {lesson?.subject?.name || 'Subject'} Faculty
-                  </span>
-                  <span className="text-[10px] text-brand-600 font-medium">
-                    {lesson?.subject?.batch?.name || 'Academic Batch'} • Official Video Lecture
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900 truncate">
+                      {lesson?.subject?.name || 'Subject'} Faculty
+                    </span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  </div>
+                  <span className="text-[11px] text-purple-700 font-medium block truncate">
+                    {lesson?.subject?.batch?.name || 'Examly Academic Program'}
                   </span>
                 </div>
               </div>
+
               <Link
                 href={`/lessons/${lessonId}`}
-                className="px-3.5 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold rounded-xl transition-all"
+                className="px-4 py-2 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl shadow-xs transition-all shrink-0"
               >
-                ← Back to Chapter
+                View Chapter →
               </Link>
             </div>
 
-            {/* Single Reaction Emoji Bar & Share */}
+            {/* Instant Reactions Bar */}
             <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap">
-              {[
-                { type: 'LIKE' as const, label: 'Like', icon: ThumbsUp, color: 'text-blue-600' },
-                { type: 'LOVE' as const, label: 'Love', icon: Heart, color: 'text-rose-600' },
-                { type: 'HELPFUL' as const, label: 'Helpful', icon: Lightbulb, color: 'text-amber-600' },
-                { type: 'BRAVO' as const, label: 'Bravo', icon: Award, color: 'text-purple-600' },
-              ].map((r) => {
+              {reactionConfig.map((r) => {
                 const Icon = r.icon;
                 const isSelected = selectedReaction === r.type;
                 const count = reactionsCount[r.type] || 0;
+                const usersList = usersByReaction[r.type] || [];
+                const isPopping = reactionClickEffect === r.type;
 
                 return (
-                  <button
-                    key={r.type}
-                    onClick={() => handleReact(r.type)}
-                    className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      isSelected
-                        ? 'bg-brand-50 border-brand-300 text-brand-700 shadow-sm'
-                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 ${isSelected ? r.color : 'text-slate-400'}`} />
-                    <span>{r.label}</span>
-                    <span className="font-mono text-[10px] font-bold">{count}</span>
-                  </button>
+                  <div key={r.type} className="relative group/btn">
+                    <button
+                      onClick={() => handleReact(r.type)}
+                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all transform active:scale-95 ${
+                        isPopping ? 'scale-110' : ''
+                      } ${
+                        isSelected
+                          ? `${r.bg} ${r.border} ${r.color} shadow-sm ring-1 ring-purple-300`
+                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${isSelected ? r.color : 'text-slate-400'} transition-transform group-hover/btn:scale-110`} />
+                      <span>{r.label}</span>
+                      <span className="font-mono text-[11px] font-bold ml-0.5">{count}</span>
+                    </button>
+
+                    {/* Show Users Popup on Click or Pill View */}
+                    {usersList.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewingReactionType(r.type);
+                        }}
+                        title={`See who reacted with ${r.label}`}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                      >
+                        <Users className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
 
@@ -324,7 +634,7 @@ export default function SocialVideoPlayerPage() {
                   href={lesson.notes[0].fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-auto px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  className="ml-auto px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition-all"
                 >
                   <Download className="w-3.5 h-3.5" /> Download Notes
                 </a>
@@ -332,30 +642,50 @@ export default function SocialVideoPlayerPage() {
             </div>
           </div>
 
-          {/* Doubts & Discussion Feed */}
+          {/* YouTube-Style Academic Comments & Doubts Forum */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-brand-600" /> Academic Discussion & Doubt Forum ({comments.length})
+                <MessageSquare className="w-4 h-4 text-purple-600" />
+                Comments & Doubts Forum ({comments.length})
               </h2>
             </div>
 
-            {/* Comment Form */}
-            <form onSubmit={(e) => handlePostComment(e)} className="flex gap-2">
-              <input
-                type="text"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Ask a question or formula doubt on this lecture (supports KaTeX $formula$)..."
-                className="flex-1 text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              />
-              <button
-                type="submit"
-                disabled={isPostingComment || !commentText.trim()}
-                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-1.5"
-              >
-                <Send className="w-3.5 h-3.5" /> Post Doubt
-              </button>
+            {/* Top Comment Post Box */}
+            <form onSubmit={(e) => handlePostComment(e)} className="flex items-start gap-3">
+              {/* Current User Avatar */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0">
+                {user?.fullName ? user.fullName[0].toUpperCase() : 'U'}
+              </div>
+
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Ask a doubt or share notes on this lecture (supports KaTeX $formula$)..."
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                />
+
+                {commentText.trim() && (
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCommentText('')}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 rounded-xl"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isPostingComment}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Comment
+                    </button>
+                  </div>
+                )}
+              </div>
             </form>
 
             {/* Comments List */}
@@ -363,114 +693,314 @@ export default function SocialVideoPlayerPage() {
               {comments.map((c) => {
                 const authorName = c.author?.fullName || 'Student';
                 const roleCode = c.author?.role?.code || 'STUDENT';
-                const isTeacher = roleCode === 'TEACHER' || roleCode === 'ADMIN' || roleCode === 'SUPER_ADMIN';
+                const isFaculty = roleCode === 'TEACHER' || roleCode === 'ADMIN' || roleCode === 'SUPER_ADMIN';
+                const isOwner = user?.id === c.userId || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+                const isEditing = editingCommentId === c.id;
+                const replies = c.replies || [];
+                const areRepliesExpanded = expandedReplies[c.id] || false;
 
                 return (
                   <div
                     key={c.id}
-                    className={`p-4 rounded-2xl border space-y-2.5 transition-all ${
-                      c.isPinned ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50/70 border-slate-200'
+                    className={`p-4 rounded-2xl border transition-all ${
+                      c.isPinned ? 'bg-amber-50/40 border-amber-200' : 'bg-slate-50/70 border-slate-200'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">{authorName}</span>
-                        {isTeacher && (
-                          <span className="px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold">
-                            Faculty
-                          </span>
-                        )}
-                        <span className="text-[10px] text-slate-400">
-                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Recent'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {c.isPinned && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                            <Pin className="w-3 h-3" /> Pinned
-                          </span>
-                        )}
-                        <button
-                          onClick={() => setActiveReplyId(activeReplyId === c.id ? null : c.id)}
-                          className="text-[11px] font-semibold text-brand-600 hover:text-brand-700"
-                        >
-                          Reply
-                        </button>
-                        {(user?.id === c.userId || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-                          <button
-                            onClick={() => handleDeleteComment(c.id)}
-                            className="text-slate-400 hover:text-rose-600 p-1"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                    <div className="flex items-start gap-3">
+                      {/* Author Avatar */}
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {c.author?.avatarUrl ? (
+                          <img src={c.author.avatarUrl} alt={authorName} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          authorName[0]?.toUpperCase() || 'U'
                         )}
                       </div>
-                    </div>
 
-                    <div className="text-xs text-slate-700 leading-relaxed font-normal">
-                      {renderMath(c.content)}
-                    </div>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        {/* Author Header */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-900">{authorName}</span>
+                            {isFaculty && (
+                              <span className="px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-800 text-[10px] font-bold border border-purple-200">
+                                Faculty
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {formatRelativeTime(c.createdAt)}
+                            </span>
+                            {c.isPinned && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                                <Pin className="w-3 h-3" /> Pinned
+                              </span>
+                            )}
+                          </div>
 
-                    {/* Threaded Replies */}
-                    {(c.replies || []).length > 0 && (
-                      <div className="mt-3 pl-4 border-l-2 border-brand-300 space-y-2">
-                        {c.replies.map((r: any) => (
-                          <div key={r.id} className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-brand-800">
-                                  {r.author?.fullName || 'Faculty'}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}
-                                </span>
-                              </div>
-                              {(user?.id === r.userId || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-                                <button
-                                  onClick={() => handleDeleteComment(r.id)}
-                                  className="text-slate-400 hover:text-rose-600 p-0.5"
-                                  title="Delete reply"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                          {isOwner && !isEditing && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(c.id);
+                                  setEditCommentText(c.content);
+                                }}
+                                className="p-1 text-slate-400 hover:text-purple-600 rounded-md"
+                                title="Edit Comment"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComment(c.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded-md"
+                                title="Delete Comment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <div className="text-xs text-slate-700 leading-relaxed">
-                              {renderMath(r.content)}
+                          )}
+                        </div>
+
+                        {/* Comment Content (or Edit Form) */}
+                        {isEditing ? (
+                          <div className="space-y-2 pt-1">
+                            <input
+                              type="text"
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              className="w-full text-xs p-2.5 bg-white border border-purple-300 rounded-xl focus:outline-none"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingCommentId(null)}
+                                className="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateComment(c.id)}
+                                className="px-3.5 py-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl"
+                              >
+                                Save Changes
+                              </button>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        ) : (
+                          <div className="text-xs text-slate-800 leading-relaxed break-words">
+                            {renderMath(c.content)}
+                          </div>
+                        )}
 
-                    {/* Inline Reply Form */}
-                    {activeReplyId === c.id && (
-                      <form onSubmit={(e) => handlePostComment(e, c.id)} className="mt-2 flex gap-2 pt-2 border-t border-slate-200">
-                        <input
-                          type="text"
-                          value={replyTextMap[c.id] || ''}
-                          onChange={(e) => setReplyTextMap({ ...replyTextMap, [c.id]: e.target.value })}
-                          placeholder="Write your explanation or doubt answer..."
-                          className="flex-1 text-xs p-2 bg-white border border-slate-200 rounded-xl focus:outline-none"
-                        />
-                        <button
-                          type="submit"
-                          disabled={!replyTextMap[c.id]?.trim()}
-                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-xl disabled:opacity-50"
-                        >
-                          Reply
-                        </button>
-                      </form>
-                    )}
+                        {/* Reply & Comment Reaction Actions */}
+                        {!isEditing && (
+                          <div className="flex items-center gap-3 pt-1 flex-wrap">
+                            {/* Comment Reaction Buttons (YouTube style) */}
+                            <div className="flex items-center gap-1.5 bg-slate-100/70 p-0.5 px-1.5 rounded-xl border border-slate-200/60">
+                              {[
+                                { type: 'LIKE' as const, label: 'Like', icon: ThumbsUp, color: 'text-blue-600' },
+                                { type: 'LOVE' as const, label: 'Love', icon: Heart, color: 'text-rose-600' },
+                                { type: 'HELPFUL' as const, label: 'Helpful', icon: Lightbulb, color: 'text-amber-600' },
+                              ].map((cr) => {
+                                const Icon = cr.icon;
+                                const rData = c.reactionsData || { counts: {}, userReaction: null, usersByReaction: {} };
+                                const isSelected = rData.userReaction === cr.type;
+                                const count = rData.counts?.[cr.type] || 0;
+                                const users = rData.usersByReaction?.[cr.type] || [];
+
+                                return (
+                                  <button
+                                    key={cr.type}
+                                    type="button"
+                                    onClick={() => handleCommentReact(c.id, cr.type)}
+                                    title={users.length > 0 ? `${users.map((u: any) => u.fullName).join(', ')}` : cr.label}
+                                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                                      isSelected
+                                        ? 'bg-white shadow-xs text-purple-700'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <Icon className={`w-3 h-3 ${isSelected ? cr.color : 'text-slate-400'}`} />
+                                    {count > 0 && <span className="font-mono text-[10px]">{count}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <button
+                              onClick={() => setActiveReplyId(activeReplyId === c.id ? null : c.id)}
+                              className="text-[11px] font-bold text-purple-700 hover:text-purple-900 transition-colors flex items-center gap-1 ml-1"
+                            >
+                              <CornerDownRight className="w-3.5 h-3.5" /> Reply
+                            </button>
+
+                            {replies.length > 0 && (
+                              <button
+                                onClick={() =>
+                                  setExpandedReplies((prev) => ({
+                                    ...prev,
+                                    [c.id]: !areRepliesExpanded,
+                                  }))
+                                }
+                                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 ml-auto"
+                              >
+                                {areRepliesExpanded
+                                  ? '▲ Hide replies'
+                                  : `▼ View ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Inline Reply Form */}
+                        {activeReplyId === c.id && (
+                          <form
+                            onSubmit={(e) => handlePostComment(e, c.id)}
+                            className="mt-2 flex gap-2 pt-2 border-t border-slate-200"
+                          >
+                            <input
+                              type="text"
+                              value={replyTextMap[c.id] || ''}
+                              onChange={(e) =>
+                                setReplyTextMap({ ...replyTextMap, [c.id]: e.target.value })
+                              }
+                              placeholder="Write a reply or answer..."
+                              className="flex-1 text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!replyTextMap[c.id]?.trim()}
+                              className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all"
+                            >
+                              Reply
+                            </button>
+                          </form>
+                        )}
+
+                        {/* Threaded Replies */}
+                        {replies.length > 0 && areRepliesExpanded && (
+                          <div className="mt-3 pl-3 border-l-2 border-purple-200 space-y-3 pt-1">
+                            {replies.map((r: any) => {
+                              const rAuthorName = r.author?.fullName || 'Faculty';
+                              const rIsOwner = user?.id === r.userId || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+                              const isReplyEditing = editingCommentId === r.id;
+
+                              return (
+                                <div key={r.id} className="flex items-start gap-2.5">
+                                  <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    {rAuthorName[0]?.toUpperCase() || 'F'}
+                                  </div>
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[11px] font-bold text-slate-900">
+                                          {rAuthorName}
+                                        </span>
+                                        <span className="text-[9px] text-slate-400 font-mono">
+                                          {formatRelativeTime(r.createdAt)}
+                                        </span>
+                                      </div>
+
+                                      {rIsOwner && !isReplyEditing && (
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={() => {
+                                              setEditingCommentId(r.id);
+                                              setEditCommentText(r.content);
+                                            }}
+                                            className="text-slate-400 hover:text-purple-600 p-0.5"
+                                            title="Edit reply"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteComment(r.id, c.id)}
+                                            className="text-slate-400 hover:text-rose-600 p-0.5"
+                                            title="Delete reply"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {isReplyEditing ? (
+                                      <div className="space-y-1.5">
+                                        <input
+                                          type="text"
+                                          value={editCommentText}
+                                          onChange={(e) => setEditCommentText(e.target.value)}
+                                          className="w-full text-xs p-2 bg-white border border-purple-300 rounded-lg focus:outline-none"
+                                        />
+                                        <div className="flex justify-end gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingCommentId(null)}
+                                            className="px-2 py-0.5 text-[10px] text-slate-500"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateComment(r.id, true, c.id)}
+                                            className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-lg"
+                                          >
+                                            Save
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <div className="text-xs text-slate-700 leading-relaxed break-words">
+                                          {renderMath(r.content)}
+                                        </div>
+
+                                        {/* Reply Reaction Buttons */}
+                                        <div className="flex items-center gap-1 pt-0.5">
+                                          {[
+                                            { type: 'LIKE' as const, label: 'Like', icon: ThumbsUp, color: 'text-blue-600' },
+                                            { type: 'LOVE' as const, label: 'Love', icon: Heart, color: 'text-rose-600' },
+                                          ].map((cr) => {
+                                            const Icon = cr.icon;
+                                            const rData = r.reactionsData || { counts: {}, userReaction: null, usersByReaction: {} };
+                                            const isSelected = rData.userReaction === cr.type;
+                                            const count = rData.counts?.[cr.type] || 0;
+                                            const users = rData.usersByReaction?.[cr.type] || [];
+
+                                            return (
+                                              <button
+                                                key={cr.type}
+                                                type="button"
+                                                onClick={() => handleCommentReact(r.id, cr.type, true, c.id)}
+                                                title={users.length > 0 ? `${users.map((u: any) => u.fullName).join(', ')}` : cr.label}
+                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-0.5 transition-all ${
+                                                  isSelected
+                                                    ? 'bg-purple-100 text-purple-700'
+                                                    : 'text-slate-400 hover:text-slate-700'
+                                                }`}
+                                              >
+                                                <Icon className={`w-2.5 h-2.5 ${isSelected ? cr.color : 'text-slate-400'}`} />
+                                                {count > 0 && <span className="font-mono text-[9px]">{count}</span>}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
 
               {comments.length === 0 && (
                 <div className="text-center py-6 text-slate-400 text-xs">
-                  No academic doubts posted for this lecture yet. Be the first to ask!
+                  No comments or doubts posted yet. Be the first to start the discussion!
                 </div>
               )}
             </div>
@@ -498,22 +1028,22 @@ export default function SocialVideoPlayerPage() {
             </div>
           )}
 
-          {/* Next Video Countdown Card (SCR-STU-06B) */}
+          {/* Next Video Countdown Card */}
           {nextVideo && (
-            <div className="bg-gradient-to-br from-brand-600 to-accent-indigo rounded-3xl p-5 text-white shadow-xl space-y-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-brand-200 flex items-center gap-1">
+            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-3xl p-5 text-white shadow-xl space-y-3">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-purple-200 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" /> Up Next in this Course
               </span>
               <h3 className="text-sm font-bold leading-snug">{nextVideo.title}</h3>
-              <p className="text-[11px] text-brand-100 font-mono">
+              <p className="text-[11px] text-purple-100 font-mono">
                 Duration: {Math.floor((nextVideo.durationSeconds || 2700) / 60)} Mins
               </p>
 
               <button
                 onClick={() => router.push(`/lessons/${lessonId}/videos/${nextVideo.id}`)}
-                className="w-full py-2.5 bg-white text-brand-700 hover:bg-slate-100 text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+                className="w-full py-2.5 bg-white text-purple-700 hover:bg-slate-100 text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
               >
-                <Play className="w-4 h-4 fill-brand-700" /> Play Next Lecture
+                <Play className="w-4 h-4 fill-purple-700" /> Play Next Lecture
               </button>
             </div>
           )}
@@ -525,7 +1055,7 @@ export default function SocialVideoPlayerPage() {
             </h3>
 
             <div className="space-y-2.5">
-              {videoList.map((v: any) => {
+              {videoList.map((v: any, idx: number) => {
                 const isPlaying = v.id === currentVideo?.id;
                 const thumb = getYouTubeThumbnailUrl(v.videoUrl);
 
@@ -535,21 +1065,23 @@ export default function SocialVideoPlayerPage() {
                     onClick={() => setCurrentVideo(v)}
                     className={`w-full text-left p-2.5 rounded-2xl border flex items-center gap-3 transition-all ${
                       isPlaying
-                        ? 'bg-brand-50 border-brand-300 ring-1 ring-brand-500/20'
+                        ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-500/20 shadow-sm'
                         : 'bg-slate-50/70 hover:bg-slate-100 border-slate-200/80'
                     }`}
                   >
                     <div className="w-14 h-10 rounded-xl bg-slate-900 overflow-hidden relative shrink-0">
                       <img src={thumb} alt={v.title} className="w-full h-full object-cover" />
                       {isPlaying && (
-                        <div className="absolute inset-0 bg-brand-600/80 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-purple-600/80 flex items-center justify-center">
                           <Play className="w-3.5 h-3.5 text-white fill-white" />
                         </div>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <span className="text-xs font-bold text-slate-900 block truncate">{v.title}</span>
+                      <span className="text-xs font-bold text-slate-900 block truncate">
+                        {idx + 1}. {v.title}
+                      </span>
                       <span className="text-[10px] text-slate-400 font-mono">
                         {Math.floor((v.durationSeconds || 2700) / 60)} mins
                       </span>
@@ -590,6 +1122,58 @@ export default function SocialVideoPlayerPage() {
           </div>
         </div>
       </div>
+
+      {/* Reaction Users Breakdown Modal */}
+      {viewingReactionType && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-900">
+                  {reactionConfig.find((r) => r.type === viewingReactionType)?.label} Reactions
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-bold font-mono">
+                  {usersByReaction[viewingReactionType]?.length || 0}
+                </span>
+              </div>
+              <button
+                onClick={() => setViewingReactionType(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {(usersByReaction[viewingReactionType] || []).map((u: any, idx: number) => (
+                <div
+                  key={u.id || idx}
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                >
+                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                    {u.fullName ? u.fullName[0].toUpperCase() : 'U'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-slate-900 block truncate">
+                      {u.fullName}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {u.role?.name || u.role?.code || 'Student'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {(!usersByReaction[viewingReactionType] || usersByReaction[viewingReactionType].length === 0) && (
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  No users have given this reaction yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

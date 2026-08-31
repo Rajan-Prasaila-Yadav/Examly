@@ -73,4 +73,16 @@ export class NotesService {
       data: { status: RecordStatus.DELETED },
     });
   }
+
+  async reorder(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return { success: true };
+    const updates = ids.map((id, index) =>
+      this.prisma.note.update({
+        where: { id },
+        data: { sortOrder: index },
+      }),
+    );
+    await this.prisma.$transaction(updates);
+    return { success: true, count: ids.length };
+  }
 }

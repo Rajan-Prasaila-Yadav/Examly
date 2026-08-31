@@ -106,22 +106,21 @@ export default function CurriculumPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {(selectedBatch?.subjects || []).map((sub: any, idx: number) => (
           <div key={sub.id || idx} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                {!isStudent && <ReorderHandle title="Drag to reorder subject" className="p-0.5" />}
-                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 font-bold flex items-center justify-center text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 font-bold flex items-center justify-center text-xs shrink-0">
                   {sub.name[0]}
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">{sub.name}</h3>
-              </div>
-              {!isStudent && (
-                <Link
-                  href={`/batches/${selectedBatch.id}`}
-                  className="text-brand-600 hover:text-brand-700 text-xs font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Manage
+                <Link href={`/subjects/${sub.id}`} className="text-sm font-bold text-slate-900 hover:text-brand-600 transition-colors truncate">
+                  {sub.name}
                 </Link>
-              )}
+              </div>
+              <Link
+                href={`/subjects/${sub.id}`}
+                className="text-brand-600 hover:text-brand-700 text-xs font-semibold flex items-center gap-1 shrink-0"
+              >
+                View Lessons →
+              </Link>
             </div>
 
             {/* Lessons List */}
@@ -134,7 +133,6 @@ export default function CurriculumPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      {!isStudent && <ReorderHandle title="Drag to reorder lesson" className="p-0" />}
                       <span className="text-xs font-semibold text-slate-800 group-hover:text-brand-600 transition-colors truncate">
                         {les.name}
                       </span>

@@ -10,10 +10,12 @@ import { NotesService } from './notes.service';
 import { NotesController } from './notes.controller';
 import { ResourcesService } from './resources.service';
 import { ResourcesController } from './resources.controller';
+import { VideoGateway } from './video.gateway';
 
 @Module({
   controllers: [BatchesController, SubjectsController, LessonsController, NotesController, ResourcesController],
-  providers: [BatchesService, SubjectsService, LessonsService, NotesService, ResourcesService],
-  exports: [BatchesService, SubjectsService, LessonsService, NotesService, ResourcesService],
+  providers: [BatchesService, SubjectsService, LessonsService, NotesService, ResourcesService, VideoGateway],
+  exports: [BatchesService, SubjectsService, LessonsService, NotesService, ResourcesService, VideoGateway],
 })
 export class CatalogModule {}
+

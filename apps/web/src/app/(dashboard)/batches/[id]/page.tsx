@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Video,
   FileText,
+  FolderTree,
   Clock,
   CheckCircle2,
   X,
@@ -648,6 +649,76 @@ export default function BatchDetailPage() {
     }
   };
 
+  const [draggedSubjectIdx, setDraggedSubjectIdx] = useState<number | null>(null);
+  const [draggedLesson, setDraggedLesson] = useState<{ subjectId: string; index: number } | null>(null);
+
+  // Subject Drag & Drop
+  const handleSubjectDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `subject:${index}`);
+    setDraggedSubjectIdx(index);
+  };
+
+  const handleSubjectDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedSubjectIdx === null || draggedSubjectIdx === targetIndex) {
+      setDraggedSubjectIdx(null);
+      return;
+    }
+    const currentSubjects = [...(batch?.subjects || [])];
+    const [moved] = currentSubjects.splice(draggedSubjectIdx, 1);
+    currentSubjects.splice(targetIndex, 0, moved);
+    setBatch((prev: any) => ({ ...prev, subjects: currentSubjects }));
+    setDraggedSubjectIdx(null);
+
+    try {
+      await api.put('/subjects/reorder', { ids: currentSubjects.map((s) => s.id) });
+      toast.success('Subjects Reordered', 'Subject sequence updated.');
+    } catch (err) {
+      console.error(err);
+      fetchBatchDetail();
+    }
+  };
+
+  // Lesson Drag & Drop
+  const handleLessonDragStart = (e: React.DragEvent, subjectId: string, index: number) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `lesson:${subjectId}:${index}`);
+    setDraggedLesson({ subjectId, index });
+  };
+
+  const handleLessonDrop = async (e: React.DragEvent, subjectId: string, targetIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedLesson || draggedLesson.subjectId !== subjectId || draggedLesson.index === targetIndex) {
+      setDraggedLesson(null);
+      return;
+    }
+    const currentSubject = batch?.subjects?.find((s: any) => s.id === subjectId);
+    if (!currentSubject) return;
+
+    const currentLessons = [...(currentSubject.lessons || [])];
+    const [moved] = currentLessons.splice(draggedLesson.index, 1);
+    currentLessons.splice(targetIndex, 0, moved);
+
+    setBatch((prev: any) => ({
+      ...prev,
+      subjects: prev.subjects.map((s: any) =>
+        s.id === subjectId ? { ...s, lessons: currentLessons } : s,
+      ),
+    }));
+    setDraggedLesson(null);
+
+    try {
+      await api.put('/lessons/reorder', { ids: currentLessons.map((l) => l.id) });
+      toast.success('Lessons Reordered', 'Lesson sequence updated.');
+    } catch (err) {
+      console.error(err);
+      fetchBatchDetail();
+    }
+  };
+
   if (isLoading) {
     return <DetailPageSkeleton />;
   }
@@ -813,116 +884,127 @@ export default function BatchDetailPage() {
                   setSubjectName('');
                   setIsSubjectModalOpen(true);
                 }}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Subject
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {subjects.map((sub: any, subIdx: number) => {
               const lessons = sub.lessons || [];
+              const isSubjectDragging = draggedSubjectIdx === subIdx;
+              const subVideos = lessons.reduce((sum: number, l: any) => sum + (l.videos?.length ?? l._count?.videos ?? 0), 0);
+              const subNotes = lessons.reduce((sum: number, l: any) => sum + (l.notes?.length ?? l._count?.notes ?? 0), 0);
+              const subResources = lessons.reduce((sum: number, l: any) => sum + (l.resources?.length ?? l._count?.resources ?? 0), 0);
+              const subTests = lessons.reduce((sum: number, l: any) => sum + (l.tests?.length ?? l._count?.tests ?? 0), 0);
+
               return (
-                <div key={sub.id} className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      {!isStudent && (
-                        <ReorderHandle
-                          title="Drag or click arrows to reorder subject"
-                          onMoveUp={() => moveSubject(subIdx, 'up')}
-                          onMoveDown={() => moveSubject(subIdx, 'down')}
-                          canMoveUp={subIdx > 0}
-                          canMoveDown={subIdx < subjects.length - 1}
-                        />
-                      )}
-                      <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">{sub.name}</h3>
-                        <span className="text-[11px] text-slate-400 font-medium">{lessons.length} Chapters / Lessons</span>
-                      </div>
-                    </div>
-
-                    {!isStudent && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            setSelectedSubjectId(sub.id);
-                            setEditingLesson(null);
-                            setLessonName('');
-                            setLessonDescription('');
-                            setIsLessonModalOpen(true);
-                          }}
-                          className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" /> Add Lesson
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingSubject(sub);
-                            setSubjectName(sub.name);
-                            setIsSubjectModalOpen(true);
-                          }}
-                          className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingSubject(sub)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Lessons list */}
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
-                    {lessons.map((ls: any, lsIdx: number) => (
-                      <div
-                        key={ls.id}
-                        className="p-3 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2.5 hover:bg-slate-100/60 transition-colors"
-                      >
-                        {!isStudent && (
-                          <ReorderHandle
-                            title="Drag or click arrows to reorder lesson"
-                            className="p-0.5"
-                            onMoveUp={() => moveLesson(sub.id, lsIdx, 'up')}
-                            onMoveDown={() => moveLesson(sub.id, lsIdx, 'down')}
-                            canMoveUp={lsIdx > 0}
-                            canMoveDown={lsIdx < lessons.length - 1}
-                          />
-                        )}
-                        <Link href={`/lessons/${ls.id}`} className="flex-1 min-w-0 font-bold text-xs text-slate-800 hover:text-brand-600 truncate">
-                          {ls.name}
-                        </Link>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Link
-                            href={`/lessons/${ls.id}`}
-                            className="px-2.5 py-1 bg-white hover:bg-brand-600 hover:text-white text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 shadow-sm transition-all"
-                          >
-                            Open Chapter →
-                          </Link>
-
-                          {!isStudent && (
-                            <button
-                              onClick={() => setDeletingLesson(ls)}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded-lg"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                <div
+                  key={sub.id}
+                  draggable={!isStudent}
+                  onDragStart={(e) => handleSubjectDragStart(e, subIdx)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => handleSubjectDrop(e, subIdx)}
+                  onDragEnd={() => setDraggedSubjectIdx(null)}
+                  className={`bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-brand-300 transition-all flex flex-col justify-between group ${
+                    isSubjectDragging ? 'opacity-40 border-dashed border-brand-500 ring-2 ring-brand-400' : ''
+                  }`}
+                >
+                  <div className="space-y-4">
+                    {/* Header Strip */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-brand-600/20 shrink-0">
+                          {sub.iconUrl ? (
+                            <img src={sub.iconUrl} alt={sub.name} className="w-full h-full rounded-2xl object-cover" />
+                          ) : (
+                            sub.name[0]?.toUpperCase() || 'S'
                           )}
                         </div>
+                        <div className="min-w-0">
+                          <Link href={`/subjects/${sub.id}`} draggable={false} className="block group-hover:text-brand-600 transition-colors">
+                            <h3 className="text-base font-bold text-slate-900 truncate">{sub.name}</h3>
+                          </Link>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {lessons.length} {lessons.length === 1 ? 'Chapter' : 'Chapters'}
+                          </span>
+                        </div>
                       </div>
-                    ))}
 
-                    {lessons.length === 0 && (
-                      <p className="text-center py-4 text-xs text-slate-400">No lessons in this subject yet.</p>
-                    )}
+                      {!isStudent && (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => {
+                              setEditingSubject(sub);
+                              setSubjectName(sub.name);
+                              setIsSubjectModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                            title="Edit Subject"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingSubject(sub)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Subject"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content Pillars Badges Grid */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                      <div className="bg-purple-50/70 border border-purple-100 rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+                        <Video className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-purple-700 font-medium truncate">Videos</div>
+                          <div className="text-xs font-bold text-purple-950 font-mono">{subVideos}</div>
+                        </div>
+                      </div>
+
+                      <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-emerald-700 font-medium truncate">Notes</div>
+                          <div className="text-xs font-bold text-emerald-950 font-mono">{subNotes}</div>
+                        </div>
+                      </div>
+
+                      <div className="bg-amber-50/70 border border-amber-100 rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+                        <FolderTree className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-amber-700 font-medium truncate">Files</div>
+                          <div className="text-xs font-bold text-amber-950 font-mono">{subResources}</div>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50/70 border border-blue-100 rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+                        <FileCheck2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-blue-700 font-medium truncate">Tests</div>
+                          <div className="text-xs font-bold text-blue-950 font-mono">{subTests}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Open Subject / View Lessons Action */}
+                  <div className="pt-4 border-t border-slate-100 mt-4">
+                    <Link
+                      href={`/subjects/${sub.id}`}
+                      draggable={false}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm group-hover:shadow-md"
+                    >
+                      View Lessons <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
                   </div>
                 </div>
               );
