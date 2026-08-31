@@ -1,3 +1,4 @@
+// Examly API Serverless Entry — deployed 2026-09-01T01:50Z
 import 'reflect-metadata';
 
 function setCorsHeaders(req: any, res: any) {
