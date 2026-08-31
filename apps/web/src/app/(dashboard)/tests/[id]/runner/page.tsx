@@ -415,7 +415,7 @@ function LiveTestRunnerContent() {
     if (testId) {
       fetchTestAndEvaluation();
     }
-  }, [testId, viewParam]);
+  }, [testId, viewParam, attemptIdParam]);
 
   // Anti-Cheat & Screen Protection (doc 9.5 & doc 22.2)
   useEffect(() => {

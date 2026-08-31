@@ -1171,13 +1171,13 @@ export default function TestDetailPage() {
 
                       <div className="flex items-center justify-end gap-2 pt-1">
                         <Link
-                          href={`/tests/${testId}/runner?view=REVIEW`}
+                          href={`/tests/${testId}/runner?view=REVIEW&attemptId=${att.id || att.attemptId}`}
                           className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
                         >
                           <Eye className="w-3.5 h-3.5 text-brand-600" /> Review Solutions
                         </Link>
                         <Link
-                          href={`/tests/${testId}/runner?view=ANSWER_KEY`}
+                          href={`/tests/${testId}/runner?view=ANSWER_KEY&attemptId=${att.id || att.attemptId}`}
                           className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl border border-slate-200 shadow-sm flex items-center gap-1.5 transition-all"
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Answer Key
@@ -1249,17 +1249,18 @@ export default function TestDetailPage() {
                           <td className="py-3.5">
                             <div className="flex flex-wrap items-center gap-1.5">
                               {recentAttempts.map((a: any) => (
-                                <span
-                                  key={a.attemptId}
-                                  className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
+                                <Link
+                                  key={a.attemptId || a.id}
+                                  href={`/tests/${testId}/runner?view=REVIEW&attemptId=${a.attemptId || a.id}`}
+                                  className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border transition-all hover:scale-105 ${
                                     a.isPassed
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                   }`}
-                                  title={`Attempt #${a.attemptNumber}: ${a.score} marks (${a.percentage}%), Duration: ${Math.floor((a.durationSeconds || 0) / 60)}m`}
+                                  title={`Attempt #${a.attemptNumber}: ${a.score} marks (${a.percentage}%) - Click to review solutions`}
                                 >
                                   #{a.attemptNumber}: {a.score ?? 0}
-                                </span>
+                                </Link>
                               ))}
 
                               {extraAttemptsCount > 0 && (
@@ -1952,7 +1953,8 @@ export default function TestDetailPage() {
                     <th className="pb-3">Duration</th>
                     <th className="pb-3">Score</th>
                     <th className="pb-3 text-center">Accuracy %</th>
-                    <th className="pb-3 text-right">Status</th>
+                    <th className="pb-3 text-center">Status</th>
+                    <th className="pb-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1980,7 +1982,7 @@ export default function TestDetailPage() {
                       <td className="py-3 text-center font-bold text-emerald-600">
                         {a.percentage ?? 0}%
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
                             a.isPassed
@@ -1990,6 +1992,14 @@ export default function TestDetailPage() {
                         >
                           {a.isPassed ? 'PASSED' : 'FAILED'}
                         </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <Link
+                          href={`/tests/${testId}/runner?view=REVIEW&attemptId=${a.attemptId || a.id}`}
+                          className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg text-xs font-bold font-sans inline-flex items-center gap-1 transition-colors"
+                        >
+                          <Eye className="w-3 h-3" /> Review
+                        </Link>
                       </td>
                     </tr>
                   ))}
