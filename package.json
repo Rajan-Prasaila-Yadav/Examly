@@ -10,13 +10,13 @@
   "scripts": {
     "dev:api": "npm run dev --workspace=@examly/api",
     "dev:web": "npm run dev --workspace=@examly/web",
-    "build:api": "npx prisma@5.17.0 generate --schema=database/prisma/schema && npm run build --workspace=@examly/api",
+    "build:api": "npx -y prisma@5.17.0 generate --schema=database/prisma/schema && npm run build --workspace=@examly/api",
     "build:web": "npm run build --workspace=@examly/web",
     "build": "npm run build --workspaces --if-present",
-    "vercel-build": "npx prisma@5.17.0 generate --schema=database/prisma/schema && npm run build:api",
+    "vercel-build": "npx -y prisma@5.17.0 generate --schema=database/prisma/schema && npm run build:api",
     "db:push": "npm run db:push --workspace=@examly/database",
     "db:migrate": "npm run db:migrate --workspace=@examly/database",
-    "db:generate": "npx prisma@5.17.0 generate --schema=database/prisma/schema",
+    "db:generate": "npx -y prisma@5.17.0 generate --schema=database/prisma/schema",
     "db:seed": "npm run db:seed --workspace=@examly/database",
     "db:studio": "npm run db:studio --workspace=@examly/database"
   },
