@@ -400,7 +400,7 @@ export default function StudentDetailPage() {
 
                 {/* Direct Action Button */}
                 <Link
-                  href={`/tests/${targetTestId}/runner?view=REVIEW`}
+                  href={`/tests/${targetTestId}/runner?view=REVIEW&attemptId=${att.id}`}
                   className="w-full py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs rounded-xl border border-brand-200/80 flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                 >
                   <Eye className="w-3.5 h-3.5 text-brand-600" /> Review Answers & Step Solutions →
@@ -467,7 +467,7 @@ export default function StudentDetailPage() {
                     </td>
                     <td className="py-3.5 text-right">
                       <Link
-                        href={`/tests/${targetTestId}/runner?view=REVIEW`}
+                        href={`/tests/${targetTestId}/runner?view=REVIEW&attemptId=${att.id}`}
                         className="px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold text-[11px] border border-brand-200 inline-flex items-center gap-1 transition-colors"
                       >
                         Review Solutions

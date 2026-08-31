@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
@@ -266,8 +267,12 @@ export class TestsController {
   @Get(':id/answer-key')
   @ApiOperation({ summary: 'Get answer key & score calculation table (SCR-STU-16)' })
   @RequirePermission('tests', 'read')
-  async getAnswerKey(@Param('id') testId: string, @CurrentUser() user: CurrentUserPayload) {
-    return this.testsService.getAnswerKey(testId, user.userId);
+  async getAnswerKey(
+    @Param('id') testId: string,
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('attemptId') attemptId?: string,
+  ) {
+    return this.testsService.getAnswerKey(testId, user.userId, attemptId);
   }
 
   // ──────────────────────────────────────────────

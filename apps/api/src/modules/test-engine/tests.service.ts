@@ -1246,7 +1246,7 @@ export class TestsService {
   // Answer Key (SCR-STU-16)
   // ──────────────────────────────────────────────
 
-  async getAnswerKey(testId: string, studentId?: string) {
+  async getAnswerKey(testId: string, studentId?: string, attemptId?: string) {
     const test = await this.prisma.test.findUnique({
       where: { id: testId },
       include: {
@@ -1274,33 +1274,79 @@ export class TestsService {
       throw new NotFoundException('Test not found');
     }
 
-    // Find student's latest attempt if studentId is provided
-    let latestAttempt: any = studentId
-      ? await this.prisma.testAttempt.findFirst({
-          where: {
-            testId,
-            studentId,
-          },
-          include: {
-            result: true,
-            answers: true,
-            student: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-                phone: true,
-                avatarUrl: true,
-                studentProfile: true,
-              },
+    let latestAttempt: any = null;
+
+    // 1. If explicit attemptId is requested, find that exact attempt
+    if (attemptId) {
+      latestAttempt = await this.prisma.testAttempt.findUnique({
+        where: { id: attemptId },
+        include: {
+          result: true,
+          answers: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+              studentProfile: true,
             },
           },
-          orderBy: [
-            { submittedAt: 'desc' },
-            { startedAt: 'desc' },
-          ],
-        })
-      : null;
+        },
+      });
+    }
+
+    // 2. Otherwise find student's latest SUBMITTED attempt first
+    if (!latestAttempt && studentId) {
+      latestAttempt = await this.prisma.testAttempt.findFirst({
+        where: {
+          testId,
+          studentId,
+          submittedAt: { not: null },
+        },
+        include: {
+          result: true,
+          answers: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+              studentProfile: true,
+            },
+          },
+        },
+        orderBy: { submittedAt: 'desc' },
+      });
+    }
+
+    // 3. If still no submitted attempt, fallback to latest attempt in progress
+    if (!latestAttempt && studentId) {
+      latestAttempt = await this.prisma.testAttempt.findFirst({
+        where: {
+          testId,
+          studentId,
+        },
+        include: {
+          result: true,
+          answers: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+              studentProfile: true,
+            },
+          },
+        },
+        orderBy: { startedAt: 'desc' },
+      });
+    }
 
     let studentUser: any = null;
     if (studentId) {

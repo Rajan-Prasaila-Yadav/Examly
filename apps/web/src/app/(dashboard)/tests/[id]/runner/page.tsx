@@ -234,6 +234,7 @@ function LiveTestRunnerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const viewParam = searchParams.get('view'); // 'REVIEW' | 'ANSWER_KEY' | 'RESULT'
+  const attemptIdParam = searchParams.get('attemptId');
   const testId = params.id as string;
 
   const downloadFile = async (path: string, filename: string) => {
@@ -312,9 +313,13 @@ function LiveTestRunnerContent() {
     const fetchTestAndEvaluation = async () => {
       setIsLoadingTest(true);
       try {
+        const queryParams = new URLSearchParams();
+        if (attemptIdParam) queryParams.set('attemptId', attemptIdParam);
+        const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
         const [testRes, keyRes] = await Promise.all([
           api.get(`/tests/${testId}`, { bypassCache: true }),
-          api.get(`/tests/${testId}/answer-key`, { bypassCache: true }).catch(() => null),
+          api.get(`/tests/${testId}/answer-key${queryString}`, { bypassCache: true }).catch(() => null),
         ]);
 
         const testData = testRes?.data || null;
