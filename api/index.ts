@@ -56,14 +56,22 @@ export default async function handler(req: any, res: any) {
     return res.end();
   }
 
-  const originalPath = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url;
-  if (typeof originalPath === 'string' && originalPath !== '/api' && originalPath !== '/api/') {
-    req.url = originalPath;
+  // Extract query string from incoming req.url to prevent parameters (e.g. ?attemptId=...) from being stripped by Vercel rewrites
+  const incomingUrl = req.url || '/';
+  const queryIndex = incomingUrl.indexOf('?');
+  const queryString = queryIndex !== -1 ? incomingUrl.substring(queryIndex) : '';
+
+  const originalPath = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || incomingUrl.split('?')[0];
+  let cleanPath =
+    typeof originalPath === 'string' && originalPath !== '/api' && originalPath !== '/api/'
+      ? originalPath.split('?')[0]
+      : incomingUrl.split('?')[0];
+
+  if (!cleanPath.startsWith('/api/v1')) {
+    cleanPath = '/api/v1' + (cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath);
   }
 
-  if (req.url && !req.url.startsWith('/api/v1')) {
-    req.url = '/api/v1' + (req.url.startsWith('/') ? req.url : '/' + req.url);
-  }
+  req.url = cleanPath + queryString;
 
   if (!isInitialized && !initError) {
     try {
