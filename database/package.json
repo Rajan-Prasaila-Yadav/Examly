@@ -4,24 +4,25 @@
   "description": "Prisma PostgreSQL ORM and schema package for Examly",
   "main": "index.js",
   "scripts": {
-    "db:push": "npx prisma db push",
-    "db:migrate": "npx prisma migrate dev",
-    "db:deploy": "npx prisma migrate deploy",
-    "db:generate": "npx prisma generate",
-    "db:seed": "npx ts-node prisma/seed.ts",
-    "db:studio": "npx prisma studio"
+    "db:push": "prisma db push --schema=prisma/schema",
+    "db:migrate": "prisma migrate dev --schema=prisma/schema",
+    "db:deploy": "prisma migrate deploy --schema=prisma/schema",
+    "db:generate": "prisma generate --schema=prisma/schema",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:studio": "prisma studio --schema=prisma/schema"
   },
   "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "schema": "prisma/schema"
   },
   "dependencies": {
-    "@prisma/client": "^5.17.0"
+    "@prisma/client": "^5.17.0",
+    "prisma": "^5.17.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^22.13.5",
     "bcrypt": "^5.1.1",
-    "prisma": "^5.17.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }

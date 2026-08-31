@@ -13,16 +13,18 @@
     "build:api": "npm run build --workspace=@examly/api",
     "build:web": "npm run build --workspace=@examly/web",
     "build": "npm run build --workspaces --if-present",
-    "postinstall": "npm run db:generate --workspace=@examly/database",
-    "vercel-build": "npm run db:generate --workspace=@examly/database && npm run build:api",
+    "postinstall": "prisma generate --schema=database/prisma/schema",
+    "vercel-build": "prisma generate --schema=database/prisma/schema && npm run build:api",
     "db:push": "npm run db:push --workspace=@examly/database",
     "db:migrate": "npm run db:migrate --workspace=@examly/database",
-    "db:generate": "npm run db:generate --workspace=@examly/database",
+    "db:generate": "prisma generate --schema=database/prisma/schema",
     "db:seed": "npm run db:seed --workspace=@examly/database",
     "db:studio": "npm run db:studio --workspace=@examly/database"
   },
   "dependencies": {
+    "@prisma/client": "^5.17.0",
     "@types/node": "^26.4.0",
+    "prisma": "^5.17.0",
     "socket.io-client": "^4.8.3"
   }
 }
