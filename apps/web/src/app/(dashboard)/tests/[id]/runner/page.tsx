@@ -1685,8 +1685,8 @@ function LiveTestRunnerContent() {
         qNum = item.questionNumber || idx + 1;
         correctAns = item.correctAnswer || '-';
         yourAns = item.yourAnswer && item.yourAnswer !== '-' ? item.yourAnswer : '—';
-        isCorrect = item.status === 'CORRECT' || item.status === '✔ Correct';
-        isWrong = item.status === 'WRONG' || item.status === '✖ Wrong';
+        isCorrect = item.status === 'CORRECT' || item.status === '✔ Correct' || item.status === 'Correct';
+        isWrong = item.status === 'WRONG' || item.status === '✖ Wrong' || item.status === 'Wrong';
         marks = isCorrect ? (Number(item.marks) || posRate) : 0;
         neg = isWrong ? (Number(item.negative) > 0 ? -Number(item.negative) : -negRate) : 0;
       } else {
@@ -1843,10 +1843,10 @@ function LiveTestRunnerContent() {
                       )}
                     </td>
                     <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
-                      {row.marks}
+                      {row.marks > 0 ? `+${row.marks}` : row.marks}
                     </td>
                     <td className="py-2.5 px-1 font-bold text-slate-900">
-                      {row.neg}
+                      {row.neg !== 0 ? (row.neg < 0 ? row.neg : `-${row.neg}`) : 0}
                     </td>
                   </tr>
                 ))}

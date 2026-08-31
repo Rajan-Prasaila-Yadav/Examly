@@ -1100,17 +1100,6 @@ export class TestsService {
       where: { attemptId },
     });
 
-    // Server-side submit-unlock guard: a student may not submit before the configured
-    // unlock delay has elapsed (auto-submits from anti-cheat / time expiry bypass this).
-    const submitUnlockMins = attempt.test.config?.submitUnlockDelayMins ?? 0;
-    const elapsedMins = (Date.now() - attempt.startedAt.getTime()) / 60000;
-    if (!attempt.isAutoSubmitted && submitUnlockMins > 0 && elapsedMins < submitUnlockMins) {
-      const remainingSec = Math.ceil(submitUnlockMins * 60 - elapsedMins * 60);
-      throw new BadRequestException(
-        `Submit is locked until ${submitUnlockMins} minute(s) have elapsed. You can submit in about ${remainingSec} second(s).`
-      );
-    }
-
     let totalScore = 0;
     let totalCorrect = 0;
     let totalWrong = 0;
@@ -1285,13 +1274,12 @@ export class TestsService {
       throw new NotFoundException('Test not found');
     }
 
-    // Find student's latest submitted attempt if studentId is provided
+    // Find student's latest attempt if studentId is provided
     let latestAttempt: any = studentId
       ? await this.prisma.testAttempt.findFirst({
           where: {
             testId,
             studentId,
-            submittedAt: { not: null },
           },
           include: {
             result: true,
@@ -1307,7 +1295,10 @@ export class TestsService {
               },
             },
           },
-          orderBy: { submittedAt: 'desc' },
+          orderBy: [
+            { submittedAt: 'desc' },
+            { startedAt: 'desc' },
+          ],
         })
       : null;
 
