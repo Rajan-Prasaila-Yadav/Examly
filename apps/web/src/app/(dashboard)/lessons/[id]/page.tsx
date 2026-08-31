@@ -49,6 +49,11 @@ import {
   Square,
   Radio,
   Tv,
+  Search,
+  Replace,
+  Type,
+  RefreshCw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { ReorderHandle } from '@/components/reorder-handle';
 
@@ -79,6 +84,24 @@ export default function LessonDetailPage() {
   const [deletingVideo, setDeletingVideo] = useState<any | null>(null);
   const [isFetchingMeta, setIsFetchingMeta] = useState(false);
   const [detectedMeta, setDetectedMeta] = useState<any | null>(null);
+
+  // Bulk Video Actions State
+  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+  const [isFindReplaceModalOpen, setIsFindReplaceModalOpen] = useState(false);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [matchCase, setMatchCase] = useState(false);
+  const [findScope, setFindScope] = useState<'selected' | 'all'>('all');
+  const [isApplyingFindReplace, setIsApplyingFindReplace] = useState(false);
+
+  // In-Place Bulk Title Editor
+  const [isBulkEditTitlesOpen, setIsBulkEditTitlesOpen] = useState(false);
+  const [bulkTitles, setBulkTitles] = useState<{ [videoId: string]: string }>({});
+  const [isSavingBulkTitles, setIsSavingBulkTitles] = useState(false);
+
+  // Bulk Delete Confirmation Modal
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   // YouTube Playlist Importer Modal
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
@@ -292,6 +315,137 @@ export default function LessonDetailPage() {
       fetchLessonDetail();
     } catch (e) {
       alert('Failed to delete video');
+    }
+  };
+
+  // ── Bulk Video Handlers ──
+  const toggleSelectVideo = (videoId: string) => {
+    setSelectedVideoIds((prev) =>
+      prev.includes(videoId) ? prev.filter((id) => id !== videoId) : [...prev, videoId]
+    );
+  };
+
+  const handleSelectAllVideos = () => {
+    const allIds = (lesson?.videos || []).map((v: any) => v.id);
+    if (selectedVideoIds.length === allIds.length) {
+      setSelectedVideoIds([]);
+    } else {
+      setSelectedVideoIds(allIds);
+    }
+  };
+
+  const openBulkTitleEditor = () => {
+    const initialMap: { [id: string]: string } = {};
+    const targetVideos = (lesson?.videos || []).filter(
+      (v: any) => selectedVideoIds.length === 0 || selectedVideoIds.includes(v.id)
+    );
+    targetVideos.forEach((v: any) => {
+      initialMap[v.id] = v.title;
+    });
+    setBulkTitles(initialMap);
+    setIsBulkEditTitlesOpen(true);
+  };
+
+  const getFindReplacePreview = () => {
+    if (!findText) return [];
+    const targetVideos = (lesson?.videos || []).filter(
+      (v: any) => findScope === 'all' || selectedVideoIds.length === 0 || selectedVideoIds.includes(v.id)
+    );
+
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapeRegExp(findText), matchCase ? 'g' : 'gi');
+
+    return targetVideos
+      .map((v: any) => {
+        const hasMatch = regex.test(v.title);
+        regex.lastIndex = 0;
+        const newTitle = v.title.replace(regex, replaceText);
+        return {
+          id: v.id,
+          originalTitle: v.title,
+          newTitle,
+          isChanged: newTitle !== v.title,
+        };
+      })
+      .filter((item) => item.isChanged);
+  };
+
+  const handleApplyFindReplace = async () => {
+    const previewList = getFindReplacePreview();
+    if (previewList.length === 0) {
+      alert('No matching video titles found to replace.');
+      return;
+    }
+
+    setIsApplyingFindReplace(true);
+    try {
+      const updates = previewList.map((p) => ({ id: p.id, title: p.newTitle }));
+      await api.put('/lessons/videos/bulk-update', { updates });
+
+      // Optimistically update local state immediately
+      setLesson((prev: any) => {
+        if (!prev) return prev;
+        const updatedVideos = (prev.videos || []).map((v: any) => {
+          const match = updates.find((u) => u.id === v.id);
+          return match ? { ...v, title: match.title } : v;
+        });
+        return { ...prev, videos: updatedVideos };
+      });
+
+      setIsFindReplaceModalOpen(false);
+      setFindText('');
+      setReplaceText('');
+      setSelectedVideoIds([]);
+    } catch (err) {
+      alert('Failed to update video titles.');
+      fetchLessonDetail();
+    } finally {
+      setIsApplyingFindReplace(false);
+    }
+  };
+
+  const handleSaveBulkTitles = async () => {
+    setIsSavingBulkTitles(true);
+    try {
+      const updates = Object.entries(bulkTitles).map(([id, title]) => ({ id, title }));
+      await api.put('/lessons/videos/bulk-update', { updates });
+
+      setLesson((prev: any) => {
+        if (!prev) return prev;
+        const updatedVideos = (prev.videos || []).map((v: any) => {
+          return bulkTitles[v.id] !== undefined ? { ...v, title: bulkTitles[v.id] } : v;
+        });
+        return { ...prev, videos: updatedVideos };
+      });
+
+      setIsBulkEditTitlesOpen(false);
+    } catch (err) {
+      alert('Failed to save updated titles.');
+      fetchLessonDetail();
+    } finally {
+      setIsSavingBulkTitles(false);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedVideoIds.length === 0) return;
+    setIsDeletingBulk(true);
+    try {
+      await api.post('/lessons/videos/bulk-delete', { ids: selectedVideoIds });
+
+      setLesson((prev: any) => {
+        if (!prev) return prev;
+        const remainingVideos = (prev.videos || []).filter((v: any) => !selectedVideoIds.includes(v.id));
+        return { ...prev, videos: remainingVideos };
+      });
+
+      setSelectedVideoIds([]);
+      setIsBulkDeleteModalOpen(false);
+    } catch (err) {
+      alert('Failed to delete selected videos.');
+      fetchLessonDetail();
+    } finally {
+      setIsDeletingBulk(false);
     }
   };
 
@@ -687,13 +841,79 @@ export default function LessonDetailPage() {
 
       {/* Tab 1: Video Lectures */}
       {activeTab === 'videos' && (
-        <>
+        <div className="space-y-4">
+          {/* Bulk Video Action Bar */}
+          {!isStudent && (lesson.videos || []).length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSelectAllVideos}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-purple-700 transition-colors cursor-pointer"
+                >
+                  {selectedVideoIds.length === (lesson.videos || []).length && (lesson.videos || []).length > 0 ? (
+                    <CheckSquare className="w-4 h-4 text-purple-600" />
+                  ) : (
+                    <Square className="w-4 h-4 text-slate-400" />
+                  )}
+                  <span>
+                    Select All ({lesson.videos?.length || 0})
+                  </span>
+                </button>
+
+                {selectedVideoIds.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold font-mono">
+                    ✨ {selectedVideoIds.length} Selected
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFindScope(selectedVideoIds.length > 0 ? 'selected' : 'all');
+                    setIsFindReplaceModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl flex items-center gap-1.5 border border-indigo-200 transition-all shadow-sm"
+                  title="Find words or typos and batch replace across video titles"
+                >
+                  <Search className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Find & Replace in Titles</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openBulkTitleEditor}
+                  className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl flex items-center gap-1.5 border border-purple-200 transition-all shadow-sm"
+                  title="Quickly edit all video titles in an interactive table"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-purple-600" />
+                  <span>In-Place Bulk Title Editor</span>
+                </button>
+
+                {selectedVideoIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl flex items-center gap-1.5 border border-rose-200 transition-all shadow-sm"
+                    title="Bulk delete selected videos"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Delete ({selectedVideoIds.length})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Card / Grid View (Default on mobile) */}
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {(lesson.videos || []).map((v: any, vIdx: number) => {
                 const thumb = getYouTubeThumbnailUrl(v.videoUrl);
                 const isDragging = draggedVideoIdx === vIdx;
+                const isSelected = selectedVideoIds.includes(v.id);
 
                 return (
                   <div
@@ -706,30 +926,60 @@ export default function LessonDetailPage() {
                     }}
                     onDrop={(e) => handleVideoDrop(e, vIdx)}
                     onDragEnd={() => setDraggedVideoIdx(null)}
-                    className={`bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-lg transition-all group flex flex-col justify-between ${
+                    className={`bg-white rounded-3xl border overflow-hidden shadow-sm hover:shadow-lg transition-all group flex flex-col justify-between relative ${
+                      isSelected
+                        ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/10'
+                        : 'border-slate-200'
+                    } ${
                       isDragging ? 'opacity-40 border-dashed border-brand-500 ring-2 ring-brand-400 scale-[0.99]' : ''
                     }`}
                   >
                     <div>
                       {/* Video Thumbnail */}
-                      <Link
-                        href={`/lessons/${lessonId}/videos/${v.id}`}
-                        draggable={false}
-                        className="h-44 bg-slate-950 block relative overflow-hidden group-hover:opacity-95 transition-opacity select-none"
-                      >
-                        <img
-                          src={thumb}
-                          alt={v.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 flex items-center justify-center">
-                          <div className="w-12 h-12 rounded-full bg-brand-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                            <Play className="w-5 h-5 ml-0.5 fill-white" />
+                      <div className="h-44 bg-slate-950 block relative overflow-hidden group-hover:opacity-95 transition-opacity select-none">
+                        <Link
+                          href={`/lessons/${lessonId}/videos/${v.id}`}
+                          draggable={false}
+                          className="block w-full h-full"
+                        >
+                          <img
+                            src={thumb}
+                            alt={v.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-brand-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                              <Play className="w-5 h-5 ml-0.5 fill-white" />
+                            </div>
                           </div>
-                        </div>
+                        </Link>
+
+                        {/* Multi-Select Checkbox */}
+                        {!isStudent && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleSelectVideo(v.id);
+                            }}
+                            className={`absolute top-3 left-3 p-1.5 rounded-xl z-20 backdrop-blur-md transition-all shadow-md ${
+                              isSelected
+                                ? 'bg-purple-600 text-white ring-2 ring-white shadow-purple-600/40'
+                                : 'bg-black/60 text-white/80 hover:bg-black/80 hover:text-white'
+                            }`}
+                            title={isSelected ? 'Deselect video' : 'Select video'}
+                          >
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-white fill-purple-600" />
+                            ) : (
+                              <Square className="w-4 h-4 text-white/80" />
+                            )}
+                          </button>
+                        )}
 
                         {v.isFreePreview && (
-                          <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold shadow-md">
+                          <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold shadow-md">
                             Free Preview
                           </span>
                         )}
@@ -737,7 +987,7 @@ export default function LessonDetailPage() {
                         <span className="absolute bottom-3 right-3 px-2 py-0.5 rounded-md bg-black/80 text-white text-[10px] font-mono backdrop-blur-sm">
                           {Math.floor((v.durationSeconds || 2700) / 60)} mins
                         </span>
-                      </Link>
+                      </div>
 
                       {/* Full-width Video Title & Lecture Index */}
                       <div className="p-4 sm:p-5 pb-2 space-y-1.5">
@@ -805,6 +1055,7 @@ export default function LessonDetailPage() {
               {(lesson.videos || []).map((v: any, vIdx: number) => {
                 const thumb = getYouTubeThumbnailUrl(v.videoUrl);
                 const isDragging = draggedVideoIdx === vIdx;
+                const isSelected = selectedVideoIds.includes(v.id);
 
                 return (
                   <div
@@ -817,11 +1068,39 @@ export default function LessonDetailPage() {
                     }}
                     onDrop={(e) => handleVideoDrop(e, vIdx)}
                     onDragEnd={() => setDraggedVideoIdx(null)}
-                    className={`bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group ${
+                    className={`bg-white rounded-2xl border p-3 sm:p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group ${
+                      isSelected
+                        ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/10'
+                        : 'border-slate-200'
+                    } ${
                       isDragging ? 'opacity-40 border-dashed border-brand-500 ring-2 ring-brand-400' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      {/* Selection Checkbox */}
+                      {!isStudent && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSelectVideo(v.id);
+                          }}
+                          className={`p-1 rounded-lg transition-all shrink-0 ${
+                            isSelected
+                              ? 'text-purple-600'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                          title={isSelected ? 'Deselect video' : 'Select video'}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-purple-600" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
+
                       {/* Video Thumbnail */}
                       <Link
                         href={`/lessons/${lessonId}/videos/${v.id}`}
@@ -912,7 +1191,7 @@ export default function LessonDetailPage() {
               <p className="text-xs text-slate-500 mt-1">Video lectures will appear here once published by faculty.</p>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Tab 2: Notes with Full Edit/Delete CRUD */}
@@ -1754,6 +2033,375 @@ export default function LessonDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── 1. Find & Replace Video Titles Modal ── */}
+      {isFindReplaceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200">
+                  <Replace className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Find & Replace in Video Titles</h3>
+                  <p className="text-xs text-slate-500">Fix spelling mistakes or rename keywords across multiple video titles in 1 click</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsFindReplaceModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-1">
+              {/* Target Scope */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Apply Changes To:</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs font-semibold text-slate-700 transition-colors">
+                    <input
+                      type="radio"
+                      name="findScope"
+                      checked={findScope === 'all'}
+                      onChange={() => setFindScope('all')}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>All Videos in Lesson ({lesson?.videos?.length || 0})</span>
+                  </label>
+                  <label
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs font-semibold transition-colors ${
+                      selectedVideoIds.length === 0 ? 'opacity-50 cursor-not-allowed' : 'text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="findScope"
+                      disabled={selectedVideoIds.length === 0}
+                      checked={findScope === 'selected'}
+                      onChange={() => setFindScope('selected')}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Selected Videos Only ({selectedVideoIds.length})</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Find Text / Word / Typo <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={findText}
+                    onChange={(e) => setFindText(e.target.value)}
+                    placeholder="e.g. Phisics or Lec-01"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Replace With
+                  </label>
+                  <input
+                    type="text"
+                    value={replaceText}
+                    onChange={(e) => setReplaceText(e.target.value)}
+                    placeholder="e.g. Physics or Lecture 1"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={matchCase}
+                    onChange={(e) => setMatchCase(e.target.checked)}
+                    className="rounded text-indigo-600"
+                  />
+                  <span>Match Case (Exact capitalization)</span>
+                </label>
+              </div>
+
+              {/* Live Diff Preview Table */}
+              {findText.trim() && (
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      Live Preview & Match Results
+                    </span>
+                    <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {getFindReplacePreview().length} titles will be updated
+                    </span>
+                  </div>
+
+                  {getFindReplacePreview().length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+                      No titles matched <span className="font-mono font-bold text-slate-700">"{findText}"</span> in the selected scope.
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-56 overflow-y-auto divide-y divide-slate-100">
+                      {getFindReplacePreview().map((item, idx) => (
+                        <div key={item.id} className="p-3 text-xs space-y-1 hover:bg-slate-50">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="text-slate-400 line-through truncate">{item.originalTitle}</span>
+                          </div>
+                          <div className="pl-7 font-bold text-emerald-700 break-words flex items-center gap-1.5">
+                            <span>➔</span>
+                            <span>{item.newTitle}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsFindReplaceModalOpen(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyFindReplace}
+                disabled={isApplyingFindReplace || !findText.trim() || getFindReplacePreview().length === 0}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                {isApplyingFindReplace ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" /> Apply & Save ({getFindReplacePreview().length} Titles)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. Interactive In-Place Bulk Title Editor Modal ── */}
+      {isBulkEditTitlesOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">In-Place Bulk Title Editor</h3>
+                  <p className="text-xs text-slate-500">Edit titles directly in the table below and save all changes at once</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBulkEditTitlesOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Helper Tools */}
+            <div className="flex items-center gap-2 flex-wrap pb-2 border-b border-slate-100 shrink-0">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quick Tools:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkTitles((prev) => {
+                    const next: any = { ...prev };
+                    Object.keys(next).forEach((id) => {
+                      next[id] = next[id].replace(/\s+/g, ' ').trim();
+                    });
+                    return next;
+                  });
+                }}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                title="Remove duplicate and extra whitespace"
+              >
+                🧹 Trim Spaces
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkTitles((prev) => {
+                    const next: any = { ...prev };
+                    Object.keys(next).forEach((id) => {
+                      next[id] = next[id].replace(/\w\S*/g, (w: string) =>
+                        w.charAt(0).toUpperCase() + w.substr(1).toLowerCase()
+                      );
+                    });
+                    return next;
+                  });
+                }}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                title="Capitalize the first letter of each word"
+              >
+                Aa Title Case
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkTitles((prev) => {
+                    const next: any = { ...prev };
+                    (lesson?.videos || []).forEach((v: any, idx: number) => {
+                      if (next[v.id] !== undefined) {
+                        const cleaned = next[v.id].replace(/^Lecture\s+\d+[\s:\-–—]+/i, '').trim();
+                        next[v.id] = `Lecture ${idx + 1}: ${cleaned}`;
+                      }
+                    });
+                    return next;
+                  });
+                }}
+                className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200 transition-colors"
+                title="Prefix sequential Lecture 1, Lecture 2..."
+              >
+                🔢 Sequence Numbers
+              </button>
+            </div>
+
+            {/* Interactive Titles List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
+              {(lesson?.videos || [])
+                .filter((v: any) => selectedVideoIds.length === 0 || selectedVideoIds.includes(v.id))
+                .map((v: any, idx: number) => {
+                  const thumb = getYouTubeThumbnailUrl(v.videoUrl);
+                  return (
+                    <div key={v.id} className="pt-2 flex items-center gap-3">
+                      <div className="w-14 h-10 rounded-lg overflow-hidden bg-slate-900 shrink-0">
+                        <img src={thumb} alt={v.title} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="w-6 text-[11px] font-mono font-bold text-slate-400 shrink-0">
+                        #{idx + 1}
+                      </span>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={bulkTitles[v.id] ?? v.title}
+                          onChange={(e) =>
+                            setBulkTitles((prev) => ({
+                              ...prev,
+                              [v.id]: e.target.value,
+                            }))
+                          }
+                          className="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-purple-500 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsBulkEditTitlesOpen(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveBulkTitles}
+                disabled={isSavingBulkTitles}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                {isSavingBulkTitles ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving All Titles...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Save All Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Bulk Delete Warning Alert Modal ── */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+              <AlertTriangle className="w-6 h-6 text-rose-600" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-extrabold text-slate-900">
+                Permanently Delete {selectedVideoIds.length} Video(s)?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                You are about to delete <span className="font-bold text-slate-800">{selectedVideoIds.length} selected video lectures</span>. This action is permanent and will remove associated comments and watch progress.
+              </p>
+            </div>
+
+            {/* List preview of videos being deleted */}
+            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 max-h-36 overflow-y-auto space-y-1.5 text-left">
+              {(lesson?.videos || [])
+                .filter((v: any) => selectedVideoIds.includes(v.id))
+                .map((v: any, idx: number) => (
+                  <div key={v.id} className="text-xs font-semibold text-slate-700 flex items-center gap-2 truncate">
+                    <span className="w-4 h-4 rounded bg-rose-100 text-rose-700 font-mono text-[10px] flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span className="truncate">{v.title}</span>
+                  </div>
+                ))}
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="flex-1 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                disabled={isDeletingBulk}
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 disabled:opacity-50 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+              >
+                {isDeletingBulk ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" /> Yes, Delete All
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

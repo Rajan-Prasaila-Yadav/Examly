@@ -1023,7 +1023,7 @@ export class TestsService {
   // Submit Attempt & Score (doc 19.1, 19.2, 19.3)
   // ──────────────────────────────────────────────
 
-  async submitAttempt(attemptId: string, studentId: string) {
+  async submitAttempt(attemptId: string, studentId: string, clientAnswers?: any) {
     const attempt = await this.prisma.testAttempt.findUnique({
       where: { id: attemptId },
       include: {
@@ -1047,9 +1047,58 @@ export class TestsService {
       throw new NotFoundException('Attempt not found');
     }
 
-    if (attempt.submittedAt) {
-      return this.prisma.testResult.findUnique({ where: { attemptId } });
+    // 1. Flush & persist any client-submitted answers directly to ensure 100% database persistence
+    if (clientAnswers) {
+      const answerEntries: Array<{ questionId: string; selectedOptionIds: string[]; isMarkedForReview?: boolean }> = [];
+      if (Array.isArray(clientAnswers)) {
+        clientAnswers.forEach((a: any) => {
+          if (a?.questionId) {
+            answerEntries.push({
+              questionId: a.questionId,
+              selectedOptionIds: Array.isArray(a.selectedOptionIds) ? a.selectedOptionIds : [],
+              isMarkedForReview: !!a.isMarkedForReview,
+            });
+          }
+        });
+      } else if (typeof clientAnswers === 'object') {
+        Object.entries(clientAnswers).forEach(([qId, val]: [string, any]) => {
+          answerEntries.push({
+            questionId: qId,
+            selectedOptionIds: Array.isArray(val?.selectedOptionIds) ? val.selectedOptionIds : [],
+            isMarkedForReview: !!val?.isMarkedForReview,
+          });
+        });
+      }
+
+      if (answerEntries.length > 0) {
+        const upsertOps = answerEntries.map((ans) =>
+          this.prisma.attemptAnswer.upsert({
+            where: {
+              attemptId_questionId: {
+                attemptId,
+                questionId: ans.questionId,
+              },
+            },
+            update: {
+              selectedOptionIds: ans.selectedOptionIds,
+              isMarkedForReview: ans.isMarkedForReview ?? false,
+            },
+            create: {
+              attemptId,
+              questionId: ans.questionId,
+              selectedOptionIds: ans.selectedOptionIds,
+              isMarkedForReview: ans.isMarkedForReview ?? false,
+            },
+          }),
+        );
+        await this.prisma.$transaction(upsertOps);
+      }
     }
+
+    // Load fresh answers from database
+    const freshAnswers = await this.prisma.attemptAnswer.findMany({
+      where: { attemptId },
+    });
 
     // Server-side submit-unlock guard: a student may not submit before the configured
     // unlock delay has elapsed (auto-submits from anti-cheat / time expiry bypass this).
@@ -1066,9 +1115,10 @@ export class TestsService {
     let totalCorrect = 0;
     let totalWrong = 0;
     let totalUnanswered = 0;
+    let totalNegativeDeducted = 0;
 
     const allQuestions = attempt.test.sections.flatMap((s) => s.questions);
-    const answersMap = new Map(attempt.answers.map((a) => [a.questionId, a]));
+    const answersMap = new Map(freshAnswers.map((a) => [a.questionId, a]));
 
     const answerUpdates: any[] = [];
 
@@ -1098,6 +1148,7 @@ export class TestsService {
         if (hasIncorrect) {
           totalWrong++;
           awardedMarks = -q.marksNegative;
+          totalNegativeDeducted += q.marksNegative;
         } else {
           const correctChosen = selectedIds.filter((id) => correctOptionIds.includes(id)).length;
           if (correctChosen === correctOptionIds.length) {
@@ -1119,6 +1170,7 @@ export class TestsService {
         } else {
           totalWrong++;
           awardedMarks = -q.marksNegative;
+          totalNegativeDeducted += q.marksNegative;
         }
       }
 
@@ -1139,6 +1191,19 @@ export class TestsService {
     const submittedAt = new Date();
     const durationSeconds = Math.floor((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000);
 
+    // Compute student's real rank in database
+    const higherScoreCount = await this.prisma.testResult.count({
+      where: {
+        attempt: {
+          testId: attempt.testId,
+          submittedAt: { not: null },
+          id: { not: attemptId },
+        },
+        totalScore: { gt: totalScore },
+      },
+    });
+    const rank = higherScoreCount + 1;
+
     const transactionOps = [
       ...answerUpdates,
       this.prisma.testAttempt.update({
@@ -1154,6 +1219,7 @@ export class TestsService {
           totalUnanswered,
           percentage,
           isPassed,
+          rank,
           publishedAt: submittedAt,
         },
         create: {
@@ -1164,15 +1230,27 @@ export class TestsService {
           totalUnanswered,
           percentage,
           isPassed,
+          rank,
           publishedAt: submittedAt,
         },
       }),
     ];
 
     const results = await this.prisma.$transaction(transactionOps);
-    const result = results[results.length - 1];
+    const result: any = results[results.length - 1];
 
-    return result;
+    return {
+      ...result,
+      rank,
+      negativeMarks: totalNegativeDeducted,
+      durationSeconds,
+      test: {
+        id: attempt.test.id,
+        title: attempt.test.title,
+        totalMarks: attempt.test.totalMarks,
+        passMarks: attempt.test.passMarks,
+      },
+    };
   }
 
   // ──────────────────────────────────────────────

@@ -120,6 +120,31 @@ export class LessonsService {
     });
   }
 
+  async updateVideosBulk(updates: Array<{ id: string; title?: string; durationSeconds?: number; isFreePreview?: boolean }>) {
+    if (!Array.isArray(updates) || updates.length === 0) return { success: true, count: 0 };
+    const ops = updates.map((u) =>
+      this.prisma.video.update({
+        where: { id: u.id },
+        data: {
+          ...(u.title !== undefined ? { title: u.title.trim() } : {}),
+          ...(u.durationSeconds !== undefined ? { durationSeconds: u.durationSeconds } : {}),
+          ...(u.isFreePreview !== undefined ? { isFreePreview: u.isFreePreview } : {}),
+        },
+      }),
+    );
+    await this.prisma.$transaction(ops);
+    return { success: true, count: updates.length };
+  }
+
+  async deleteVideosBulk(videoIds: string[]) {
+    if (!Array.isArray(videoIds) || videoIds.length === 0) return { success: true, count: 0 };
+    await this.prisma.video.updateMany({
+      where: { id: { in: videoIds } },
+      data: { status: RecordStatus.DELETED },
+    });
+    return { success: true, count: videoIds.length };
+  }
+
   async deleteVideo(videoId: string) {
     return this.prisma.video.update({
       where: { id: videoId },

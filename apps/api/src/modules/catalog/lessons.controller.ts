@@ -98,6 +98,20 @@ export class LessonsController {
     return this.lessonsService.addVideosBulk(lessonId, body.videos || []);
   }
 
+  @Put('videos/bulk-update')
+  @ApiOperation({ summary: 'Bulk update video lectures' })
+  @RequirePermission('videos', 'update')
+  async updateVideosBulk(@Body() body: { updates: Array<{ id: string; title?: string; durationSeconds?: number; isFreePreview?: boolean }> }) {
+    return this.lessonsService.updateVideosBulk(body.updates || []);
+  }
+
+  @Post('videos/bulk-delete')
+  @ApiOperation({ summary: 'Bulk delete video lectures' })
+  @RequirePermission('videos', 'delete')
+  async deleteVideosBulk(@Body() body: { ids: string[] }) {
+    return this.lessonsService.deleteVideosBulk(body.ids || []);
+  }
+
   @Put('videos/:videoId')
   @ApiOperation({ summary: 'Update video lecture' })
   @RequirePermission('videos', 'update')

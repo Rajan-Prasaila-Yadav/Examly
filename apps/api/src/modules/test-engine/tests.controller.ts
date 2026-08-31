@@ -352,8 +352,12 @@ export class TestsController {
   @Post('attempts/:attemptId/submit')
   @ApiOperation({ summary: 'Submit live test attempt & calculate final score' })
   @RequirePermission('tests', 'take')
-  async submitAttempt(@Param('attemptId') attemptId: string, @CurrentUser() user: CurrentUserPayload) {
-    return this.testsService.submitAttempt(attemptId, user.userId);
+  async submitAttempt(
+    @Param('attemptId') attemptId: string,
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() body?: { answers?: any },
+  ) {
+    return this.testsService.submitAttempt(attemptId, user.userId, body?.answers);
   }
 
   @Post('attempts/:attemptId/strike')

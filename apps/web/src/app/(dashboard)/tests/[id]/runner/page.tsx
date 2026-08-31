@@ -31,6 +31,9 @@ import {
   Loader2,
   Star,
   Calculator,
+  Trophy,
+  BarChart3,
+  PieChart,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
 import { useAuth } from '@/lib/auth-context';
@@ -396,8 +399,17 @@ export default function LiveTestRunnerPage() {
     setIsSubmitModalOpen(false);
     try {
       if (attemptId && attemptId !== 'attempt-live-demo') {
-        const res = await api.post(`/tests/attempts/${attemptId}/submit`);
-        setSubmitResult(res.data);
+        const res = await api.post(`/tests/attempts/${attemptId}/submit`, { answers: userAnswers });
+        const resultData = res.data || {};
+        const negativeMarks =
+          resultData.negativeMarks !== undefined
+            ? resultData.negativeMarks
+            : Math.abs((resultData.totalWrong || 0) * (test?.negativeMarkRate || 1));
+
+        setSubmitResult({
+          ...resultData,
+          negativeMarks,
+        });
 
         // Immediately fetch post-submission verified questions with step solutions and answer keys
         const [reviewRes, keyRes] = await Promise.all([
@@ -412,11 +424,12 @@ export default function LiveTestRunnerPage() {
           setAnswerKeyData(keyRes.data.answerKey);
         }
       } else {
-        // Mock calculation for offline / demo mode
+        // Calculation fallback
         let correctCount = 0;
         let wrongCount = 0;
         let unans = 0;
         let score = 0;
+        let negDeducted = 0;
 
         questions.forEach((q) => {
           const ans = userAnswers[q.id];
@@ -430,7 +443,9 @@ export default function LiveTestRunnerPage() {
               score += q.marksPositive || 4;
             } else {
               wrongCount++;
-              score -= q.marksNegative || 1;
+              const neg = q.marksNegative || 1;
+              score -= neg;
+              negDeducted += neg;
             }
           }
         });
@@ -444,6 +459,8 @@ export default function LiveTestRunnerPage() {
           totalWrong: wrongCount,
           totalUnanswered: unans,
           percentage: pct,
+          negativeMarks: negDeducted,
+          rank: 1,
           isPassed: score >= (test?.passMarks || 80),
         });
       }
@@ -668,91 +685,248 @@ export default function LiveTestRunnerPage() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // PHASE 3: SUBMITTED RESULT SUMMARY (SCR-STU-14)
+  // PHASE 3: SUBMITTED RESULT SUMMARY (Matching Image 2 Design Pixel-Accurate)
   // ══════════════════════════════════════════════════════════════════════════════
   if (phase === 'RESULT') {
+    const totalMarks = test?.totalMarks || 200;
+    const finalScore = submitResult?.totalScore ?? 0;
+    const pct = submitResult?.percentage ?? (totalMarks > 0 ? Math.round((Math.max(0, finalScore) / totalMarks) * 100) : 0);
+    const circumference = 2 * Math.PI * 46;
+    const strokeDashoffset = circumference - (Math.min(100, Math.max(0, pct)) / 100) * circumference;
+
     return (
-      <div className="max-w-2xl mx-auto py-6 sm:py-8 px-3 sm:px-6 space-y-6">
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm text-center space-y-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-            <Award className="w-7 h-7 sm:w-8 sm:h-8" />
-          </div>
+      <div className="min-h-[90vh] bg-gradient-to-b from-[#e8faea] via-[#f2faf3] to-slate-50 py-8 px-4 flex flex-col items-center justify-center">
+        {/* Top Floating Pill Badge */}
+        <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-700/90 text-white text-xs font-bold shadow-md shadow-emerald-700/20 mb-5">
+          <CheckCircle2 className="w-4 h-4 fill-white text-emerald-700" />
+          <span>Test submitted successfully</span>
+        </div>
 
-          <div>
-            <span className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
-              {submitResult?.isPassed ? '✔ PASSED' : '✔ ATTEMPT RECORDED'}
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">{test?.title || 'Mock Examination'}</h1>
-            <p className="text-xs text-slate-500 mt-1">Your examination answers have been recorded securely.</p>
-          </div>
+        {/* 3D Celebration Hero with Checkmark & Confetti */}
+        <div className="relative mb-3 flex items-center justify-center">
+          {/* Confetti Particles */}
+          <span className="absolute -top-3 -left-6 w-3 h-4 rounded-sm bg-purple-500 rotate-12 animate-pulse" />
+          <span className="absolute top-2 -left-10 w-2 h-4 rounded-sm bg-amber-400 -rotate-45" />
+          <span className="absolute -top-4 right-2 w-3 h-3 rounded-full bg-blue-500" />
+          <span className="absolute top-4 -right-10 w-3.5 h-2 rounded-sm bg-emerald-400 rotate-45" />
+          <span className="absolute bottom-0 -left-8 w-2.5 h-2.5 rounded-sm bg-rose-400 rotate-12" />
+          <span className="absolute bottom-1 -right-8 w-3 h-3 rounded-full bg-amber-500" />
 
-          {/* Scorecard Hero */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-brand-600 to-accent-indigo text-white shadow-xl space-y-2">
-            <span className="text-xs font-medium text-brand-200">Final Score</span>
-            <div className="text-3xl sm:text-4xl font-extrabold font-mono">
-              {submitResult?.totalScore ?? 0} <span className="text-base sm:text-lg font-normal text-brand-200">/ {test?.totalMarks || 200}</span>
+          {/* 3D Checkmark Orb */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-b from-[#4ade80] to-[#15803d] p-1.5 shadow-[0_16px_32px_rgba(22,163,74,0.35),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center relative z-10">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#22c55e] via-[#16a34a] to-[#15803d] flex items-center justify-center shadow-[inset_0_-4px_6px_rgba(0,0,0,0.25)]">
+              <Check className="w-12 h-12 sm:w-14 sm:h-14 text-white stroke-[3.5]" />
             </div>
-            <p className="text-xs text-brand-100 font-medium pt-1 sm:pt-2">
-              Time Taken: <strong>{formatTimer(elapsedSeconds)}</strong> • Percentage: <strong>{submitResult?.percentage ?? 0}%</strong>
-            </p>
           </div>
+        </div>
 
-          {/* Breakdown Grid */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 text-xs">
-            <div className="p-3 sm:p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col justify-center">
-              <span className="text-[10px] text-emerald-700 block font-medium">Correct</span>
-              <span className="text-base sm:text-lg font-bold text-emerald-800 font-mono">
-                {submitResult?.totalCorrect ?? 0} <span className="text-[10px] font-normal hidden sm:inline">Questions</span>
+        {/* Title & Subtitle */}
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-center">
+          Test Submitted Successfully!
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600 font-medium text-center mt-1">
+          Your answers have been recorded securely.
+        </p>
+
+        {/* White Results Card (Exact Layout from Image 2) */}
+        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-5 sm:p-7 mt-5 space-y-5">
+          {/* Top Grab Bar & Status Badge */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-12 h-1 bg-slate-200 rounded-full" />
+            <div className="w-full flex justify-end">
+              <span
+                className={`px-3.5 py-1 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-sm ${
+                  submitResult?.isPassed
+                    ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200'
+                    : 'bg-amber-100/90 text-amber-800 border border-amber-200'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4 fill-emerald-600 text-white" />
+                {submitResult?.isPassed ? 'PASSED' : 'NEEDS PRACTICE'}
               </span>
             </div>
-            <div className="p-3 sm:p-4 bg-rose-50 rounded-2xl border border-rose-200 flex flex-col justify-center">
-              <span className="text-[10px] text-rose-700 block font-medium">Wrong (-ve)</span>
-              <span className="text-base sm:text-lg font-bold text-rose-800 font-mono">
-                {submitResult?.totalWrong ?? 0} <span className="text-[10px] font-normal hidden sm:inline">Questions</span>
-              </span>
+          </div>
+
+          {/* Main Middle Section: Circular Gauge (Left) + 2x2 Stats Grid (Right) */}
+          <div className="grid grid-cols-12 gap-3 items-center">
+            {/* Left: Circular Progress Gauge */}
+            <div className="col-span-6 flex flex-col items-center justify-center">
+              <div className="relative w-36 h-36 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 110 110">
+                  <circle
+                    cx="55"
+                    cy="55"
+                    r="46"
+                    stroke="#e2e8f0"
+                    strokeWidth="8"
+                    fill="none"
+                  />
+                  <circle
+                    cx="55"
+                    cy="55"
+                    r="46"
+                    stroke="url(#scoreGradient)"
+                    strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                    fill="none"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#4f46e5" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                {/* Score in Center */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+                      {finalScore}
+                    </span>
+                    <span className="text-xs font-bold text-slate-400 font-mono">
+                      / {totalMarks}
+                    </span>
+                  </div>
+                  <span className="text-xl font-black text-indigo-600 font-mono mt-0.5">
+                    {pct}%
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="p-3 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-center">
-              <span className="text-[10px] text-slate-600 block font-medium">Unanswered</span>
-              <span className="text-base sm:text-lg font-bold text-slate-700 font-mono">
-                {submitResult?.totalUnanswered ?? 0}
-              </span>
+
+            {/* Right: 2x2 Stats Grid with Styled Icons */}
+            <div className="col-span-6 grid grid-cols-2 gap-2 text-center">
+              {/* Time Taken */}
+              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-1 shadow-inner">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500">Time Taken</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{formatTimer(elapsedSeconds)}</span>
+              </div>
+
+              {/* Percentage */}
+              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1 shadow-inner font-bold text-[11px]">
+                  %
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500">Percentage</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{pct}%</span>
+              </div>
+
+              {/* Correct */}
+              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500">Correct</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalCorrect ?? 0}</span>
+              </div>
+
+              {/* Wrong */}
+              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center mb-1">
+                  <XCircle className="w-4 h-4 text-rose-600 fill-rose-100" />
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500">Wrong</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{submitResult?.totalWrong ?? 0}</span>
+              </div>
             </div>
           </div>
 
-          {/* Action Buttons (SCR-STU-14) */}
-          <div className="space-y-3 pt-2">
+          {/* Bottom 4-Item Horizontal Stat Strip */}
+          <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50/70 grid grid-cols-4 gap-1 items-center text-center">
+            {/* Unanswered */}
+            <div className="flex flex-col items-center">
+              <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-xs font-black flex items-center justify-center mb-0.5">
+                ?
+              </div>
+              <span className="text-[9px] text-slate-500 font-semibold">Unanswered</span>
+              <span className="text-xs font-bold text-slate-900 font-mono">{submitResult?.totalUnanswered ?? 0}</span>
+            </div>
+
+            {/* Negative */}
+            <div className="flex flex-col items-center">
+              <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 text-xs font-black flex items-center justify-center mb-0.5">
+                -
+              </div>
+              <span className="text-[9px] text-slate-500 font-semibold">Negative</span>
+              <span className="text-xs font-bold text-rose-600 font-mono">
+                {submitResult?.negativeMarks ? `-${submitResult.negativeMarks}` : '-0'}
+              </span>
+            </div>
+
+            {/* Rank */}
+            <div className="flex flex-col items-center">
+              <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs flex items-center justify-center mb-0.5">
+                <Trophy className="w-3.5 h-3.5 text-purple-600" />
+              </div>
+              <span className="text-[9px] text-slate-500 font-semibold">Rank</span>
+              <span className="text-xs font-bold text-purple-700 font-mono">
+                #{submitResult?.rank ?? 1}
+              </span>
+            </div>
+
+            {/* Leaderboard */}
             <button
-              onClick={() => {
-                setUserAnswers({});
-                setPastAttempt(null);
-                setSubmitResult(null);
-                handleStartExam();
-              }}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+              type="button"
+              onClick={() => router.push(`/tests/${testId}?tab=leaderboard`)}
+              className="flex flex-col items-center text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer group"
             >
-              <RotateCcw className="w-4 h-4" /> Start New Attempt / Retake Exam
+              <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center mb-0.5 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
+              </div>
+              <span className="text-[9px] font-bold text-indigo-600 group-hover:underline flex items-center gap-0.5">
+                Leaderboard <ChevronRight className="w-2.5 h-2.5" />
+              </span>
             </button>
+          </div>
 
+          {/* Action Buttons */}
+          <div className="space-y-3 pt-1">
+            {/* Primary: Check Answers */}
             <button
+              type="button"
               onClick={() => setPhase('REVIEW')}
-              className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <Eye className="w-4 h-4" /> Check Answers & Step Solutions
+              <FileText className="w-4 h-4" /> Check Answers
             </button>
 
+            {/* Secondary: View Leaderboard */}
             <button
-              onClick={() => setPhase('ANSWER_KEY')}
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
+              type="button"
+              onClick={() => router.push(`/tests/${testId}?tab=leaderboard`)}
+              className="w-full py-3.5 bg-white hover:bg-indigo-50/50 border-2 border-indigo-600 text-indigo-600 font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> View Answer Key & Calculation Table
+              <Trophy className="w-4 h-4 text-indigo-600" /> View Leaderboard
             </button>
 
-            <button
-              onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
-              className="w-full py-2.5 text-slate-500 hover:text-slate-800 text-xs font-semibold"
-            >
-              {isStudent ? '← Back to My Mock Tests' : '← Back to Test Builder'}
-            </button>
+            {/* Retake Exam & Return Link */}
+            <div className="flex items-center justify-between pt-2 px-1 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserAnswers({});
+                  setPastAttempt(null);
+                  setSubmitResult(null);
+                  handleStartExam();
+                }}
+                className="text-slate-500 hover:text-emerald-700 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Start Retake Exam
+              </button>
+              <Link
+                href={isStudent ? '/tests' : '/tests/builder'}
+                className="text-slate-500 hover:text-slate-900 font-semibold transition-colors"
+              >
+                ← Back to My Tests
+              </Link>
+            </div>
           </div>
         </div>
       </div>
