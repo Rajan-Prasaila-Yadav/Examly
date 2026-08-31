@@ -317,21 +317,26 @@ function LiveTestRunnerContent() {
         if (attemptIdParam) queryParams.set('attemptId', attemptIdParam);
         const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
-        const [testRes, keyRes] = await Promise.all([
-          api.get(`/tests/${testId}`, { bypassCache: true }),
+        const [testRes, keyRes, attemptReviewRes] = await Promise.all([
+          api.get(`/tests/${testId}`, { bypassCache: true }).catch(() => null),
           api.get(`/tests/${testId}/answer-key${queryString}`, { bypassCache: true }).catch(() => null),
+          attemptIdParam
+            ? api.get(`/tests/attempts/${attemptIdParam}/review`, { bypassCache: true }).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         const testData = testRes?.data || null;
         let loadedQuestions = flattenQuestions(testData);
 
-        if (keyRes?.data?.questions && keyRes.data.questions.length > 0) {
+        if (attemptReviewRes?.data?.questions && attemptReviewRes.data.questions.length > 0) {
+          loadedQuestions = attemptReviewRes.data.questions;
+        } else if (keyRes?.data?.questions && keyRes.data.questions.length > 0) {
           loadedQuestions = keyRes.data.questions;
         }
 
         // Restore user answers in atomic pass to eliminate UI jumping / delayed renders
         const restored: Record<string, { selectedOptionIds: string[]; isMarkedForReview: boolean }> = {};
-        (keyRes?.data?.questions || keyRes?.data?.answerKey || []).forEach((q: any) => {
+        (attemptReviewRes?.data?.questions || keyRes?.data?.questions || keyRes?.data?.answerKey || []).forEach((q: any) => {
           const sIds = q.selectedOptionIds || (q.options || []).filter((o: any) => o.isSelected).map((o: any) => o.id) || [];
           if (sIds.length > 0 || q.isMarkedForReview) {
             restored[q.id || q.questionId] = {
@@ -348,16 +353,18 @@ function LiveTestRunnerContent() {
         if (keyRes?.data?.answerKey) {
           setAnswerKeyData(keyRes.data.answerKey);
         }
-        if (keyRes?.data?.result) {
-          setPastAttempt(keyRes.data.result);
-          setSubmitResult(keyRes.data.result);
-          if (keyRes.data.result.durationSeconds) {
-            setElapsedSeconds(keyRes.data.result.durationSeconds);
+
+        const evaluatedResult = attemptReviewRes?.data?.result || keyRes?.data?.result || null;
+        if (evaluatedResult) {
+          setPastAttempt(evaluatedResult);
+          setSubmitResult(evaluatedResult);
+          if (evaluatedResult.durationSeconds) {
+            setElapsedSeconds(evaluatedResult.durationSeconds);
           }
         }
 
         // Check if there is an active running attempt to resume automatically (e.g. after refresh or device restart)
-        if (!viewParam && !keyRes?.data?.result) {
+        if (!viewParam && !evaluatedResult) {
           try {
             const startRes = await api.post(`/tests/${testId}/start`);
             if (startRes.data?.attemptId) {
@@ -605,7 +612,7 @@ function LiveTestRunnerContent() {
         // Immediately fetch post-submission verified questions with step solutions and answer keys
         const [reviewRes, keyRes] = await Promise.all([
           api.get(`/tests/attempts/${attemptId}/review`, { bypassCache: true }).catch(() => null),
-          api.get(`/tests/${testId}/answer-key`, { bypassCache: true }).catch(() => null),
+          api.get(`/tests/${testId}/answer-key?attemptId=${attemptId}`, { bypassCache: true }).catch(() => null),
         ]);
 
         if (reviewRes?.data?.questions) {
