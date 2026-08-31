@@ -39,6 +39,17 @@ export class SubjectsService {
       },
       include: {
         batch: true,
+        tests: {
+          where: {
+            status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+            ...(isStudent ? { isPublished: true } : {}),
+          },
+          include: {
+            config: true,
+            _count: { select: { sections: true, attempts: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
         lessons: {
           where: {
             status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
@@ -58,6 +69,11 @@ export class SubjectsService {
                 status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
                 ...(isStudent ? { isPublished: true } : {}),
               },
+              include: {
+                config: true,
+                _count: { select: { sections: true, attempts: true } },
+              },
+              orderBy: { createdAt: 'desc' },
             },
           },
           orderBy: { sortOrder: 'asc' },

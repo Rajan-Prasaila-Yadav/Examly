@@ -25,6 +25,7 @@ export class TestsService {
           config: true,
           batch: { select: { name: true, code: true } },
           subject: { select: { name: true } },
+          lesson: { select: { id: true, name: true } },
           sections: {
             include: {
               _count: { select: { questions: true } },
@@ -56,6 +57,7 @@ export class TestsService {
         config: true,
         batch: { select: { name: true, code: true } },
         subject: { select: { name: true } },
+        lesson: { select: { id: true, name: true } },
         sections: {
           include: {
             _count: { select: { questions: true } },

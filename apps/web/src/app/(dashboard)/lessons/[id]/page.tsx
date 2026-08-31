@@ -112,15 +112,25 @@ export default function LessonDetailPage() {
   const [editLessonName, setEditLessonName] = useState('');
   const [editLessonDesc, setEditLessonDesc] = useState('');
 
-  const fetchLessonDetail = async () => {
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchLessonDetail = async (retryCount = 0) => {
     try {
-      const res = await api.get(`/lessons/${lessonId}`);
-      setLesson(res.data);
-      setEditLessonName(res.data.name);
-      setEditLessonDesc(res.data.description || '');
-    } catch (e) {
-      console.error(e);
-    } finally {
+      setFetchError(null);
+      const res = await api.get(`/lessons/${lessonId}`, { bypassCache: true });
+      if (res.data) {
+        setLesson(res.data);
+        setEditLessonName(res.data.name);
+        setEditLessonDesc(res.data.description || '');
+        setIsLoading(false);
+      }
+    } catch (e: any) {
+      console.error('Failed to load lesson detail', e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchLessonDetail(retryCount + 1), 400);
+        return;
+      }
+      setFetchError(e?.response?.data?.message || 'Unable to load lesson details.');
       setIsLoading(false);
     }
   };
@@ -129,7 +139,7 @@ export default function LessonDetailPage() {
     if (lessonId) {
       fetchLessonDetail();
     }
-  }, [lessonId]);
+  }, [lessonId, user?.id]);
 
   // Real-time YouTube Metadata Detection & Auto-fill
   const handleVideoUrlChange = async (url: string) => {
@@ -457,11 +467,33 @@ export default function LessonDetailPage() {
 
   if (!lesson) {
     return (
-      <div className="text-center py-12">
-        <p className="text-sm text-slate-500">Lesson not found.</p>
-        <Link href="/batches" className="text-brand-600 text-xs font-semibold mt-2 inline-block">
-          ← Back to Batches
-        </Link>
+      <div className="max-w-lg mx-auto my-16 p-8 bg-white border border-slate-200/80 rounded-3xl shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto text-xl font-bold">
+          !
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-slate-900">Lesson Not Found or Loading</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            {fetchError || 'We could not load this lesson. It might be refreshing or requires authentication.'}
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => {
+              setIsLoading(true);
+              fetchLessonDetail();
+            }}
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+          >
+            🔄 Try Again
+          </button>
+          <Link
+            href="/batches"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+          >
+            ← Back to Batches
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1157,7 +1189,7 @@ export default function LessonDetailPage() {
             </div>
             {!isStudent && (
               <Link
-                href={`/tests/create?lessonId=${lessonId}`}
+                href={`/tests/create?batchId=${lesson.subject?.batchId || ''}&subjectId=${lesson.subjectId || ''}&lessonId=${lessonId}&scope=LESSON_LEVEL`}
                 className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
               >
                 <Plus className="w-3.5 h-3.5" /> Create Chapter Test

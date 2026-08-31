@@ -313,11 +313,32 @@ export default function TestsPortalPage() {
               }`}
             >
               <div className="space-y-3">
-                {/* Header Badge Strip */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200/60 truncate max-w-[150px]">
-                      {t.batch?.name || 'General Batch'}
+                {/* Header Badge Strip with Hierarchy Breadcrumbs */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-mono text-[10px] font-bold border border-slate-200/80 truncate max-w-[120px]">
+                      {t.batch?.name || 'Batch'}
+                    </span>
+                    {t.subject && (
+                      <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200/80 truncate max-w-[120px]">
+                        {t.subject.name}
+                      </span>
+                    )}
+                    {t.lesson && (
+                      <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200/80 truncate max-w-[120px]">
+                        {t.lesson.name}
+                      </span>
+                    )}
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold font-mono ${
+                        t.testType === 'LESSON_LEVEL'
+                          ? 'bg-purple-100/70 text-purple-800'
+                          : t.testType === 'SUBJECT_LEVEL'
+                          ? 'bg-blue-100/70 text-blue-800'
+                          : 'bg-indigo-100/70 text-indigo-800'
+                      }`}
+                    >
+                      {t.testType === 'LESSON_LEVEL' ? 'CHAPTER' : t.testType === 'SUBJECT_LEVEL' ? 'SUBJECT' : 'BATCH MOCK'}
                     </span>
                   </div>
 

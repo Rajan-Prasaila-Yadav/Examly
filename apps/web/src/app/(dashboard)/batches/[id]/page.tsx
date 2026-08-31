@@ -139,15 +139,15 @@ export default function BatchDetailPage() {
   // Tests
   const [batchTests, setBatchTests] = useState<any[]>([]);
 
-  const fetchBatchDetail = async () => {
+  const fetchBatchDetail = async (retryCount = 0) => {
     try {
       const [batchRes, studentsRes, teachersRes, testsRes, allBatchesRes, allTeachersRes] = await Promise.all([
-        api.get(`/batches/${batchId}`),
-        api.get(`/batches/${batchId}/students`).catch(() => ({ data: [] })),
-        api.get(`/batches/${batchId}/teachers`).catch(() => ({ data: [] })),
-        api.get(`/batches/${batchId}/tests`).catch(() => ({ data: [] })),
-        api.get('/batches').catch(() => ({ data: [] })),
-        api.get('/users/teachers').catch(() => ({ data: [] })),
+        api.get(`/batches/${batchId}`, { bypassCache: true }),
+        api.get(`/batches/${batchId}/students`, { bypassCache: true }).catch(() => ({ data: [] })),
+        api.get(`/batches/${batchId}/teachers`, { bypassCache: true }).catch(() => ({ data: [] })),
+        api.get(`/batches/${batchId}/tests`, { bypassCache: true }).catch(() => ({ data: [] })),
+        api.get('/batches', { bypassCache: true }).catch(() => ({ data: [] })),
+        api.get('/users/teachers', { bypassCache: true }).catch(() => ({ data: [] })),
       ]);
 
       const fetchedStudents = (studentsRes.data && studentsRes.data.length > 0)
@@ -171,15 +171,15 @@ export default function BatchDetailPage() {
       });
 
       setBatch(batchRes.data);
-      setSettingsName(batchRes.data.name || '');
-      setSettingsCode(batchRes.data.code || '');
-      setSettingsPrice(batchRes.data.priceNpr?.toString() || '0');
-      setSettingsDesc(batchRes.data.description || '');
-      setSettingsStatus(batchRes.data.status || 'ACTIVE');
-      if (batchRes.data.startDate) {
+      setSettingsName(batchRes.data?.name || '');
+      setSettingsCode(batchRes.data?.code || '');
+      setSettingsPrice(batchRes.data?.priceNpr?.toString() || '0');
+      setSettingsDesc(batchRes.data?.description || '');
+      setSettingsStatus(batchRes.data?.status || 'ACTIVE');
+      if (batchRes.data?.startDate) {
         setSettingsStartDate(new Date(batchRes.data.startDate).toISOString().slice(0, 10));
       }
-      if (batchRes.data.endDate) {
+      if (batchRes.data?.endDate) {
         setSettingsEndDate(new Date(batchRes.data.endDate).toISOString().slice(0, 10));
       }
 
@@ -188,7 +188,11 @@ export default function BatchDetailPage() {
       setBatchTests(fetchedTests);
       setAllBatches(allBatchesRes.data || []);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to fetch batch details', e);
+      if (retryCount < 2) {
+        setTimeout(() => fetchBatchDetail(retryCount + 1), 400);
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +202,7 @@ export default function BatchDetailPage() {
     if (batchId) {
       fetchBatchDetail();
     }
-  }, [batchId]);
+  }, [batchId, user?.id]);
 
   const generateFacultyCode = () => `TCH-${Math.floor(100 + Math.random() * 900)}`;
 

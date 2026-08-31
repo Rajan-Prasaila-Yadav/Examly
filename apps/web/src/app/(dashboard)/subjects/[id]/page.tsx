@@ -46,6 +46,7 @@ export default function SubjectDetailPage() {
 
   const [subject, setSubject] = useState<any>(null);
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<'curriculum' | 'tests'>('curriculum');
   const [isLoading, setIsLoading] = useState(true);
 
   // Lesson Modals
@@ -58,13 +59,19 @@ export default function SubjectDetailPage() {
   // Drag state
   const [draggedLessonIdx, setDraggedLessonIdx] = useState<number | null>(null);
 
-  const fetchSubjectDetail = async () => {
+  const fetchSubjectDetail = async (retryCount = 0) => {
     try {
       setIsLoading(true);
-      const res = await api.get(`/subjects/${subjectId}`);
-      setSubject(res.data);
+      const res = await api.get(`/subjects/${subjectId}`, { bypassCache: true });
+      if (res.data) {
+        setSubject(res.data);
+      }
     } catch (err) {
       console.error('Failed to fetch subject details', err);
+      if (retryCount < 2) {
+        setTimeout(() => fetchSubjectDetail(retryCount + 1), 400);
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +81,7 @@ export default function SubjectDetailPage() {
     if (subjectId) {
       fetchSubjectDetail();
     }
-  }, [subjectId]);
+  }, [subjectId, user?.id]);
 
   // Create / Update Lesson
   const handleSaveLesson = async (e: React.FormEvent) => {
@@ -243,17 +250,25 @@ export default function SubjectDetailPage() {
 
             {/* Quick Actions */}
             {!isStudent && (
-              <button
-                onClick={() => {
-                  setEditingLesson(null);
-                  setLessonName('');
-                  setLessonDescription('');
-                  setIsLessonModalOpen(true);
-                }}
-                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-brand-600/20 transition-all shrink-0"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" /> Add Chapter / Lesson
-              </button>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <Link
+                  href={`/tests/create?batchId=${subject.batchId}&subjectId=${subjectId}&scope=SUBJECT_LEVEL`}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all shrink-0"
+                >
+                  <FileCheck2 className="w-4 h-4 stroke-[2.5]" /> + Create Subject Test
+                </Link>
+                <button
+                  onClick={() => {
+                    setEditingLesson(null);
+                    setLessonName('');
+                    setLessonDescription('');
+                    setIsLessonModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-brand-600/20 transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" /> + Add Chapter / Lesson
+                </button>
+              </div>
             )}
           </div>
 
@@ -294,15 +309,53 @@ export default function SubjectDetailPage() {
                 <FileCheck2 className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs text-blue-700 font-semibold">Chapter Tests</div>
-                <div className="text-base font-extrabold text-blue-950 font-mono">{totalTests}</div>
+                <div className="text-xs text-blue-700 font-semibold">Subject Tests</div>
+                <div className="text-base font-extrabold text-blue-950 font-mono">{subject.tests?.length || 0}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Chapters / Lessons Section */}
+      {/* Main Tab Navigation: Curriculum vs Subject Tests */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 rounded-2xl w-max">
+        <button
+          onClick={() => setActiveMainTab('curriculum')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeMainTab === 'curriculum'
+              ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Curriculum & Chapters</span>
+          <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-mono font-bold ${
+            activeMainTab === 'curriculum' ? 'bg-brand-50 text-brand-700' : 'bg-slate-300/60 text-slate-700'
+          }`}>
+            {lessons.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveMainTab('tests')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeMainTab === 'tests'
+              ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+          }`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+          <span>Subject Tests & Quizzes</span>
+          <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-mono font-bold ${
+            activeMainTab === 'tests' ? 'bg-brand-50 text-brand-700' : 'bg-slate-300/60 text-slate-700'
+          }`}>
+            {subject.tests?.length || 0}
+          </span>
+        </button>
+      </div>
+
+      {/* TAB 1: Chapters / Lessons Section */}
+      {activeMainTab === 'curriculum' && (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -578,6 +631,105 @@ export default function SubjectDetailPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* TAB 2: Subject Tests & Quizzes Section */}
+      {activeMainTab === 'tests' && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <FileCheck2 className="w-4 h-4 text-blue-600" />
+                <h2 className="text-base font-extrabold text-slate-900">
+                  {subject.name} Comprehensive Tests ({subject.tests?.length || 0})
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500">
+                Full-subject practice examinations, revisions, and assessment tests for {subject.name}.
+              </p>
+            </div>
+
+            {!isStudent && (
+              <Link
+                href={`/tests/create?batchId=${subject.batchId}&subjectId=${subjectId}&scope=SUBJECT_LEVEL`}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all shrink-0 self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" /> Create Subject Test
+              </Link>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {(subject.tests || []).map((t: any) => (
+              <div
+                key={t.id}
+                className="p-5 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between hover:border-brand-300 hover:shadow-md transition-all gap-4"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      SUBJECT TEST
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                        t.testStatus === 'LIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {t.testStatus || (t.isPublished ? 'LIVE' : 'DRAFT')}
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">{t.title}</h3>
+                  {t.description && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">{t.description}</p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2.5 mt-3 text-[11px] text-slate-600 font-mono">
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200/70">
+                      ⏳ {t.durationMinutes} mins
+                    </span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200/70">
+                      🎯 {t.totalMarks} Marks
+                    </span>
+                    <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-200/70">
+                      📝 {t.passMarks} Pass
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                  <Link
+                    href={`/tests/${t.id}`}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                  >
+                    Start / Take Test <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+
+            {(!subject.tests || subject.tests.length === 0) && (
+              <div className="col-span-full bg-slate-50/60 rounded-3xl border border-dashed border-slate-300 p-12 text-center">
+                <FileCheck2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                <h3 className="text-sm font-bold text-slate-800">No subject tests created yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Create full-subject revision mock exams or comprehensive practice drills for {subject.name}.
+                </p>
+                {!isStudent && (
+                  <Link
+                    href={`/tests/create?batchId=${subject.batchId}&subjectId=${subjectId}&scope=SUBJECT_LEVEL`}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl inline-flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Create First Subject Test
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Create / Edit Lesson Modal */}
       {isLessonModalOpen && (

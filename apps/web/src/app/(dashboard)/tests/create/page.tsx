@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -110,6 +110,12 @@ function formatPrettyDateTime(dateStr: string, timeStr: string): string {
 
 export default function CreateTestWizardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramBatchId = searchParams.get('batchId') || '';
+  const paramSubjectId = searchParams.get('subjectId') || '';
+  const paramLessonId = searchParams.get('lessonId') || '';
+  const paramScope = (searchParams.get('scope') as any) || '';
+
   const { user } = useAuth();
   const isStudent =
     user?.role === 'STUDENT' ||
@@ -195,14 +201,116 @@ export default function CreateTestWizardPage() {
   // Step 4: Publish mode selection
   const [publishAction, setPublishAction] = useState<'INSTANT' | 'SCHEDULED' | 'DRAFT'>('INSTANT');
 
+  // ── Context Auto-Detection from URL params ──
   useEffect(() => {
-    api.get('/batches').then((res) => {
-      setBatches(res.data);
-      if (res.data.length > 0) {
-        setBatchId(res.data[0].id);
+    const initContext = async () => {
+      try {
+        const batchesRes = await api.get('/batches');
+        const bList = batchesRes.data || [];
+        setBatches(bList);
+
+        if (paramLessonId) {
+          setLessonId(paramLessonId);
+          setTestScope('LESSON_LEVEL');
+          const lessonRes = await api.get(`/lessons/${paramLessonId}`);
+          if (lessonRes.data) {
+            const sId = lessonRes.data.subjectId;
+            const bId = lessonRes.data.subject?.batchId;
+            if (bId) setBatchId(bId);
+            if (sId) setSubjectId(sId);
+
+            if (bId) {
+              const subRes = await api.get(`/subjects/batch/${bId}`);
+              setSubjects(subRes.data || []);
+            }
+            if (sId) {
+              const subDetail = await api.get(`/subjects/${sId}`);
+              setLessons(subDetail.data?.lessons || []);
+            }
+          }
+        } else if (paramSubjectId) {
+          setSubjectId(paramSubjectId);
+          setTestScope('SUBJECT_LEVEL');
+          const subRes = await api.get(`/subjects/${paramSubjectId}`);
+          if (subRes.data) {
+            const bId = subRes.data.batchId;
+            if (bId) setBatchId(bId);
+            setLessons(subRes.data.lessons || []);
+            if (bId) {
+              const subsRes = await api.get(`/subjects/batch/${bId}`);
+              setSubjects(subsRes.data || []);
+            }
+          }
+        } else if (paramBatchId) {
+          setBatchId(paramBatchId);
+          setTestScope(paramScope === 'SUBJECT_LEVEL' || paramScope === 'LESSON_LEVEL' ? paramScope : 'BATCH_LEVEL');
+          const subsRes = await api.get(`/subjects/batch/${paramBatchId}`);
+          setSubjects(subsRes.data || []);
+          if (subsRes.data?.length > 0) {
+            setSubjectId(subsRes.data[0].id);
+            const subDetail = await api.get(`/subjects/${subsRes.data[0].id}`);
+            setLessons(subDetail.data?.lessons || []);
+            if (subDetail.data?.lessons?.length > 0) {
+              setLessonId(subDetail.data.lessons[0].id);
+            }
+          }
+        } else if (bList.length > 0) {
+          const firstBId = bList[0].id;
+          setBatchId(firstBId);
+          const subsRes = await api.get(`/subjects/batch/${firstBId}`);
+          setSubjects(subsRes.data || []);
+          if (subsRes.data?.length > 0) {
+            setSubjectId(subsRes.data[0].id);
+            const subDetail = await api.get(`/subjects/${subsRes.data[0].id}`);
+            setLessons(subDetail.data?.lessons || []);
+            if (subDetail.data?.lessons?.length > 0) {
+              setLessonId(subDetail.data.lessons[0].id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error auto-detecting test context', err);
       }
-    }).catch(console.error);
-  }, []);
+    };
+
+    initContext();
+  }, [paramBatchId, paramSubjectId, paramLessonId, paramScope]);
+
+  const handleBatchChange = async (newBatchId: string) => {
+    setBatchId(newBatchId);
+    setSubjectId('');
+    setLessonId('');
+    setLessons([]);
+    try {
+      const res = await api.get(`/subjects/batch/${newBatchId}`);
+      setSubjects(res.data || []);
+      if (res.data?.length > 0) {
+        const firstSubId = res.data[0].id;
+        setSubjectId(firstSubId);
+        const subRes = await api.get(`/subjects/${firstSubId}`);
+        setLessons(subRes.data?.lessons || []);
+        if (subRes.data?.lessons?.length > 0) {
+          setLessonId(subRes.data.lessons[0].id);
+        }
+      }
+    } catch (e) {
+      setSubjects([]);
+    }
+  };
+
+  const handleSubjectChange = async (newSubjectId: string) => {
+    setSubjectId(newSubjectId);
+    setLessonId('');
+    try {
+      const res = await api.get(`/subjects/${newSubjectId}`);
+      setLessons(res.data?.lessons || []);
+      if (res.data?.lessons?.length > 0) {
+        setLessonId(res.data.lessons[0].id);
+      }
+    } catch (e) {
+      setLessons([]);
+    }
+  };
 
   const optionCountNum = optionsPerQuestion === 'Custom' ? 4 : Number(optionsPerQuestion) || 4;
   const defaultQType = correctAnswerType === 'MULTIPLE' ? 'MULTIPLE_CORRECT' : 'SINGLE_CORRECT';
@@ -639,20 +747,72 @@ export default function CreateTestWizardPage() {
             </div>
           </div>
 
-          {/* Target Batch */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Assign Target Batch *</label>
-            <select
-              value={batchId}
-              onChange={(e) => setBatchId(e.target.value)}
-              className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none"
-            >
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
+          {/* Target Academic Hierarchy Selectors (Cascading Context) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-800">
+                Academic Curriculum Hierarchy Binding *
+              </label>
+              <span className="text-[11px] font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                {testScope === 'BATCH_LEVEL' ? 'Batch Scope' : testScope === 'SUBJECT_LEVEL' ? 'Subject Scope' : 'Chapter / Lesson Scope'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Batch Selector */}
+              <div className={testScope === 'BATCH_LEVEL' ? 'sm:col-span-3' : testScope === 'SUBJECT_LEVEL' ? 'sm:col-span-1' : 'sm:col-span-1'}>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Target Academic Batch *</label>
+                <select
+                  value={batchId}
+                  onChange={(e) => handleBatchChange(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                >
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject Selector */}
+              {testScope !== 'BATCH_LEVEL' && (
+                <div className={testScope === 'SUBJECT_LEVEL' ? 'sm:col-span-2' : 'sm:col-span-1'}>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Target Subject *</label>
+                  <select
+                    value={subjectId}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Lesson Selector */}
+              {testScope === 'LESSON_LEVEL' && (
+                <div className="sm:col-span-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Target Chapter / Lesson *</label>
+                  <select
+                    value={lessonId}
+                    onChange={(e) => setLessonId(e.target.value)}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  >
+                    <option value="">-- Select Chapter --</option>
+                    {lessons.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Schedule Window & Timing */}
