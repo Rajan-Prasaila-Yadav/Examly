@@ -52,47 +52,57 @@ interface ParsedSolutionStep {
 
 function parseSolutionSteps(rawText: string | null | undefined): ParsedSolutionStep[] {
   if (!rawText || !rawText.trim()) return [];
-  const text = rawText.trim();
 
-  // Pattern 1: Check for explicit step headers like Step 1, Step 2, ①, ②, 1., 2.
-  const hasStepMarkers =
-    /step\s*\d+/i.test(text) ||
-    /[①②③④⑤⑥⑦⑧⑨⑩]/.test(text) ||
-    /(?:^|\n)\s*\d+[\.)]\s+/.test(text);
+  // Clean HTML tags & unescape entities
+  const text = rawText
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p>/gi, '\n\n')
+    .replace(/<\/?(p|div|span|strong|b|em|i)[^>]*>/gi, '')
+    .trim();
 
-  if (hasStepMarkers) {
-    const rawSteps = text.split(/(?=(?:Step\s*\d+[:.]?|\b\d+[\.)]\s+|[①②③④⑤⑥⑦⑧⑨⑩]))/i);
-    const validSteps = rawSteps.map((s) => s.trim()).filter(Boolean);
+  // Pattern: Strict line-start step markers (Step 1, Step 2, ①, ②, (1), (2), or "1. <Text>")
+  // Crucial: Must start at newline or beginning of string, never in middle of formula e.g. 3(1) + 2(16)
+  const stepSplitRegex = /(?:^|\n)\s*(?=(?:Step\s*\d+[:.]?|[①②③④⑤⑥⑦⑧⑨⑩]|\(\d+\)\s+|(?:\d+\.\s+[A-Za-z])))/i;
+  const rawSegments = text.split(stepSplitRegex).map((s) => s.trim()).filter(Boolean);
+
+  if (rawSegments.length > 1) {
+    const validSteps: ParsedSolutionStep[] = [];
+
+    rawSegments.forEach((segment) => {
+      // Extract step header if present
+      const headerMatch = segment.match(/^(?:Step\s*\d+[:.]?|[①②③④⑤⑥⑦⑧⑨⑩]|\(\d+\)|\d+\.)\s*(.*)$/is);
+      const cleanContent = headerMatch ? headerMatch[1].trim() : segment;
+
+      // Ignore trivial or orphaned fragments
+      if (!cleanContent || cleanContent.length < 2) {
+        return;
+      }
+
+      // Extract optional title from first line
+      const lines = cleanContent.split('\n');
+      let title: string | undefined;
+      let body = cleanContent;
+
+      if (lines.length > 1 && lines[0].length < 90 && !lines[0].includes('=')) {
+        title = lines[0].trim().replace(/[:.]+$/, '');
+        body = lines.slice(1).join('\n').trim();
+      }
+
+      validSteps.push({
+        stepNumber: validSteps.length + 1,
+        title,
+        content: body || cleanContent,
+      });
+    });
 
     if (validSteps.length > 1) {
-      return validSteps.map((stepStr, idx) => {
-        let title: string | undefined;
-        let content = stepStr;
-
-        const match = stepStr.match(/^(?:Step\s*\d+[:.]?|\d+[\.)]\s+|[①②③④⑤⑥⑦⑧⑨⑩])\s*([^\n]+)?\n*([\s\S]*)$/i);
-        if (match) {
-          const firstLine = match[1]?.trim();
-          const rest = match[2]?.trim();
-          if (firstLine && rest) {
-            title = firstLine;
-            content = rest;
-          } else if (firstLine && !rest) {
-            content = firstLine;
-          }
-        }
-
-        return {
-          stepNumber: idx + 1,
-          title,
-          content: content || stepStr,
-        };
-      });
+      return validSteps;
     }
   }
 
-  // Pattern 2: Multi-paragraph equations/calculations
-  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  if (paragraphs.length > 1 && paragraphs.length <= 6) {
+  // Fallback: Check for distinct calculation paragraphs separated by blank lines
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p.length >= 8);
+  if (paragraphs.length >= 2 && paragraphs.length <= 6) {
     return paragraphs.map((p, idx) => ({
       stepNumber: idx + 1,
       content: p,
@@ -107,7 +117,7 @@ function StepByStepSolutionRenderer({ solutionText }: { solutionText: string }) 
 
   if (steps.length <= 1) {
     return (
-      <div className="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed font-sans text-xs sm:text-sm">
+      <div className="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed font-sans text-xs sm:text-sm overflow-x-auto max-w-full py-0.5">
         {renderMath(solutionText)}
       </div>
     );
@@ -119,22 +129,22 @@ function StepByStepSolutionRenderer({ solutionText }: { solutionText: string }) 
         const isLast = idx === steps.length - 1;
         return (
           <div key={step.stepNumber} className="relative flex gap-3 sm:gap-4">
-            {/* Step Circle & Connector */}
+            {/* Step Circle & Dynamic Vertical Timeline Connector */}
             <div className="flex flex-col items-center shrink-0">
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-purple-600 dark:bg-purple-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                 {step.stepNumber}
               </div>
-              {!isLast && <div className="w-0.5 flex-1 bg-purple-200 dark:bg-purple-800 my-1" />}
+              {!isLast && <div className="w-0.5 flex-1 bg-purple-200 dark:bg-purple-800/60 my-1" />}
             </div>
 
             {/* Step Body */}
-            <div className={`flex-1 ${!isLast ? 'pb-3' : ''}`}>
+            <div className={`flex-1 min-w-0 ${!isLast ? 'pb-3' : ''}`}>
               {step.title && (
                 <h4 className="font-bold text-purple-950 dark:text-purple-200 text-xs sm:text-sm mb-1">
                   {step.title}
                 </h4>
               )}
-              <div className="text-slate-800 dark:text-slate-200 leading-relaxed font-sans text-xs sm:text-sm">
+              <div className="text-slate-800 dark:text-slate-200 leading-relaxed font-sans text-xs sm:text-sm overflow-x-auto max-w-full py-0.5">
                 {renderMath(step.content)}
               </div>
             </div>
@@ -1241,7 +1251,7 @@ function LiveTestRunnerContent() {
     const negMarks = activeReviewQ.marksNegative || test?.config?.defaultNegativeMarks || 0;
 
     return (
-      <div className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-5">
+      <div className="max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-5 pb-32 sm:pb-36">
         {/* ── 1. Top Header App Bar ── */}
         <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
