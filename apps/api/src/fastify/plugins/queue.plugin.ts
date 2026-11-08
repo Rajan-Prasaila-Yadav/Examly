@@ -118,8 +118,8 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
         return { id: `mock_${Date.now()}`, name: jobName, data };
       },
       getJob: async () => null,
-      close: async () => {},
-      on: () => {},
+      close: async () => { },
+      on: () => { },
     });
 
     youtubeImportQueue = createMockQueue('youtube-imports');
