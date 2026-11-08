@@ -15,7 +15,6 @@ import {
   Play,
   Clock,
   ChevronRight,
-  Sparkles,
   BookOpen,
   Eye,
   Award,
@@ -29,16 +28,11 @@ import {
   Upload,
   Search,
   Star,
-  Heart,
   ShieldCheck,
   Layers,
-  Zap,
-  Calendar,
-  Bookmark,
   Compass,
-  TrendingUp,
   MessageSquare,
-  Flame,
+  Bookmark,
   Check,
 } from 'lucide-react';
 
@@ -56,20 +50,6 @@ export default function DashboardOverviewPage() {
     user?.role === 'Teacher' ||
     (typeof user?.role === 'object' &&
       ((user.role as any)?.name === 'TEACHER' || (user.role as any)?.code === 'TEACHER'));
-
-  const isAdmin =
-    user?.role === 'ADMIN' ||
-    user?.role === 'SUPER_ADMIN' ||
-    (typeof user?.role === 'object' &&
-      ((user.role as any)?.name === 'ADMIN' ||
-        (user.role as any)?.name === 'SUPER_ADMIN' ||
-        (user.role as any)?.code === 'ADMIN' ||
-        (user.role as any)?.code === 'SUPER_ADMIN'));
-
-  const isSuperAdmin =
-    user?.role === 'SUPER_ADMIN' ||
-    (typeof user?.role === 'object' &&
-      ((user.role as any)?.name === 'SUPER_ADMIN' || (user.role as any)?.code === 'SUPER_ADMIN'));
 
   // Data States
   const [batches, setBatches] = useState<any[]>([]);
@@ -348,7 +328,7 @@ export default function DashboardOverviewPage() {
 
   const activeStats = isStudent ? studentStats : isTeacher ? teacherStats : adminStats;
 
-  // Unstop-Inspired Horizontal Category Action Cards
+  // Clean, High-Contrast Launchpad Capabilities
   const quickCategories = useMemo(() => {
     if (isStudent) {
       return [
@@ -358,9 +338,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${batches.length} Enrolled`,
           icon: GraduationCap,
           href: '/batches',
-          bg: 'bg-blue-50/80 dark:bg-blue-950/30',
-          border: 'border-blue-100 dark:border-blue-900/50',
-          iconColor: 'text-blue-600 dark:text-blue-400',
+          iconColor: 'text-blue-500 dark:text-blue-400',
         },
         {
           id: 'tests',
@@ -368,19 +346,15 @@ export default function DashboardOverviewPage() {
           subtitle: `${liveTestsCount} Live Now`,
           icon: FileCheck2,
           href: '/tests',
-          bg: 'bg-rose-50/80 dark:bg-rose-950/30',
-          border: 'border-rose-100 dark:border-rose-900/50',
-          iconColor: 'text-rose-600 dark:text-rose-400',
+          iconColor: 'text-rose-500 dark:text-rose-400',
         },
         {
           id: 'videos',
           label: 'Video Lectures',
-          subtitle: 'HD Lessons',
+          subtitle: 'HD Classes',
           icon: Video,
           href: '/videos',
-          bg: 'bg-purple-50/80 dark:bg-purple-950/30',
-          border: 'border-purple-100 dark:border-purple-900/50',
-          iconColor: 'text-purple-600 dark:text-purple-400',
+          iconColor: 'text-purple-500 dark:text-purple-400',
         },
         {
           id: 'notes',
@@ -388,9 +362,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'PDF Downloads',
           icon: FileText,
           href: '/notes',
-          bg: 'bg-emerald-50/80 dark:bg-emerald-950/30',
-          border: 'border-emerald-100 dark:border-emerald-900/50',
-          iconColor: 'text-emerald-600 dark:text-emerald-400',
+          iconColor: 'text-emerald-500 dark:text-emerald-400',
         },
         {
           id: 'curriculum',
@@ -398,9 +370,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${totalCurriculumSubjects} Topics`,
           icon: BookOpen,
           href: '/curriculum',
-          bg: 'bg-amber-50/80 dark:bg-amber-950/30',
-          border: 'border-amber-100 dark:border-amber-900/50',
-          iconColor: 'text-amber-600 dark:text-amber-400',
+          iconColor: 'text-amber-500 dark:text-amber-400',
         },
         {
           id: 'analytics',
@@ -408,19 +378,15 @@ export default function DashboardOverviewPage() {
           subtitle: '360 Analytics',
           icon: BarChart3,
           href: user?.id ? `/students/${user.id}` : '/students',
-          bg: 'bg-indigo-50/80 dark:bg-indigo-950/30',
-          border: 'border-indigo-100 dark:border-indigo-900/50',
-          iconColor: 'text-indigo-600 dark:text-indigo-400',
+          iconColor: 'text-indigo-500 dark:text-indigo-400',
         },
         {
           id: 'community',
           label: 'Discussion',
-          subtitle: 'Doubt Forum',
+          subtitle: 'Doubt Q&A',
           icon: MessageSquare,
           href: '/community',
-          bg: 'bg-teal-50/80 dark:bg-teal-950/30',
-          border: 'border-teal-100 dark:border-teal-900/50',
-          iconColor: 'text-teal-600 dark:text-teal-400',
+          iconColor: 'text-teal-500 dark:text-teal-400',
         },
       ];
     } else if (isTeacher) {
@@ -431,9 +397,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'KaTeX & Sections',
           icon: Plus,
           href: '/tests/create',
-          bg: 'bg-brand-50/80 dark:bg-brand-950/30',
-          border: 'border-brand-100 dark:border-brand-900/50',
-          iconColor: 'text-brand-600 dark:text-brand-400',
+          iconColor: 'text-brand-500 dark:text-brand-400',
         },
         {
           id: 'test-builder',
@@ -441,9 +405,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${tests.length} Papers`,
           icon: FileCheck2,
           href: '/tests/builder',
-          bg: 'bg-purple-50/80 dark:bg-purple-950/30',
-          border: 'border-purple-100 dark:border-purple-900/50',
-          iconColor: 'text-purple-600 dark:text-purple-400',
+          iconColor: 'text-purple-500 dark:text-purple-400',
         },
         {
           id: 'batches',
@@ -451,9 +413,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${batches.length} Classes`,
           icon: GraduationCap,
           href: '/batches',
-          bg: 'bg-blue-50/80 dark:bg-blue-950/30',
-          border: 'border-blue-100 dark:border-blue-900/50',
-          iconColor: 'text-blue-600 dark:text-blue-400',
+          iconColor: 'text-blue-500 dark:text-blue-400',
         },
         {
           id: 'upload-video',
@@ -461,9 +421,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'Lectures',
           icon: Video,
           href: '/videos',
-          bg: 'bg-rose-50/80 dark:bg-rose-950/30',
-          border: 'border-rose-100 dark:border-rose-900/50',
-          iconColor: 'text-rose-600 dark:text-rose-400',
+          iconColor: 'text-rose-500 dark:text-rose-400',
         },
         {
           id: 'upload-notes',
@@ -471,9 +429,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'Study Material',
           icon: FileText,
           href: '/notes',
-          bg: 'bg-emerald-50/80 dark:bg-emerald-950/30',
-          border: 'border-emerald-100 dark:border-emerald-900/50',
-          iconColor: 'text-emerald-600 dark:text-emerald-400',
+          iconColor: 'text-emerald-500 dark:text-emerald-400',
         },
         {
           id: 'students',
@@ -481,9 +437,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${studentsCount} Learners`,
           icon: Users,
           href: '/students',
-          bg: 'bg-amber-50/80 dark:bg-amber-950/30',
-          border: 'border-amber-100 dark:border-amber-900/50',
-          iconColor: 'text-amber-600 dark:text-amber-400',
+          iconColor: 'text-amber-500 dark:text-amber-400',
         },
         {
           id: 'community',
@@ -491,9 +445,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'Solve Doubts',
           icon: MessageSquare,
           href: '/community',
-          bg: 'bg-indigo-50/80 dark:bg-indigo-950/30',
-          border: 'border-indigo-100 dark:border-indigo-900/50',
-          iconColor: 'text-indigo-600 dark:text-indigo-400',
+          iconColor: 'text-indigo-500 dark:text-indigo-400',
         },
       ];
     } else {
@@ -504,9 +456,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${batches.length} Active`,
           icon: GraduationCap,
           href: '/batches',
-          bg: 'bg-blue-50/80 dark:bg-blue-950/30',
-          border: 'border-blue-100 dark:border-blue-900/50',
-          iconColor: 'text-blue-600 dark:text-blue-400',
+          iconColor: 'text-blue-500 dark:text-blue-400',
         },
         {
           id: 'manage-tests',
@@ -514,9 +464,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${tests.length} Authored`,
           icon: FileCheck2,
           href: '/tests/builder',
-          bg: 'bg-purple-50/80 dark:bg-purple-950/30',
-          border: 'border-purple-100 dark:border-purple-900/50',
-          iconColor: 'text-purple-600 dark:text-purple-400',
+          iconColor: 'text-purple-500 dark:text-purple-400',
         },
         {
           id: 'manage-students',
@@ -524,9 +472,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${studentsCount} Enrolled`,
           icon: Users,
           href: '/students',
-          bg: 'bg-emerald-50/80 dark:bg-emerald-950/30',
-          border: 'border-emerald-100 dark:border-emerald-900/50',
-          iconColor: 'text-emerald-600 dark:text-emerald-400',
+          iconColor: 'text-emerald-500 dark:text-emerald-400',
         },
         {
           id: 'manage-teachers',
@@ -534,9 +480,7 @@ export default function DashboardOverviewPage() {
           subtitle: `${teachersCount} Instructors`,
           icon: UserSquare2,
           href: '/teachers',
-          bg: 'bg-amber-50/80 dark:bg-amber-950/30',
-          border: 'border-amber-100 dark:border-amber-900/50',
-          iconColor: 'text-amber-600 dark:text-amber-400',
+          iconColor: 'text-amber-500 dark:text-amber-400',
         },
         {
           id: 'curriculum',
@@ -544,9 +488,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'Subjects & Units',
           icon: BookOpen,
           href: '/curriculum',
-          bg: 'bg-indigo-50/80 dark:bg-indigo-950/30',
-          border: 'border-indigo-100 dark:border-indigo-900/50',
-          iconColor: 'text-indigo-600 dark:text-indigo-400',
+          iconColor: 'text-indigo-500 dark:text-indigo-400',
         },
         {
           id: 'roles',
@@ -554,9 +496,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'RBAC Security',
           icon: ShieldCheck,
           href: '/settings/roles',
-          bg: 'bg-rose-50/80 dark:bg-rose-950/30',
-          border: 'border-rose-100 dark:border-rose-900/50',
-          iconColor: 'text-rose-600 dark:text-rose-400',
+          iconColor: 'text-rose-500 dark:text-rose-400',
         },
         {
           id: 'audit',
@@ -564,9 +504,7 @@ export default function DashboardOverviewPage() {
           subtitle: 'System Logs',
           icon: ShieldCheck,
           href: '/settings/audit',
-          bg: 'bg-slate-100/80 dark:bg-slate-800/60',
-          border: 'border-slate-200 dark:border-slate-700',
-          iconColor: 'text-slate-700 dark:text-slate-300',
+          iconColor: 'text-slate-500 dark:text-slate-400',
         },
       ];
     }
@@ -578,25 +516,21 @@ export default function DashboardOverviewPage() {
       {
         gradient: 'from-blue-600 to-indigo-700',
         tag: 'Pre-Medical Target',
-        tagBg: 'bg-blue-50 text-blue-700 border-blue-200',
         rating: '4.9',
       },
       {
         gradient: 'from-purple-600 to-pink-600',
         tag: 'Physics & Optics',
-        tagBg: 'bg-purple-50 text-purple-700 border-purple-200',
         rating: '4.8',
       },
       {
         gradient: 'from-emerald-600 to-teal-700',
         tag: 'Botany & Plant Anatomy',
-        tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         rating: '4.9',
       },
       {
         gradient: 'from-amber-600 to-rose-600',
         tag: 'Engineering / JEE',
-        tagBg: 'bg-amber-50 text-amber-700 border-amber-200',
         rating: '4.7',
       },
     ];
@@ -620,66 +554,47 @@ export default function DashboardOverviewPage() {
         </div>
       )}
 
-      {/* ── 1. UNSTOP-INSPIRED HERO BANNER & SEARCH BAR ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-900 via-brand-800 to-indigo-950 p-6 sm:p-9 text-white shadow-xl shadow-brand-900/15">
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-semibold">
-              <Sparkles className="w-3.5 h-3.5 text-brand-300" />
-              {isStudent
-                ? 'Student Learning & Examination Portal'
-                : isTeacher
-                ? 'Faculty Academic Management Portal'
-                : 'Enterprise Examination & Institute Suite'}
+      {/* ── 1. CLEAN HUMAN-DESIGNED WELCOME BANNER & SEARCH ── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-900 via-brand-800 to-indigo-950 dark:from-[#111226] dark:via-[#151733] dark:to-[#1B1D3D] p-6 sm:p-8 text-white shadow-md border border-brand-800/40 dark:border-[#2A2C4A]">
+        <div className="relative z-10 max-w-3xl space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-white/10 dark:bg-white/5 border border-white/15 dark:border-white/10 text-brand-200 dark:text-brand-300 text-[11px] font-bold uppercase tracking-wider">
+              {user?.role ? user.role.replace('_', ' ') : 'Dashboard'}
             </span>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-mono font-bold flex items-center gap-1">
-              <Zap className="w-3 h-3 text-emerald-400" /> Proctored CBT Engine Online
-            </span>
+            <span className="text-xs text-slate-300 dark:text-slate-400">• Examly Examination System</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-snug">
-            {isStudent ? (
-              <>
-                Unlock Your Potential, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-300 via-blue-200 to-teal-200">Ace Every Exam!</span>
-              </>
-            ) : isTeacher ? (
-              <>
-                Empower Future Leaders, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-300 via-purple-200 to-pink-200">Craft High-Yield Exams!</span>
-              </>
-            ) : (
-              <>
-                Institutional Command Center & <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-300 via-emerald-200 to-teal-200">CBT Exam Suite</span>
-              </>
-            )}
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            Welcome back, {user?.fullName || (isStudent ? 'Student' : isTeacher ? 'Instructor' : 'Administrator')}
           </h1>
 
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-2xl">
+          <p className="text-slate-300 dark:text-slate-300 text-xs sm:text-sm leading-relaxed max-w-2xl">
             {isStudent
-              ? 'Access enrolled batch curriculum, watch chapter video lectures, download verified PDF notes, and take live timed mock examinations with instant step-by-step solutions.'
+              ? 'Track enrolled curriculum, attend video lectures, download notes, and take live CBT mock tests with instant step-by-step scorecards.'
               : isTeacher
-              ? 'Author exam papers with LaTeX formulas, manage batch curricula, upload video lectures & chapter notes, and track real-time student test masteries.'
-              : 'Oversee live mock examination sessions, manage enrolled learners and faculty instructors, configure RBAC access permissions, and analyze performance data.'}
+              ? 'Author exam papers with LaTeX formulas, manage batch curricula, upload video lectures & chapter notes, and track student masteries.'
+              : 'Oversee institute batches, monitor live examination submissions, manage student and faculty directories, and configure access permissions.'}
           </p>
 
-          {/* Integrated Real-Time Search Bar */}
+          {/* Clean Integrated Search Bar */}
           <div className="pt-2">
-            <div className="relative max-w-xl">
-              <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <div className="relative max-w-lg">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={
                   isStudent
-                    ? 'Search your batches, live tests, video lectures, notes...'
+                    ? 'Search courses, examinations, lectures, notes...'
                     : 'Search examination papers, batches, student rosters...'
                 }
-                className="w-full pl-11 pr-4 py-3 bg-white/10 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/80 rounded-2xl text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white/15 backdrop-blur-md transition-all shadow-inner"
+                className="w-full pl-10 pr-4 py-2.5 bg-white/10 dark:bg-[#101222] border border-white/20 dark:border-[#2E3154] rounded-xl text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 transition-all shadow-inner"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
                 >
                   Clear
                 </button>
@@ -688,18 +603,18 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Ambient Gradient Glow */}
-        <div className="absolute right-0 top-0 bottom-0 w-2/5 bg-gradient-to-l from-brand-500/20 via-purple-500/10 to-transparent pointer-events-none" />
+        {/* Ambient Subtle Accent Glow */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-brand-600/15 to-transparent pointer-events-none" />
       </div>
 
-      {/* ── 2. UNSTOP-STYLE HORIZONTAL CATEGORY LAUNCHPAD CARDS ── */}
+      {/* ── 2. QUICK CAPABILITIES LAUNCHPAD (DARK MODE SLEEK TILES) ── */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
             <Compass className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
             Quick Capabilities Launchpad
           </span>
-          <span className="text-slate-400 font-mono text-[11px]">Tap to launch feature</span>
+          <span className="text-slate-400 dark:text-slate-500 font-mono text-[11px]">Direct shortcuts</span>
         </div>
 
         <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
@@ -709,14 +624,14 @@ export default function DashboardOverviewPage() {
               <Link
                 key={cat.id}
                 href={cat.href}
-                className={`p-3.5 rounded-2xl border ${cat.border} ${cat.bg} hover:shadow-md hover:scale-[1.02] transition-all flex flex-col items-center justify-center text-center group cursor-pointer`}
+                className="p-3.5 rounded-2xl bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:shadow-md hover:scale-[1.02] transition-all flex flex-col items-center justify-center text-center group cursor-pointer shadow-2xs"
               >
                 <div
-                  className={`w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform ${cat.iconColor}`}
+                  className={`w-10 h-10 rounded-xl bg-slate-50 dark:bg-[#222442] border border-slate-100 dark:border-[#2E3154] flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform ${cat.iconColor}`}
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-slate-900 dark:text-white text-xs truncate max-w-full">
+                <span className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate max-w-full">
                   {cat.label}
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
@@ -728,94 +643,7 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* ── 3. FEATURED HIGHLIGHT CARDS (FROM UNSTOP IMAGE 1) ── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <span className="w-1.5 h-4 bg-brand-600 rounded-full inline-block" />
-            Featured Academic Highlights
-          </h2>
-          <span className="text-xs text-brand-600 dark:text-brand-400 font-bold flex items-center gap-1">
-            <Flame className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Live High-Yield Tracks
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Card 1: Live Exam Window */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 p-5 text-white shadow-md flex flex-col justify-between">
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-500 text-white text-[10px] font-extrabold uppercase tracking-wide">
-                🔴 Active CBT Window
-              </span>
-              <h3 className="font-extrabold text-base sm:text-lg tracking-tight">
-                National Grand Mock Series 2026
-              </h3>
-              <p className="text-slate-300 text-xs leading-relaxed">
-                Full-length timed CBT simulation with negative marking, automated question palette, and instant step-by-step solution keys.
-              </p>
-            </div>
-            <div className="pt-4 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-indigo-300">Timed Exam • All India Standing</span>
-              <Link
-                href="/tests"
-                className="px-3.5 py-1.5 bg-white text-indigo-900 font-extrabold text-xs rounded-xl hover:bg-slate-100 transition-colors shadow-xs"
-              >
-                {isStudent ? 'Take Test →' : 'View Exams →'}
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: Video Lectures */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-900 via-purple-800 to-slate-900 p-5 text-white shadow-md flex flex-col justify-between">
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-purple-500 text-white text-[10px] font-extrabold uppercase tracking-wide">
-                🎥 Video Masterclasses
-              </span>
-              <h3 className="font-extrabold text-base sm:text-lg tracking-tight">
-                Pre-Medical & JEE Syllabus Lectures
-              </h3>
-              <p className="text-slate-300 text-xs leading-relaxed">
-                Stream structured chapter-wise video masterclasses with verified faculty notes, timestamped topic breakdowns, and formula sheets.
-              </p>
-            </div>
-            <div className="pt-4 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-purple-300">HD Lectures • Chapter Order</span>
-              <Link
-                href="/videos"
-                className="px-3.5 py-1.5 bg-white text-purple-900 font-extrabold text-xs rounded-xl hover:bg-slate-100 transition-colors shadow-xs"
-              >
-                Watch Now →
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 3: Instant Answer Keys */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-900 via-teal-800 to-slate-900 p-5 text-white shadow-md flex flex-col justify-between">
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-teal-500 text-white text-[10px] font-extrabold uppercase tracking-wide">
-                ✨ Answer Key Proofs
-              </span>
-              <h3 className="font-extrabold text-base sm:text-lg tracking-tight">
-                Step-by-Step Numerical Calculations
-              </h3>
-              <p className="text-slate-300 text-xs leading-relaxed">
-                Instant post-submission answer keys featuring complete derivations, option verification badges, KaTeX formulas, and score proofs.
-              </p>
-            </div>
-            <div className="pt-4 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-teal-300">Formula Breakdown • 3-Tier Proofs</span>
-              <Link
-                href="/tests"
-                className="px-3.5 py-1.5 bg-white text-teal-900 font-extrabold text-xs rounded-xl hover:bg-slate-100 transition-colors shadow-xs"
-              >
-                Review Keys →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. STAT METRICS CARDS ── */}
+      {/* ── 3. STAT METRICS CARDS ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading ? (
           <>
@@ -830,12 +658,12 @@ export default function DashboardOverviewPage() {
             const content = (
               <div
                 key={item.title}
-                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all group cursor-pointer"
+                className="bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{item.title}</span>
                   <div
-                    className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-lg ${item.shadow} group-hover:scale-105 transition-transform`}
+                    className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-md ${item.shadow} group-hover:scale-105 transition-transform`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
@@ -863,9 +691,9 @@ export default function DashboardOverviewPage() {
         )}
       </div>
 
-      {/* ── 5. EXPLORE COURSES & BATCHES (FROM UNSTOP REFERENCE IMAGES 2 & 3) ── */}
+      {/* ── 4. EXPLORE COURSES & BATCHES ── */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-[#2A2C4A]">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span className="w-1.5 h-4 bg-brand-600 rounded-full inline-block" />
@@ -909,7 +737,7 @@ export default function DashboardOverviewPage() {
               className={`px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
                 batchCategoryFilter === f.id
                   ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                  : 'bg-white dark:bg-[#191A30] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222442] border border-slate-200 dark:border-[#2A2C4A]'
               }`}
             >
               {f.label}
@@ -928,7 +756,7 @@ export default function DashboardOverviewPage() {
             return (
               <div
                 key={b.id}
-                className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 overflow-hidden shadow-xs hover:shadow-lg transition-all group flex flex-col justify-between"
+                className="bg-white dark:bg-[#191A30] rounded-3xl border border-slate-200/90 dark:border-[#2A2C4A] overflow-hidden shadow-xs hover:shadow-lg transition-all group flex flex-col justify-between"
               >
                 {/* Top Banner with Subject Accent */}
                 <div className={`h-32 sm:h-36 bg-gradient-to-r ${visual.gradient} p-4 sm:p-5 relative flex flex-col justify-between text-white overflow-hidden`}>
@@ -961,7 +789,7 @@ export default function DashboardOverviewPage() {
                 <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[10px]">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#25284B] text-slate-700 dark:text-slate-300 font-semibold text-[10px] border border-slate-200/60 dark:border-[#343760]">
                         {visual.tag}
                       </span>
                       <span className="flex items-center gap-1 text-amber-500 font-bold text-xs">
@@ -975,7 +803,7 @@ export default function DashboardOverviewPage() {
                   </div>
 
                   {/* Footer Row */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <div className="pt-3 border-t border-slate-100 dark:border-[#2A2C4A] flex items-center justify-between text-xs">
                     <div className="space-y-0.5 text-slate-500 dark:text-slate-400 text-[11px]">
                       <div className="flex items-center gap-1 font-mono">
                         <BookOpen className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
@@ -1000,24 +828,24 @@ export default function DashboardOverviewPage() {
           })}
 
           {filteredBatches.length === 0 && !isLoading && (
-            <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white dark:bg-[#191A30] rounded-3xl border border-slate-200 dark:border-[#2A2C4A]">
               No batches found matching your search query.
             </div>
           )}
         </div>
       </div>
 
-      {/* ── 6. MAIN CONTENT SPLIT: LIVE MOCK EXAMINATIONS & RIGHT HUB ── */}
+      {/* ── 5. MAIN CONTENT SPLIT: LIVE MOCK EXAMINATIONS & RIGHT HUB ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Left 2 Cols: Live CBT Mock Tests with Tabs */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="lg:col-span-2 bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#2A2C4A]">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="w-1.5 h-4 bg-purple-600 rounded-full inline-block" />
                 {isStudent ? 'My CBT Examination Arena' : 'Examinations & Live Submissions'}
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isStudent
                   ? 'Real-time mock test windows, timed computer-based testing, and instant graded scorecards.'
                   : 'Manage active tests, author questions, monitor student attempts, and publish scorecards.'}
@@ -1056,7 +884,7 @@ export default function DashboardOverviewPage() {
                 className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
                   testFilter === f.id
                     ? 'bg-brand-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/80'
+                    : 'bg-slate-100 dark:bg-[#25284B] text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-[#343760]'
                 }`}
               >
                 {f.label}
@@ -1077,11 +905,11 @@ export default function DashboardOverviewPage() {
                   key={t.id}
                   className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                     isLive
-                      ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-800/50 hover:border-rose-300'
-                      : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                      ? 'bg-rose-50/40 dark:bg-[#22162A] border-rose-200/80 dark:border-rose-900/60 hover:border-rose-400'
+                      : 'bg-slate-50/80 dark:bg-[#1E2038] border-slate-200/90 dark:border-[#2E3154] hover:border-brand-500/50'
                   }`}
                 >
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         href={`/tests/${t.id}`}
@@ -1091,38 +919,40 @@ export default function DashboardOverviewPage() {
                       </Link>
 
                       {isLive && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
                           <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                           🔴 LIVE NOW
                         </span>
                       )}
 
                       {ended && (
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-200 dark:bg-[#2A2C4A] text-slate-700 dark:text-slate-200">
                           Closed
                         </span>
                       )}
 
                       {draft && (
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
                           Draft
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-mono flex-wrap">
+                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 font-mono flex-wrap">
                       {t.batch?.name && (
-                        <span className="px-2 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-sans font-medium">
+                        <span className="px-2 py-0.5 rounded-md bg-brand-100/70 dark:bg-brand-950/70 text-brand-800 dark:text-brand-300 border border-brand-200 dark:border-brand-800/80 text-[10px] font-sans font-semibold">
                           {t.batch.name}
                         </span>
                       )}
-                      <span>⏱ {t.durationMinutes || 120}m</span>
-                      <span>•</span>
-                      <span>{t.totalMarks || 100} pts</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">⏱ {t.durationMinutes || 120}m</span>
+                      <span className="text-slate-400">•</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{t.totalMarks || 100} pts</span>
                       {t.startDateTime && (
                         <>
-                          <span>•</span>
-                          <span>Start: {new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-600 dark:text-slate-300">
+                            Start: {new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </span>
                         </>
                       )}
                     </div>
@@ -1134,7 +964,7 @@ export default function DashboardOverviewPage() {
                       ended || hasAttempt ? (
                         <Link
                           href={`/tests/${t.id}/runner?view=RESULT`}
-                          className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 font-bold rounded-xl text-xs inline-flex items-center gap-1 transition-all"
+                          className="px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold rounded-xl text-xs inline-flex items-center gap-1 transition-all"
                         >
                           <BarChart3 className="w-3.5 h-3.5" /> Scorecard & Proofs
                         </Link>
@@ -1154,15 +984,15 @@ export default function DashboardOverviewPage() {
                       <>
                         <Link
                           href={`/tests/create?testId=${t.id}`}
-                          className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors"
+                          className="px-3 py-1.5 bg-slate-100 dark:bg-[#2A2C4A] text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-[#35385C] font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors"
                         >
-                          <Edit2 className="w-3 h-3 text-slate-500" /> Edit
+                          <Edit2 className="w-3 h-3 text-slate-500 dark:text-slate-400" /> Edit
                         </Link>
                         <Link
                           href={`/tests/${t.id}`}
-                          className="px-3 py-1.5 bg-brand-50 dark:bg-brand-950/40 hover:bg-brand-100 text-brand-700 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800 font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors"
+                          className="px-3 py-1.5 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800 font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors hover:bg-brand-100 dark:hover:bg-brand-900"
                         >
-                          <Eye className="w-3 h-3 text-brand-600" /> Details
+                          <Eye className="w-3 h-3 text-brand-600 dark:text-brand-400" /> Details
                         </Link>
                       </>
                     )}
@@ -1183,9 +1013,9 @@ export default function DashboardOverviewPage() {
         <div className="space-y-6">
           {/* User Profile Card */}
           {user && (
-            <div className="bg-gradient-to-br from-brand-50 to-indigo-50/50 dark:from-slate-900 dark:to-slate-800 border border-brand-200/60 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
+            <div className="bg-white dark:bg-[#191A30] border border-slate-200/90 dark:border-[#2A2C4A] rounded-3xl p-5 shadow-sm space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-brand-600 text-white font-extrabold text-lg flex items-center justify-center shadow-md overflow-hidden shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white font-extrabold text-lg flex items-center justify-center shadow-md overflow-hidden shrink-0">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt={user.fullName || 'User'} className="w-full h-full object-cover" />
                   ) : (
@@ -1199,14 +1029,14 @@ export default function DashboardOverviewPage() {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
                     {user.email || user.identifier}
                   </p>
-                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-brand-100 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 text-[10px] font-bold">
+                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/80 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 text-[10px] font-bold">
                     {user.role}
                   </span>
                 </div>
               </div>
 
               {isStudent && (
-                <div className="pt-2 border-t border-brand-200/40 dark:border-slate-800 flex items-center justify-between text-xs">
+                <div className="pt-2 border-t border-slate-100 dark:border-[#2A2C4A] flex items-center justify-between text-xs">
                   <span className="text-[11px] text-slate-600 dark:text-slate-400">360 Student Analytics</span>
                   <Link
                     href={`/students/${user.id}`}
@@ -1220,14 +1050,14 @@ export default function DashboardOverviewPage() {
           )}
 
           {/* Academic Shortcuts */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] rounded-3xl p-5 shadow-sm space-y-3">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Quick Shortcuts
             </h3>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <Link
                 href="/videos"
-                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1E2038] hover:bg-slate-100 dark:hover:bg-[#25284B] border border-slate-200/60 dark:border-[#2A2C4A] flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
               >
                 <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Video className="w-4 h-4" />
@@ -1237,7 +1067,7 @@ export default function DashboardOverviewPage() {
 
               <Link
                 href="/notes"
-                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1E2038] hover:bg-slate-100 dark:hover:bg-[#25284B] border border-slate-200/60 dark:border-[#2A2C4A] flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
               >
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <FileText className="w-4 h-4" />
@@ -1247,7 +1077,7 @@ export default function DashboardOverviewPage() {
 
               <Link
                 href="/curriculum"
-                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1E2038] hover:bg-slate-100 dark:hover:bg-[#25284B] border border-slate-200/60 dark:border-[#2A2C4A] flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
               >
                 <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <BookOpen className="w-4 h-4" />
@@ -1257,7 +1087,7 @@ export default function DashboardOverviewPage() {
 
               <Link
                 href="/community"
-                className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
+                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1E2038] hover:bg-slate-100 dark:hover:bg-[#25284B] border border-slate-200/60 dark:border-[#2A2C4A] flex flex-col items-center justify-center text-center gap-1.5 transition-all group"
               >
                 <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <MessageSquare className="w-4 h-4" />
@@ -1268,25 +1098,25 @@ export default function DashboardOverviewPage() {
           </div>
 
           {/* Engine & Proctoring Health Status */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] rounded-3xl p-5 shadow-sm space-y-3">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> System Readiness
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> System Readiness
             </h3>
             <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   CBT Server Engine
                 </span>
-                <span className="font-mono text-emerald-600 font-bold">Online</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">Online</span>
               </div>
-              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                 <span>Anti-Cheat Proctored Layer</span>
-                <span className="font-mono text-emerald-600 font-bold">Enabled</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">Enabled</span>
               </div>
-              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                 <span>Adaptive Answer Key Proofs</span>
-                <span className="font-mono text-brand-600 font-bold">Active</span>
+                <span className="font-mono text-brand-600 dark:text-brand-400 font-bold">Active</span>
               </div>
             </div>
           </div>
