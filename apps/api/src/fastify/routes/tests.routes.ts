@@ -35,12 +35,12 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
     const data = parsed.data; const user = request.user!;
     if (new Date(data.endDateTime) <= new Date(data.startDateTime)) return reply.status(400).send({ statusCode: 400, message: 'Test end time must be after start time' });
     data.batchId = data.batchId || undefined; data.subjectId = data.subjectId || undefined; data.lessonId = data.lessonId || undefined;
-    let subject = data.subjectId ? await fastify.prisma.subject.findFirst({where:{id:data.subjectId,status:{not:RecordStatus.DELETED}},include:{batch:true}}) : null;
+    let subject: any = data.subjectId ? await fastify.prisma.subject.findFirst({where:{id:data.subjectId,status:{not:RecordStatus.DELETED}},include:{batch:true}}) : null;
     if(data.lessonId){const lesson=await fastify.prisma.lesson.findFirst({where:{id:data.lessonId,status:{not:RecordStatus.DELETED}},include:{subject:{include:{batch:true}}}});if(!lesson || (data.subjectId&&data.subjectId!==lesson.subjectId))return reply.code(400).send({message:'Lesson and subject do not match'});subject=lesson.subject;data.subjectId=subject.id;}
     const batch = data.batchId ? await fastify.prisma.batch.findFirst({where:{id:data.batchId,status:{not:RecordStatus.DELETED}}}) : subject?.batch;
     if((data.subjectId&&!subject)||(data.batchId&&!batch))return reply.code(400).send({message:'Test scope is inconsistent'});
     if(subject && data.batchId && subject.batchId && subject.batchId !== data.batchId) {
-      const batchSubject = await fastify.prisma.subject.findFirst({where:{batchId:data.batchId,OR:[{id:subject.id},{copiedFromId:subject.id}],status:{not:RecordStatus.DELETED}}});
+      const batchSubject = await fastify.prisma.subject.findFirst({where:{batchId:data.batchId,OR:[{id:subject.id},{copiedFromId:subject.id}],status:{not:RecordStatus.DELETED}},include:{batch:true}});
       if(batchSubject) {
         data.subjectId = batchSubject.id;
         subject = batchSubject;
