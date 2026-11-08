@@ -1,9 +1,8 @@
 // apps/web/src/components/dashboard-feature-rail.tsx
 'use client';
 
-import React, { useRef } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 interface FeatureRailProps {
@@ -26,7 +25,6 @@ export default function DashboardFeatureRail({
   studentId,
 }: FeatureRailProps) {
   const { user } = useAuth();
-  const railRef = useRef<HTMLDivElement>(null);
 
   const isStudent =
     user?.role === 'STUDENT' ||
@@ -39,13 +37,6 @@ export default function DashboardFeatureRail({
     user?.role === 'Teacher' ||
     (typeof user?.role === 'object' &&
       ((user.role as any)?.name === 'TEACHER' || (user.role as any)?.code === 'TEACHER'));
-
-  const scroll = (direction: number) => {
-    if (railRef.current) {
-      const scrollAmount = railRef.current.clientWidth * 0.75;
-      railRef.current.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
-    }
-  };
 
   // 1. Mock Tests (3D Blue Clipboard, Ruled Paper, Pencil & Stickers)
   const MockTestsArt = (
@@ -315,7 +306,7 @@ export default function DashboardFeatureRail({
         },
         {
           id: 'tests',
-          title: 'Mock Tests',
+          title: 'Test',
           href: '/tests',
           art: MockTestsArt,
         },
@@ -360,7 +351,7 @@ export default function DashboardFeatureRail({
         },
         {
           id: 'tests',
-          title: 'Mock Tests',
+          title: 'Test',
           href: '/tests/builder',
           art: MockTestsArt,
         },
@@ -404,7 +395,7 @@ export default function DashboardFeatureRail({
         },
         {
           id: 'tests',
-          title: 'Mock Tests',
+          title: 'Test',
           href: '/tests/builder',
           art: MockTestsArt,
         },
@@ -448,7 +439,6 @@ export default function DashboardFeatureRail({
         - Desktop (sm and up): Smooth horizontal track with scroll snap and chevron arrows
       */}
       <div
-        ref={railRef}
         className="grid grid-cols-3 gap-2.5 sm:gap-3.5 sm:flex sm:items-center sm:overflow-x-auto pb-2 sm:pb-4 pt-1 px-0.5 sm:scroll-smooth sm:snap-x sm:snap-mandatory sm:scrollbar-none"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
@@ -474,26 +464,6 @@ export default function DashboardFeatureRail({
             </div>
           </Link>
         ))}
-      </div>
-
-      {/* Navigation Arrows for desktop scroll */}
-      <div className="hidden sm:flex items-center justify-end gap-1.5 mt-0.5 pr-1">
-        <button
-          type="button"
-          onClick={() => scroll(-1)}
-          aria-label="Previous capabilities"
-          className="w-7 h-7 rounded-full bg-white dark:bg-[#191A30] border border-slate-200 dark:border-[#2A2C4A] hover:border-brand-500 dark:hover:border-brand-500 text-slate-600 dark:text-[#ECECFA] flex items-center justify-center shadow-xs transition-colors cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => scroll(1)}
-          aria-label="Next capabilities"
-          className="w-7 h-7 rounded-full bg-white dark:bg-[#191A30] border border-slate-200 dark:border-[#2A2C4A] hover:border-brand-500 dark:hover:border-brand-500 text-slate-600 dark:text-[#ECECFA] flex items-center justify-center shadow-xs transition-colors cursor-pointer"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
       </div>
     </section>
   );
