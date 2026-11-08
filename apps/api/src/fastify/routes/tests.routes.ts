@@ -1108,18 +1108,18 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const answerMap = new Map((attempt?.answers || []).map((a: any) => [a.questionId, a]));
+      const answerMap = new Map<string, any>((attempt?.answers || []).map((a: any) => [a.questionId, a]));
       let qNum = 0;
       const answerKey = (test.sections || []).flatMap((sec) =>
         (sec.questions || []).map((q) => {
           qNum++;
-          const ans = answerMap.get(q.id);
+          const ans: any = answerMap.get(q.id);
           const correctOpts = (q.options || []).filter((o) => o.isCorrect);
           const correctLabels = correctOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
           const userSelectedOpts = (q.options || []).filter((o) => (ans?.selectedOptionIds || []).includes(o.id));
           const userLabels = userSelectedOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
 
-          const hasAns = (ans?.selectedOptionIds || []).length > 0;
+          const hasAns = Boolean(ans?.selectedOptionIds && ans.selectedOptionIds.length > 0);
           const isCorrect =
             hasAns &&
             correctOpts.length > 0 &&
@@ -1140,7 +1140,7 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
             status: isCorrect ? 'CORRECT' : isWrong ? 'WRONG' : 'UNANSWERED',
             marks: isCorrect ? marksPos : 0,
             negative: isWrong ? marksNeg : 0,
-            explanation: q.solution?.shortExplanationHtml || q.solution?.stepByStepHtml || '—',
+            explanation: q.solution?.shortExplanation || q.solution?.stepByStepHtml || '—',
           };
         }),
       );

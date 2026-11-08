@@ -276,7 +276,6 @@ function CreateTestWizardContent() {
                       hint: q.solution?.hintHtml || '',
                       shortExplanation: q.solution?.shortExplanation || '',
                       stepByStepSolution: q.solution?.stepByStepHtml || '',
-                      status: 'FILLED',
                     });
                   });
                 });
