@@ -7,21 +7,25 @@ import { useAuth } from '@/lib/auth-context';
 
 interface FeatureRailProps {
   batchesCount?: number;
+  activeBatchesCount?: number;
   liveTestsCount?: number;
   totalTestsCount?: number;
   subjectsCount?: number;
   studentsCount?: number;
   teachersCount?: number;
+  student360?: any;
   studentId?: string;
 }
 
 export default function DashboardFeatureRail({
   batchesCount = 0,
+  activeBatchesCount = 0,
   liveTestsCount = 0,
   totalTestsCount = 0,
   subjectsCount = 0,
   studentsCount = 0,
   teachersCount = 0,
+  student360,
   studentId,
 }: FeatureRailProps) {
   const { user } = useAuth();
@@ -355,42 +359,59 @@ export default function DashboardFeatureRail({
         {
           id: 'batches',
           title: 'Batches',
+          badge: `${batchesCount} Enrolled`,
+          dotColor: 'bg-blue-500',
           href: '/batches',
           art: CoursesArt,
         },
         {
           id: 'subjects',
           title: 'Subjects',
+          badge: `${subjectsCount} Units`,
+          dotColor: 'bg-amber-500',
           href: '/curriculum',
           art: SubjectsArt,
         },
         {
           id: 'tests',
           title: 'Test',
+          badge: liveTestsCount > 0 ? `${liveTestsCount} Live` : `${totalTestsCount} Tests`,
+          badgeType: liveTestsCount > 0 ? 'live' : 'purple',
           href: '/tests',
           art: MockTestsArt,
         },
         {
           id: 'videos',
           title: 'Video Lectures',
+          badge: 'Lectures',
+          dotColor: 'bg-purple-500',
           href: '/videos',
           art: VideosArt,
         },
         {
           id: 'notes',
           title: 'Lecture Notes',
+          badge: 'Notes',
+          dotColor: 'bg-emerald-500',
           href: '/notes',
           art: NotesArt,
         },
         {
           id: 'discussions',
           title: 'Discussions',
+          badge: 'Q&A',
+          dotColor: 'bg-teal-500',
           href: '/community',
           art: DiscussionsArt,
         },
         {
           id: 'performance',
           title: 'My Performance',
+          badge:
+            student360?.metrics?.passRate !== undefined
+              ? `${Math.round(student360.metrics.passRate)}% Pass`
+              : 'Analytics',
+          dotColor: 'bg-amber-500',
           href: studentId ? `/students/${studentId}` : '/students',
           art: TrophyArt,
         },
@@ -400,42 +421,56 @@ export default function DashboardFeatureRail({
         {
           id: 'batches',
           title: 'Batches',
+          badge: `${activeBatchesCount || batchesCount} Active`,
+          dotColor: 'bg-blue-500',
           href: '/batches',
           art: CoursesArt,
         },
         {
           id: 'subjects',
           title: 'Subjects',
+          badge: `${subjectsCount} Units`,
+          dotColor: 'bg-amber-500',
           href: '/curriculum',
           art: SubjectsArt,
         },
         {
           id: 'tests',
           title: 'Test',
+          badge: liveTestsCount > 0 ? `${liveTestsCount} Live` : `${totalTestsCount} Tests`,
+          badgeType: liveTestsCount > 0 ? 'live' : 'purple',
           href: '/tests/builder',
           art: MockTestsArt,
         },
         {
           id: 'students',
           title: 'Students',
+          badge: `${studentsCount} Learners`,
+          dotColor: 'bg-emerald-500',
           href: '/students',
           art: StudentsArt,
         },
         {
           id: 'videos',
           title: 'Video Lectures',
+          badge: 'Lectures',
+          dotColor: 'bg-purple-500',
           href: '/videos',
           art: VideosArt,
         },
         {
           id: 'notes',
           title: 'Study Notes',
+          badge: 'Notes',
+          dotColor: 'bg-emerald-500',
           href: '/notes',
           art: NotesArt,
         },
         {
           id: 'discussions',
           title: 'Discussions',
+          badge: 'Q&A',
+          dotColor: 'bg-teal-500',
           href: '/community',
           art: DiscussionsArt,
         },
@@ -444,78 +479,112 @@ export default function DashboardFeatureRail({
         {
           id: 'batches',
           title: 'Batches',
+          badge: `${activeBatchesCount || batchesCount} Active`,
+          dotColor: 'bg-blue-500',
           href: '/batches',
           art: CoursesArt,
         },
         {
           id: 'subjects',
           title: 'Subjects',
+          badge: `${subjectsCount} Units`,
+          dotColor: 'bg-amber-500',
           href: '/curriculum',
           art: SubjectsArt,
         },
         {
           id: 'tests',
           title: 'Test',
+          badge: liveTestsCount > 0 ? `${liveTestsCount} Live` : `${totalTestsCount} Tests`,
+          badgeType: liveTestsCount > 0 ? 'live' : 'purple',
           href: '/tests/builder',
           art: MockTestsArt,
         },
         {
           id: 'students',
           title: 'Students',
+          badge: `${studentsCount} Learners`,
+          dotColor: 'bg-emerald-500',
           href: '/students',
           art: StudentsArt,
         },
         {
           id: 'faculty',
           title: 'Faculty',
+          badge: `${teachersCount} Verified`,
+          dotColor: 'bg-orange-500',
           href: '/teachers',
           art: FacultyArt,
         },
         {
           id: 'discussions',
           title: 'Discussions',
+          badge: 'Q&A',
+          dotColor: 'bg-teal-500',
           href: '/community',
           art: DiscussionsArt,
         },
         {
           id: 'audit',
           title: 'Audit Logs',
+          badge: 'Security',
+          dotColor: 'bg-slate-400',
           href: '/settings/audit',
           art: NotesArt,
         },
         {
           id: 'security',
           title: 'Security',
+          badge: 'RBAC',
+          dotColor: 'bg-rose-500',
           href: '/settings/roles',
           art: SecurityArt,
         },
       ];
 
   return (
-    <section className="relative w-full pb-2 select-none" aria-label="Explore Capabilities">
+    <section className="relative w-full pb-1 select-none" aria-label="Explore Capabilities">
       {/* 
         Responsive layout matching reference:
         - Mobile: EXACT 3-Column Grid matching Image 2 (grid grid-cols-3)
-        - Desktop (sm and up): Smooth horizontal track with scroll snap and chevron arrows
+        - Desktop (sm and up): Smooth horizontal track with scroll snap and hover lift
       */}
       <div
-        className="grid grid-cols-3 gap-2.5 sm:gap-3.5 sm:flex sm:items-center sm:overflow-x-auto pb-2 sm:pb-4 pt-1 px-0.5 sm:scroll-smooth sm:snap-x sm:snap-mandatory sm:scrollbar-none"
+        className="grid grid-cols-3 gap-2.5 sm:gap-3.5 sm:flex sm:items-center sm:overflow-x-auto pb-2 sm:pb-3 pt-1 px-0.5 sm:scroll-smooth sm:snap-x sm:snap-mandatory sm:scrollbar-none"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {items.map((item) => (
           <Link
             key={item.id}
             href={item.href}
-            className="group relative flex flex-col items-center justify-between p-2 sm:p-3 rounded-[22px] sm:rounded-[30px] w-full sm:w-[130px] h-[130px] sm:h-[156px] sm:shrink-0 sm:snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#181A26] dark:via-[#13151F] dark:to-[#0C0D14] border border-blue-100/70 dark:border-[#1E222F] shadow-[0_2px_10px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_10px_22px_rgba(59,130,246,0.14)] dark:hover:shadow-[0_10px_22px_rgba(0,0,0,0.6)] hover:border-brand-400 dark:hover:border-brand-500/80 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
+            className="group relative flex flex-col items-center justify-between p-2 sm:p-2.5 rounded-[22px] sm:rounded-[28px] w-full sm:w-[136px] h-[142px] sm:h-[164px] sm:shrink-0 sm:snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#181A26] dark:via-[#13151F] dark:to-[#0C0D14] border border-blue-100/70 dark:border-[#1E222F] shadow-[0_2px_10px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_12px_24px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_12px_28px_rgba(0,0,0,0.6)] hover:border-brand-400 dark:hover:border-brand-500/80 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
           >
             {/* Top-right subtle glossy shine curve */}
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/40 dark:bg-white/5 rounded-full blur-xs pointer-events-none" />
 
-            {/* Top Title - NO Gemini/sparkle symbol */}
-            <div className="w-full pt-1 px-1 z-10">
-              <h3 className="text-[12px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#FFFFFF] leading-tight text-center line-clamp-2">
+            {/* Top Title & Embedded Live Stat Badge */}
+            <div className="w-full pt-0.5 px-1 z-10 flex flex-col items-center gap-1">
+              <h3 className="text-[12px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#FFFFFF] leading-tight text-center line-clamp-1">
                 {item.title}
               </h3>
+              {item.badge && (
+                <div>
+                  {item.badgeType === 'live' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-400/40 shadow-2xs">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+                      </span>
+                      {item.badge}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-white/80 dark:bg-[#1C2030] text-slate-700 dark:text-[#CBD5E1] border border-slate-200/70 dark:border-[#2A2E42] shadow-2xs">
+                      <span className={`w-1.5 h-1.5 rounded-full ${item.dotColor || 'bg-brand-500'}`} />
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Center / Bottom 3D Illustration */}

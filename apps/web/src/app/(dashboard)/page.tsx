@@ -5,13 +5,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { StatCardSkeleton } from '@/components/skeleton';
 import DashboardFeatureRail from '@/components/dashboard-feature-rail';
 import {
   GraduationCap,
   Users,
   FileCheck2,
-  UserSquare2,
   Plus,
   Play,
   ChevronRight,
@@ -296,170 +294,21 @@ export default function DashboardOverviewPage() {
     });
   }, [tests, testFilter]);
 
-  // Student Metrics (100% Real API Data)
-  const studentStats = [
-    {
-      title: 'Enrolled Courses',
-      value: String(batches.length),
-      badge: isLoading ? 'Loading…' : batches.length > 0 ? 'Active Access' : 'No Enrolled Courses',
-      badgeType: batches.length > 0 ? 'success' : 'neutral',
-      icon: GraduationCap,
-      color: 'from-blue-600 via-indigo-600 to-blue-700',
-      glowColor: 'from-blue-500 to-indigo-500',
-      shadow: 'shadow-blue-500/25',
-      href: '/batches',
-    },
-    {
-      title: 'Mock Examinations',
-      value: String(tests.length),
-      badge: liveTestsCount > 0 ? `${liveTestsCount} Live Now` : `${tests.length} Total`,
-      badgeType: liveTestsCount > 0 ? 'live' : 'purple',
-      icon: FileCheck2,
-      color: 'from-purple-600 via-fuchsia-600 to-indigo-600',
-      glowColor: 'from-purple-500 to-pink-500',
-      shadow: 'shadow-purple-500/25',
-      href: '/tests',
-    },
-    {
-      title: 'Curriculum Subjects',
-      value: String(totalCurriculumSubjects),
-      badge: 'Study Units',
-      badgeType: 'emerald',
-      icon: BookOpen,
-      color: 'from-emerald-500 via-teal-600 to-cyan-700',
-      glowColor: 'from-emerald-500 to-teal-500',
-      shadow: 'shadow-emerald-500/25',
-      href: '/curriculum',
-    },
-    {
-      title: 'Performance Score',
-      value:
-        student360?.metrics?.avgPercentage !== undefined
-          ? `${Math.round(student360.metrics.avgPercentage)}%`
-          : `${student360?.metrics?.totalAttempts || 0} Taken`,
-      badge:
-        student360?.metrics?.passRate !== undefined
-          ? `${Math.round(student360.metrics.passRate)}% Pass Rate`
-          : '360 Analytics',
-      badgeType: 'amber',
-      icon: Award,
-      color: 'from-amber-500 via-orange-500 to-amber-600',
-      glowColor: 'from-amber-500 to-orange-500',
-      shadow: 'shadow-amber-500/25',
-      href: user?.id ? `/students/${user.id}` : '/students',
-    },
-  ];
-
-  // Faculty Metrics
-  const teacherStats = [
-    {
-      title: 'Active Batches',
-      value: String(batches.length),
-      badge: `${batches.filter((b) => b.status === 'ACTIVE').length} Active`,
-      badgeType: 'success',
-      icon: GraduationCap,
-      color: 'from-blue-600 via-indigo-600 to-blue-700',
-      glowColor: 'from-blue-500 to-indigo-500',
-      shadow: 'shadow-blue-500/25',
-      href: '/batches',
-    },
-    {
-      title: 'Assigned Learners',
-      value: String(studentsCount),
-      badge: 'Enrolled in Batches',
-      badgeType: 'emerald',
-      icon: Users,
-      color: 'from-emerald-500 via-teal-600 to-cyan-700',
-      glowColor: 'from-emerald-500 to-teal-500',
-      shadow: 'shadow-emerald-500/25',
-      href: '/students',
-    },
-    {
-      title: 'Mock Examinations',
-      value: String(tests.length),
-      badge: liveTestsCount > 0 ? `${liveTestsCount} Live Ongoing` : 'Ready',
-      badgeType: liveTestsCount > 0 ? 'live' : 'purple',
-      icon: FileCheck2,
-      color: 'from-purple-600 via-fuchsia-600 to-indigo-600',
-      glowColor: 'from-purple-500 to-pink-500',
-      shadow: 'shadow-purple-500/25',
-      href: '/tests/builder',
-    },
-    {
-      title: 'Teaching Subjects',
-      value: String(totalCurriculumSubjects),
-      badge: 'Curriculum Units',
-      badgeType: 'amber',
-      icon: BookOpen,
-      color: 'from-amber-500 via-orange-500 to-amber-600',
-      glowColor: 'from-amber-500 to-orange-500',
-      shadow: 'shadow-amber-500/25',
-      href: '/curriculum',
-    },
-  ];
-
-  // Admin Metrics
-  const adminStats = [
-    {
-      title: 'Total Batches',
-      value: String(batches.length),
-      badge: `${batches.filter((b) => b.status === 'ACTIVE').length} Active`,
-      badgeType: 'success',
-      icon: GraduationCap,
-      color: 'from-blue-600 via-indigo-600 to-blue-700',
-      glowColor: 'from-blue-500 to-indigo-500',
-      shadow: 'shadow-blue-500/25',
-      href: '/batches',
-    },
-    {
-      title: 'Enrolled Students',
-      value: String(studentsCount),
-      badge: studentsCount > 0 ? `${studentsCount} Learners` : 'Active Learners',
-      badgeType: 'emerald',
-      icon: Users,
-      color: 'from-emerald-500 via-teal-600 to-cyan-700',
-      glowColor: 'from-emerald-500 to-teal-500',
-      shadow: 'shadow-emerald-500/25',
-      href: '/students',
-    },
-    {
-      title: 'Mock Examinations',
-      value: String(tests.length),
-      badge: liveTestsCount > 0 ? `${liveTestsCount} Live Ongoing` : `${tests.length} Papers`,
-      badgeType: liveTestsCount > 0 ? 'live' : 'purple',
-      icon: FileCheck2,
-      color: 'from-purple-600 via-fuchsia-600 to-indigo-600',
-      glowColor: 'from-purple-500 to-pink-500',
-      shadow: 'shadow-purple-500/25',
-      href: '/tests/builder',
-    },
-    {
-      title: 'Faculty Instructors',
-      value: String(teachersCount),
-      badge: 'Verified Faculty',
-      badgeType: 'amber',
-      icon: UserSquare2,
-      color: 'from-amber-500 via-orange-500 to-amber-600',
-      glowColor: 'from-amber-500 to-orange-500',
-      shadow: 'shadow-amber-500/25',
-      href: '/teachers',
-    },
-  ];
-
-  const activeStats = isStudent ? studentStats : isTeacher ? teacherStats : adminStats;
-
   return (
     <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto pb-12 font-sans">
-      {/* ── 1. 3D CAPABILITIES RAIL (UNSTOP-STYLE REFERENCE) ── */}
+      {/* ── 1. UNIFIED 3D CAPABILITIES & LIVE STATS RAIL ── */}
       <DashboardFeatureRail
         batchesCount={batches.length}
+        activeBatchesCount={batches.filter((b) => b.status === 'ACTIVE').length}
         liveTestsCount={liveTestsCount}
         totalTestsCount={tests.length}
         subjectsCount={totalCurriculumSubjects}
         studentsCount={studentsCount}
         teachersCount={teachersCount}
+        student360={student360}
         studentId={user?.id}
       />
+
       {batchError && (
         <div
           role="alert"
@@ -475,88 +324,7 @@ export default function DashboardOverviewPage() {
         </div>
       )}
 
-      {/* ── 2. RICH STAT METRICS CARDS (IMAGE 1 OVERHAUL & IMAGE 3-5 DEEP OBSIDIAN THEME) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {isLoading ? (
-          <>
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-            <StatCardSkeleton />
-          </>
-        ) : (
-          activeStats.map((item) => {
-            const Icon = item.icon;
-            const content = (
-              <div
-                key={item.title}
-                className="group relative bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-4 sm:p-5 shadow-xs hover:shadow-xl dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.6)] dark:hover:border-brand-500/40 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between min-h-[136px]"
-              >
-                {/* Ambient background glow orb */}
-                <div
-                  className={`absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br ${item.glowColor} rounded-full blur-2xl opacity-15 dark:opacity-20 group-hover:opacity-35 transition-opacity pointer-events-none`}
-                />
-
-                {/* Top Row: Metric Title & 3D Glowing Pod */}
-                <div className="flex items-center justify-between gap-2.5 z-10">
-                  <span className="text-[12px] font-bold tracking-wide uppercase text-slate-500 dark:text-[#94A3B8]">
-                    {item.title}
-                  </span>
-                  <div
-                    className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${item.color} text-white flex items-center justify-center shadow-md ${item.shadow} ring-4 ring-slate-100/80 dark:ring-white/5 group-hover:scale-108 transition-all shrink-0`}
-                  >
-                    <Icon className="w-5 h-5 drop-shadow-xs" />
-                  </div>
-                </div>
-
-                {/* Bottom Row: Large Numeric Value & Sleek Translucent Status Pill */}
-                <div className="mt-4 flex items-end justify-between gap-2 z-10 flex-wrap">
-                  <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight font-sans">
-                    {item.value}
-                  </span>
-
-                  {/* Refined Status Pill Badge */}
-                  {item.badgeType === 'live' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80 shadow-2xs">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                      </span>
-                      {item.badge}
-                    </span>
-                  ) : item.badgeType === 'success' || item.badgeType === 'emerald' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      {item.badge}
-                    </span>
-                  ) : item.badgeType === 'amber' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      {item.badge}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-
-            if (item.href) {
-              return (
-                <Link key={item.title} href={item.href} className="block">
-                  {content}
-                </Link>
-              );
-            }
-            return content;
-          })
-        )}
-      </div>
-
-      {/* ── 3. MAIN WORKSPACE: BATCHES & EXAMS (LEFT 2/3) + SIDEBAR HUB (RIGHT 1/3) ── */}
+      {/* ── 2. MAIN WORKSPACE: BATCHES & EXAMS (LEFT 2/3) + SIDEBAR HUB (RIGHT 1/3) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
         {/* LEFT COLUMN: COURSES & EXAMINATIONS */}
         <div className="lg:col-span-2 space-y-6 sm:space-y-8">
