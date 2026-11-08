@@ -1,0 +1,157 @@
+[
+  {
+    "question": 1,
+    "source_answer": "C",
+    "notes": "Review note: The book describes Boyden’s sphincter as surrounding the opening of the common bile duct into the pancreatic duct. The explanation here uses the terminal common bile duct wording; the selected answer remains (c)."
+  },
+  {
+    "question": 2,
+    "source_answer": "D",
+    "notes": "Review note: The source groups S, CCK and K cells under argentaffin cells. These are distinct enteroendocrine cell types; this ancillary classification is not needed to identify Paneth cells as the answer."
+  },
+  {
+    "question": 4,
+    "source_answer": "C",
+    "notes": "Review note: The scan calls the tectorial membrane ‘cellular’. The standard description is acellular; the selected structure remains the tectorial membrane."
+  },
+  {
+    "question": 6,
+    "source_answer": "B",
+    "notes": "Review note: The scan’s phrase ‘energy deficiency’ appears to be a typographical error. It has not been repeated as a function of the nodes of Ranvier."
+  },
+  {
+    "question": 8,
+    "source_answer": "C",
+    "notes": "Review note: The source’s extra statements about the AV node and non-rhythmic conduction in the bundle of His are not required for this question. The keyed answer is the SA node, the normal pacemaker."
+  },
+  {
+    "question": 11,
+    "source_answer": "C",
+    "notes": "Review note: The quoted 280 days or 40 weeks is conventionally measured from the last menstrual period. The interval from fertilization is about 266 days or 38 weeks. The definition asked for still corresponds to option (c)."
+  },
+  {
+    "question": 23,
+    "source_answer": "B",
+    "notes": "Review note: Option (b) in the existing Word question paper reads ‘6th segment behind’. The photographed question and solution indicate ‘26th segment and behind’. The book key is (b); the question-paper option needs this digit restored."
+  },
+  {
+    "question": 59,
+    "source_answer": "B",
+    "notes": "Review note: The question paper has identical wording for options (c) and (d), ‘Divergent reticulate’. The book key (b), unicostate parallel, is unaffected."
+  },
+  {
+    "question": 61,
+    "source_answer": "C",
+    "notes": "Review note: The book gives (c), ‘Community’, without an explanation. The wording ‘Pond is a’ is normally used for an ecosystem, but ‘ecosystem’ is absent from the choices. The source key is retained for review."
+  },
+  {
+    "question": 69,
+    "source_answer": "C",
+    "notes": "Review note: The book counts only the two pyruvate-to-acetyl-CoA reactions. The stem says ‘during complete oxidation of glucose’, which also includes oxidative decarboxylation in the Krebs cycle. The question needs to specify whether it asks for reaction types, occurrences per glucose, or the link reaction alone."
+  },
+  {
+    "question": 95,
+    "source_answer": "A",
+    "notes": "Review note: The scan shows a triangular Ca–C–C sketch. The explanation uses the acetylide description Ca$^{2+}$[C≡C]$^{2−}$ to identify the one σ and two π bonds of the carbon–carbon triple bond."
+  },
+  {
+    "question": 97,
+    "source_answer": "B",
+    "notes": "Review note: The scan includes H$_{2}$O$_{2}$ as a product while also specifying a Zn/H$_{2}$O reductive work-up. The cleaned scheme shows the organic product, formaldehyde, without that inconsistent peroxide product."
+  },
+  {
+    "question": 101,
+    "source_answer": "B",
+    "notes": "Review note: The stem begins ‘Aniline is purified by’ and then asks about Kolbe electrolysis of sodium succinate. These phrases do not form a single coherent question. The book answer (b), ethene, belongs to sodium succinate electrolysis. Stoichiometric coefficients omitted in the source scheme have been supplied."
+  },
+  {
+    "question": 104,
+    "source_answer": "A",
+    "notes": "Review note: The question paper says ‘iso-heptane’, while the book’s explanation requires ‘iso-octane’. An octane number of 80 follows for 20% n-heptane and 80% iso-octane, not from the printed iso-heptane wording alone."
+  },
+  {
+    "question": 112,
+    "source_answer": "B",
+    "notes": "Review note: The stem asks for the ‘bond present in N$_{2}$ molecules’, but option (b) and the book explanation concern forces between molecules. Within N$_{2}$ the bond is triple covalent. To make (b) unambiguous, the stem should ask about intermolecular attraction."
+  },
+  {
+    "question": 113,
+    "source_answer": "D",
+    "notes": "Review note: The book gives (d), sodium cyanide, without explanation. The question’s inclusion of a coordinate bond is not clarified by the source. Keep this item under review rather than treating the missing explanation as verification."
+  },
+  {
+    "question": 118,
+    "source_answer": "C",
+    "notes": "Review note: The printed equation 2CuS + 3O$_{2}$ → 2Cu$_{2}$O + 2SO$_{2}$ is not balanced in copper or oxygen. The oxidation-state change S: −2 → +4 still supports (c). If the intended sulphide is Cu$_{2}$S, 2Cu$_{2}$S + 3O$_{2}$ → 2Cu$_{2}$O + 2SO$_{2}$ is balanced."
+  },
+  {
+    "question": 133,
+    "source_answer": "B",
+    "notes": "Review note: The book’s 200 m result is the greatest height attainable with the same launch speed, using vertical projection. The height of the trajectory that itself has maximum horizontal range, at 45°, would instead be 100 m. The wording should distinguish these interpretations."
+  },
+  {
+    "question": 143,
+    "source_answer": "C",
+    "notes": "Review note: The book calls the constant-volume pressure–temperature relation Charles’s law. The derivation here states the relation directly, avoiding that naming error."
+  },
+  {
+    "question": 145,
+    "source_answer": "A",
+    "notes": "Review note: The source rearranges the first law incorrectly in one line, but calculates 8400 − 500 = 7900 J. The working here uses ΔU = Q − W, matching the stated heat absorbed and work done."
+  },
+  {
+    "question": 146,
+    "source_answer": "C",
+    "notes": "Review note: The source prints answer (c) and an unrelated gas-law calculation. For the Carnot engine in the actual question, Qc/Qh = Tc/Th = (T/3)/T = 1/3. Therefore Qc = Q/3, which is option (b). The separate book key retains (c) pending correction of the source."
+  },
+  {
+    "question": 151,
+    "source_answer": "C",
+    "notes": "Review note: The book gives (c), I$_{0}$/4, with no working. For already plane-polarized incident light and a single analyser at 45°, Malus’s law gives I$_{0}$ cos$^{2}$45° = I$_{0}$/2, option (b). I$_{0}$/4 requires an additional polarizing stage starting from unpolarized light. The question does not specify this clearly."
+  },
+  {
+    "question": 153,
+    "source_answer": "D",
+    "notes": "Review note: The source’s 4a$^{2}$ result assumes constructive interference. More generally the intensity varies as 4a$^{2}$ cos$^{2}$(φ/2); the phase relation should be specified."
+  },
+  {
+    "question": 165,
+    "source_answer": "B",
+    "notes": "Review note: The source supplies only (b), ‘Less’. The comparison needs a stated convention: a beta-minus particle and a photoelectron have the same electron charge and rest mass; a speed-dependent relativistic-mass comparison requires additional assumptions. The book’s letter is retained rather than silently reinterpreted."
+  },
+  {
+    "question": 166,
+    "source_answer": "D",
+    "notes": "Review note: The source’s 4 mH calculation addresses a different inductive-e.m.f. problem. For the stated geometric scaling, L is proportional to N$^{2}$A/ℓ. Fixed turns per unit length gives N′ = 2N; doubling all lengths gives A′ = 4A and ℓ′ = 2ℓ. Thus L′/L = 4×4/2 = 8, option (c), rather than the printed (d)."
+  },
+  {
+    "question": 177,
+    "source_answer": "C",
+    "notes": "Review note: The book uses t = T$_{1}$/$_{2}$/2 and obtains 1/√2, option (c). The question says ‘after half-life’, meaning t = T$_{1}$/$_{2}$, for which the remaining fraction is 1/2; that value is absent from the choices. The stem should say ‘after half of one half-life’ if the book answer is intended."
+  },
+  {
+    "question": 183,
+    "source_answer": "B",
+    "notes": "Review note: The source prints the intermediate subtraction as 114 − 59 = 45. Since 12 + 34 + 23 = 69, the corrected working is 114 − 69 = 45. The answer letter (b) is unchanged."
+  },
+  {
+    "question": 185,
+    "source_answer": "A",
+    "notes": "Review note: The book’s final statement that the man is Roshani’s brother-in-law conflicts with its own reasoning. The question asks only his relationship to Mohan: son, option (a)."
+  },
+  {
+    "question": 186,
+    "source_answer": "B",
+    "notes": "Review note: The question stem names Anish, while its option (d) and the source explanation use Ashish/Ashis. Gaurav is first under either spelling, so answer (b) is unaffected."
+  },
+  {
+    "question": 191,
+    "source_answer": "D",
+    "notes": "Review note: The source’s final multiplication is printed inconsistently. Since ten clips cost 5/7 rupee, the number per rupee is 10 ÷ (5/7) = 14, not 10 × (5/7). The answer remains (d)."
+  },
+  {
+    "question": 195,
+    "source_answer": "B",
+    "notes": "Review note: The book reverses the question’s speeds. With the actual printed data, x = 54×6 = 324 km and the pre-repair time for 3x is 972/72 = 13.5 hours, which is absent from the options. The source’s 24 hours, option (b), follows only from the reversed speeds."
+  }
+]

@@ -73,6 +73,8 @@ model PostReaction {
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId]) // 1 reaction per user
+  @@index([userId])
+  @@index([postId, reactionType])
 }
 
 model PostComment {
@@ -90,6 +92,8 @@ model PostComment {
   replies         PostComment[]     @relation("ThreadedComment")
 
   @@index([postId, parentId])
+  @@index([postId, createdAt])
+  @@index([userId])
 }
 
 model ChatMessage {
@@ -107,4 +111,5 @@ model ChatMessage {
   receiver        User              @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, isRead])
 }

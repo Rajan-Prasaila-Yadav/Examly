@@ -1,0 +1,172 @@
+{
+  "timestamp": "2026-09-05T18:56:23.089Z",
+  "endpoints": [
+    {
+      "label": "GET /api/v1/health (no-auth)",
+      "stats": {
+        "count": 20,
+        "min": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 1,
+        "p95": 2,
+        "p99": 2,
+        "max": 2,
+        "mean": 1,
+        "stddev": 0
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "no-auth-baseline"
+    },
+    {
+      "label": "GET /api/v1/auth/me (auth-only)",
+      "stats": {
+        "count": 20,
+        "min": 1958,
+        "p50": 1984,
+        "p75": 2009,
+        "p90": 2127,
+        "p95": 2137,
+        "p99": 2152,
+        "max": 2152,
+        "mean": 2010,
+        "stddev": 59
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-only"
+    },
+    {
+      "label": "GET /api/v1/tests (auth+RBAC)",
+      "stats": {
+        "count": 20,
+        "min": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 1,
+        "p95": 1,
+        "p99": 1,
+        "max": 1,
+        "mean": 1,
+        "stddev": 0
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-rbac-collection-read"
+    },
+    {
+      "label": "GET /api/v1/batches (auth+RBAC)",
+      "stats": {
+        "count": 20,
+        "min": 2122,
+        "p50": 2134,
+        "p75": 2159,
+        "p90": 2263,
+        "p95": 2287,
+        "p99": 2289,
+        "max": 2289,
+        "mean": 2161,
+        "stddev": 53
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-rbac-batches"
+    },
+    {
+      "label": "GET /api/v1/tests/cmtftojd30001zcxxd78upz4e (auth+RBAC+join)",
+      "stats": {
+        "count": 20,
+        "min": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 2,
+        "p95": 2,
+        "p99": 3,
+        "max": 3,
+        "mean": 1,
+        "stddev": 0
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-rbac-entity-read"
+    },
+    {
+      "label": "GET /api/v1/community/feed (auth+RBAC)",
+      "stats": {
+        "count": 20,
+        "min": 3021,
+        "p50": 3042,
+        "p75": 3080,
+        "p90": 3187,
+        "p95": 3208,
+        "p99": 4230,
+        "max": 4230,
+        "mean": 3127,
+        "stddev": 259
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-rbac-community"
+    },
+    {
+      "label": "GET /api/v1/dashboard (auth+RBAC)",
+      "stats": {
+        "count": 20,
+        "min": 1,
+        "p50": 2,
+        "p75": 2,
+        "p90": 3,
+        "p95": 3,
+        "p99": 3,
+        "max": 3,
+        "mean": 2,
+        "stddev": 1
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "auth-rbac-dashboard"
+    },
+    {
+      "label": "POST /tests/:id/attempts/:id/answer (answer-save)",
+      "stats": {
+        "count": 5,
+        "min": 1,
+        "p50": 1,
+        "p75": 1,
+        "p90": 1,
+        "p95": 1,
+        "p99": 1,
+        "max": 1,
+        "mean": 1,
+        "stddev": 0
+      },
+      "errors": 0,
+      "total": 5,
+      "scenario": "answer-save",
+      "note": "limited-5-samples"
+    },
+    {
+      "label": "GET /api/v1/ready (DB probe)",
+      "stats": {
+        "count": 20,
+        "min": 751,
+        "p50": 756,
+        "p75": 761,
+        "p90": 762,
+        "p95": 763,
+        "p99": 910,
+        "max": 910,
+        "mean": 765,
+        "stddev": 33
+      },
+      "errors": 0,
+      "total": 20,
+      "scenario": "db-connectivity-probe"
+    }
+  ],
+  "dbRoundTrip": {
+    "error": "Cannot find module 'C:\\Users\\rajan\\Desktop\\Examly\\database\\node_modules\\@prisma\\client'\nRequire stack:\n- C:\\Users\\rajan\\Desktop\\Examly\\scripts\\performance\\benchmark.js",
+    "note": "MEASUREMENT UNAVAILABLE"
+  }
+}

@@ -1,0 +1,18 @@
+model VideoPersonalNote {
+ id String @id @default(cuid())
+ videoId String
+ userId String
+ seconds Int
+ text String
+ createdAt DateTime @default(now())
+ video Video @relation(fields:[videoId],references:[id],onDelete:Cascade)
+ @@index([videoId,userId])
+}
+model NoteOpen {
+ noteId String
+ userId String
+ count Int @default(1)
+ openedAt DateTime @default(now()) @updatedAt
+ note Note @relation(fields:[noteId],references:[id],onDelete:Cascade)
+ @@id([noteId,userId])
+}

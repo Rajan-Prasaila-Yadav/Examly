@@ -1,0 +1,22 @@
+ALTER TABLE "Subject" ALTER COLUMN "batchId" DROP NOT NULL;
+ALTER TABLE "Subject" ADD COLUMN IF NOT EXISTS "instituteId" TEXT;
+ALTER TABLE "Subject" ADD COLUMN IF NOT EXISTS "code" TEXT;
+ALTER TABLE "Subject" ADD COLUMN IF NOT EXISTS "description" TEXT;
+UPDATE "Subject" s SET "instituteId"=b."instituteId" FROM "Batch" b WHERE s."batchId"=b."id" AND s."instituteId" IS NULL;
+CREATE INDEX IF NOT EXISTS "Subject_instituteId_idx" ON "Subject"("instituteId");
+ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "subtitleUrl" TEXT;
+ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "watermark" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "allowDownload" BOOLEAN NOT NULL DEFAULT true;
+CREATE TABLE IF NOT EXISTS "VideoPersonalNote" (
+ "id" TEXT PRIMARY KEY, "videoId" TEXT NOT NULL REFERENCES "Video"("id") ON DELETE CASCADE,
+ "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE, "seconds" INTEGER NOT NULL CHECK ("seconds">=0),
+ "text" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "VideoPersonalNote_videoId_userId_idx" ON "VideoPersonalNote"("videoId","userId");
+CREATE TABLE IF NOT EXISTS "NoteOpen" (
+ "noteId" TEXT NOT NULL REFERENCES "Note"("id") ON DELETE CASCADE,
+ "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+ "count" INTEGER NOT NULL DEFAULT 1, "openedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY ("noteId","userId")
+);

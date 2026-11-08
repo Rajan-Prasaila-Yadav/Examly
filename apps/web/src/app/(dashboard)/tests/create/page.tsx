@@ -357,7 +357,7 @@ function CreateTestWizardContent() {
       const stateToSave = {
         title,
         description,
-        batchId,
+        batchId: batchId || undefined,
         subjectId,
         lessonId,
         durationMinutes,
@@ -544,7 +544,7 @@ function CreateTestWizardContent() {
       const payload = {
         title: title || 'Examination Mock Test',
         description,
-        batchId,
+        batchId: batchId || undefined,
         subjectId: testScope !== 'BATCH_LEVEL' ? subjectId : undefined,
         lessonId: testScope === 'LESSON_LEVEL' ? lessonId : undefined,
         testType: testScope,

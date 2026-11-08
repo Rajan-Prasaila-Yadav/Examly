@@ -1,0 +1,344 @@
+0: 
+1: Zoology
+2: 1.   (c)   The sphincter of Oddi, also known as the 
+3: hepatopancreatic sphincter, is a muscular valve that regulates the flow of bile and pancreatic juice into the duodenum. Sphincter of Boyden surrounds the opening of common bile duct into the pancreatic duct.
+4: 2.   (d)   Mainly found in Jejunum and secrete lysozyme. Argentaffin cells is of three 3 types; S – cells, CCK cells, K cells. Kupffer cells are macrophages of liver.
+5: 3.   (c)   Vitreous chamber in eyes lies in behind the lens, containing vitreous humour which helps to maintain the shape of the eyeball.
+6: 4.   (c)   The tectorial membrane is a cellular, gelatinous structure located within the cochlea of the inner ear, playing a crucial role in the auditory process.
+7: 5.   (b)   Both apneustic and pneumotaxic center are present in pons which stimulate and inhibits inspiratory center. Inspiratory center is present in dorsal medulla. Expiratory center is present in ventral medulla.
+8: 6.   (b)   Nodes of Ranvier are small gaps in the myelin sheath. The functions of nodes of Ranvier are speeding up nerve impulses, ion exchange, energy deficiency.
+9: 7.   (a)   Broca's area, located in the frontal lobe of the dominant hemisphere (usually the left side), is specifically responsible for speech production and language processing. It controls the motor functions involved in muscle movements needed for speaking.
+10: 8.   (c)   SA node: SA nodes lies near the opening of the superior vena cava in the right auricle. AV node is also known as pace setter of heart. The impulses pass through bundle of His are non-rhythmic.
+11: 9.   (b)   The pituitary gland is attached to the hypothalamus by the infundibular stalk and is located in the sella turcica of the sphenoid bone.
+12: •   Blood vessels → Help transport hormones but do not form the attachment.
+13: •   Malleus → An auditory ossicle of the middle ear.
+14: •   Pituicytes → Supporting cells of the posterior pituitary, not the connecting structure.
+15: 10.   (b)   During the menstrual cycle, a surge of Luteinizing Hormone (LH) triggers ovulation, causing the mature Graafian follicle to rupture and release the ovum. After ovulation, the ruptured Graafian follicle transforms into a temporary endocrine gland called the corpus luteum ("yellow body").
+16: Hormones Secreted by Corpus Luteum
+17: •   Progesterone → Prepares and maintains the endometrium for implantation.
+18: •   Relaxin → Helps relax uterine muscles and pelvic ligaments during pregnancy.
+19: •   Inhibin → Inhibits FSH secretion from the anterior pituitary.
+20: 11.   (c)   The gestation period is the time interval from fertilization (conception) until parturition (birth of the young one). During this period, the embryo develops into a fetus and completes its growth inside the uterus.
+21: In humans, the gestation period is about 280 days (40 weeks or 9 months). It begins with fertilization and ends with childbirth.
+22: 12.   (b)   
+23: 13.   (c)   The respiratory center in the medulla oblongata is primarily stimulated by an increase in carbon dioxide (CO2) concentration in the blood.
+24: 14.   (b)   Nephrons are the structural and functional units of the kidney. They filter blood, reabsorb useful substances, and form urine.
+25: 15.   (b)   Equitonic → Has the same concentration as another solution; mammalian urine is usually more concentrated.
+26: •   Hypertonic → Has a higher solute concentration than blood plasma; this is the typical condition of mammalian urine.
+27: •   Isotonic → Has the same osmotic concentration as blood plasma.
+28: •   Hypotonic → Has a lower solute concentration than blood plasma; may occur after drinking excess water.
+29: 16.   (c)   Researchers believe that tuna uses the Earth's magnetic fields, ocean currents, and temperature gradients to navigate.
+30: 17.   (b)   
+31: •   Polar biome: A polar biome is a cold region around the poles characterized by snow and ice. It is defined by climate, not by species richness and habitat loss.
+32: •   Ramsar site: A Ramsar site is a wetland of international importance protected under the Ramsar Convention. Not all biodiversity hotspots are wetlands.
+33: •   Biosphere reserve: A biosphere reserve is a protected area created for conservation and sustainable use of biodiversity. It may contain a hotspot, but the terms are not the same.
+34: 18.   (c)   Beer is a fermented beverage produced by yeast fermentation. Cheese, yogurt, bread, and buns are fermented foods, while milk itself is not a fermented product.
+35: 19.   (b)   
+36: 20.   (d)   Except P. malariae all species cause tertian malaria. P. malariae cause Benign quartan malaria, which is characterized by 72 hours fever cycle.
+37: 21.   (c)   
+38: 22.   (a)   Metamorphosis is absent in earthworm. Cocoon may have several fertilized eggs but only one embryo develops.
+39: 23.   (b)   Lymph glands are present on both sides of dorsal blood vessel from 26th and these behind it (one pair per segment, small and whitish). Lymph glands are supposed to produce certain phagocytic cells/corpuscles.
+40: 24.   (a)   The nictitating membrane is a transparent third eyelid in frogs. It covers the eye while the frog is underwater or during swimming. It protects the eyes from dust and injury on land, water pressure and particles in water. It still allows vision even when closed partially.
+41: 25.   (a)   Frog pancreas is a mixed gland (both exocrine and endocrine), producing 3 main digestive enzymes and 2 hormones (insulin and glucagon).
+42: 26.   (d)   Examples of organism exhibiting radial symmetry include jellyfish, sea anemone, starfish etc.
+43: 27.   (b)   Miracidium enters the body of snail from the water and develops into cercaria larva that leaves the body of snail and enters the water. Cercaria larva develops into metacercaria larva which infects the primary host.
+44: 28.   (b)   Spider belongs to Class Arachnida, whereas housefly, cockroach, and mosquito belong to class Insecta.
+45: 29.   (b)   Coelenterates (Cnidarians) are diploblastic, radially symmetrical, acoelomate animals with a gastrovascular cavity.
+46: 30.   (c)   The organs that have the anatomically same structure but are different in function are called homologous organs. Eg: mouthparts of cockroaches and butterflies, the forelimbs of man and bats, etc.
+47: 31.   (c)   Darwin's theory of evolution is based on natural selection, often summarized as "survival of the fittest".
+48: •   Germplasm theory → Proposed by Weismann.
+49: •   Use and disuse → Proposed by Lamarck.
+50: •   Natural selection → Proposed by Darwin as the mechanism of evolution.
+51: •   Gene mutation → Mutation theory was proposed by Hugo de Vries.
+52: 32.   (d)   
+53: •   Wandering man: Refers to Homo erectus ("upright man"), not Homo habilis.
+54: •   Modern man: Refers to Homo sapiens.
+55: •   Tool maker: Homo habilis means "handy man" or "tool maker" because it was the earliest hominid known to use simple stone tools.
+56: 33.   (b)   Stratified cuboidal epithelium is a type of epithelial tissue which is composed of multiple layers of cube-shaped cells. The most superficial layer is made up of cuboidal cells and the other layers can be of other types. Conventionally, the naming of stratified epithelium is based on the type of cells in the most superficial layer. The basic components of a mature mammary gland are the alveoli lined with milk-secreting cuboidal cells and surrounded by myoepithelial cells.
+57: 34.   (d)   This (Hyaline cartilage) smooth, slippery cartilage lines the inner surfaces of joint capsules and caps the ends of bones. It's also known as articular cartilage. Hyaline cartilage acts as a cushion to reduce friction between bones, allowing for smooth and painless joint movement.
+58: 35.   (c)   The shape of the skeletal muscle is cylindrical, while that of visceral muscle is pear-shaped or spindle-shaped. Actin filaments which are thin filaments and myosin which are thick filaments are contractile proteins in the skeletal muscle as well as in the visceral muscle.
+59: 36.   (d)   Mast cells are mainly present in areolar connective tissue, where they play a key role in inflammation and allergic reactions by releasing histamine and heparin. They are commonly found around blood vessels and under the skin.
+60: 37.   (b)   Pulmonary tuberculosis because chronic cough with blood-streaked sputum (hemoptysis), night sweats, and weight loss are classic symptoms of TB infection caused by Mycobacterium tuberculosis.
+61: 38.   (b)   The condition is AIDS-related complex (ARC), which represents an early symptomatic stage of HIV infection where patients show fever, fatigue, weight loss, and lymphadenopathy but do not yet have full-blown AIDS or severe opportunistic infections.
+62: 39.   (b)   Genes that inhibit cellular proliferation and prevent cancer are tumor suppressor genes. Tumor suppressor genes prevent uncontrolled cell growth by: Regulating the cell cycle, Promoting DNA repair, and inducing apoptosis in damaged cells.
+63: 40.   (d)   The thymus is responsible for the maturation of T-lymphocytes (T-cells), which are essential for cell-mediated immunity. Without a thymus, T-cell development is impaired, leading to weak immune responses against infected and abnormal cells.
+64: Botany
+65: 41.   (c)   The genetic identity of a human male is determined by sex chromosomes. Human male has XY chromosomes.
+66: 42.   (d)   Incomplete dominance is seen in Antirrhinum (snapdragon) where red × white flowers produce pink offspring.
+67: 43.   (d)   AB blood group shows both A and B alleles are equally expressed in the phenotype, so it is an example of co-dominance.
+68: 44.   (c)   Human height shows continuous variation because it is controlled by many genes (polygenes), so it is an example of polygenic inheritance.
+69: 45.   (b)   The ratio 1:4:6:4:1 is a typical F2 dihybrid expansion pattern showing multiple gene interaction, commonly seen in polygenic inheritance, where several genes control one trait and show cumulative effects.
+70: 46.   (a)   A super female has three X chromosomes (XXX) due to non-disjunction of sex chromosomes.
+71: 47.   (a)   Maltose, lactose and sucrose are all disaccharides, each made of two monosaccharide units.
+72: 48.   (a)   
+73: 49.   (b)   The endodermis is commonly called the starch sheath because its cells often contain abundant starch grains.
+74: Pericycle → Involved in lateral root formation
+75: Epidermis → Outer protective layer
+76: Hypodermis → Located just below epidermis, provides support.
+77: 50.   (b)   In monocot stems, vascular bundles are closed, meaning cambium is absent. Since cambium is necessary for secondary growth, its absence prevents thickening.
+78: 51.   (a)   In a bicollateral vascular bundle, there are two phloem regions – one on the outer side and one on the inner side – with xylem in the middle.
+79: 52.   (b)   Refrigeration does not kill bacteria completely, but it slows down their growth and reproduction. Because bacteria multiply more slowly at low temperatures, food stays fresh for a longer time.
+80: 53.   (a)   Rabies virus has a distinct bullet-shaped structure, which is characteristic of viruses in the Rhabdoviridae family.
+81: Varicella → Spherical (causes chickenpox)
+82: Variola → Brick-shaped (causes small pox)
+83: Polio virus → Icosahedral (spherical)
+84: 54.   (b)   Cyphellae are small pore-like structures present on the lower surface of some lichens. They function in gaseous exchange (respiration), allowing oxygen and carbon dioxide to move in and out.
+85: 55.   (c)   Fairy rings are circular patterns seen in grasslands caused by the outward growth of fungal mycelium. These are most commonly formed by mushrooms (Basidiomycetes). As the fungus grows radially, it produces mushrooms in a ring-like structure.
+86: 56.   (d)   These structures are elaters (in liverworts) and pseudo-elaters (in hornworts). Due to change in humidity, they twist and untwist, creating pressure that helps throw spores out of the capsule.
+87: 57.   (c)   Antheridia with a jacket of two ring cells are characteristic of ferns (Pteridophytes).
+88: 58.   (a)   In conifers (gymnosperms like pine), the sporangia (microsporangia and megasporangia) are borne on the scales of the cones (male and female cones).
+89: 59.   (b)   Musa (banana) is a monocot plant, and monocots typically show parallel venation. In banana leaves, there is a single strong midrib (unicostate) with parallel veins running on both sides.
+90: 60.   (b)   The taiga (boreal forest) is the largest terrestrial biome on earth. It stretches across North America, Europe, and Asia (especially Canada and Russia), forming a vast belt of coniferous forest.
+91: 61.   (c)   
+92: 62.   (b)   Industrial wastes are the main factor of water pollution because industries discharge large amounts of toxic chemicals, heavy metals, and untreated effluents directly into water bodies. These pollutants severely affect aquatic life and make water unsafe for human use.
+93: 63.   (a)   Bacteria act as decomposers. They break down dead organic matter, hence called microconsumers.
+94: 64.   (b)   Mitochondria are called the powerhouse because they produce and release ATP (energy) through cellular respiration. ATP is the energy currency of the cell.
+95: 65.   (d)   The rough endoplasmic reticulum has ribosomes attached to its surface. These ribosomes give it a rough appearance.
+96: 66.   (c)   Karyokinesis → Division of the nucleus (chromosomes separate). Cytokinesis → Division of the cytoplasm (cell splits into two).
+97: 67.   (d)   Somatic divisions = mitosis (cell division in body cells). Occurs actively in meristematic regions: Root tip (apical meristem), Stem tip (shoot apex).
+98: 68.   (b)   In the G2-phase, the cell prepares for mitosis. Proteins needed for spindle fibre formation (microtubules) are synthesized. Ensures proper chromosome separation during mitosis.
+99: 69.   (c)   One glucose forms 2 pyruvate molecules, and each pyruvate undergoes one oxidative decarboxylation to form acetyl-CoA.
+100: Therefore, the total number of oxidative decarboxylation steps = 2.
+101: 70.   (c)   The dark reaction (Calvin cycle) occurs in the stroma of chloroplast. It does not require light directly, but uses ATP and NADPH (from light reaction).
+102: 71.   (b)   Leaves contain chlorophyll pigment. Chlorophyll absorbs red and blue light efficiently. Green light is not absorbed – it's reflected back to our eyes. That's why leaves appear green.
+103: 72.   (a)   In fruit like banana, there is a sudden increase in respiration rate during ripening. This rise is called the climacteric. It is associated with: increased ethylene production, rapid ripening (softening, sweetness, colour change).
+104: 73.   (c)   Skototropism = movement/growth towards darkness (night), opposite of phototropism (movement towards light), seen in some climbing plants and organisms that grow into darker regions.
+105: 74.   (a)   Plants do not store carbohydrates as glucose because: glucose is highly soluble in water, so it would dissolve in the cell sap. This would increase osmotic pressure, causing excess water to enter the cell. As a result, it can disturb the osmotic balance and damage the cell.
+106: 75.   (a)   In Opuntia, the ovule becomes completely coiled during development. This type of ovule is called circinotropous, where the funiculus grows around the ovule, causing it to turn in a full circle.
+107: 76.   (c)   Apomixis is a type of asexual reproduction through seeds. It occurs without fertilization (no fusion of male and female gametes). The embryo develops directly from an egg cell or other cells without meiosis and syngamy.
+108: 77.   (a)   
+109: Gene cloning → Copying specific genes.
+110: Tissue culture → Technique using totipotency.
+111: Regeneration → General ability to regrow parts, not necessarily whole plant from a single cell.
+112: 78.   (c)   
+113: Selection → Oldest traditional method.
+114: Mutation → Induces random changes.
+115: Tissue culture → Propagation technique, not primarily for creating new traits.
+116: 79.   (c)   Rum is obtained by distilling products of molasses.
+117: 80.   (b)   The China rose (commonly garden hibiscus) has the scientific name Hibiscus rosa-sinensis. It belongs to the family Malvaceae.
+118: Gossypium hirsutum → Cotton plant
+119: Abelmoschus esculentus → Okra (lady's finger)
+120: Hibiscus cannabinus → Kenaf (fibre plant)
+121: Chemistry
+122: 81.   (b)   The second ionization potential is highest for oxygen because, after losing one electron, O+ has a stable half-filled 2p3 configuration. Removing an electron from this stable arrangement requires more energy compared to the ions of B, C, or N.
+123: Order of second ionization potential: Li > Ne > O > F > N > B > C > Be.
+124: 82.   (a)   Chlorides and sulphates of Mg and Ca produce permanent hardness, and bicarbonates of Mg and Ca produce temporary hardness.
+125: 83.   (c)   The melting point decreases as the size of the halide ion increases, because lattice energy decreases.
+126: Order: NaF > NaCl > NaBr > NaI
+127: 84.   (a)   Zone refining, also known as zone melting, is a method used to purify crystalline materials, particularly semiconductors like silicon, germanium, and gallium.
+128: 85.   (d)   Be does not impart characteristics colour to flame because its atoms are comparatively smaller & the valence electron are strongly attached to the nucleus. Therefore, its ionization energy is high and needs large amount of energy for the excitation of their valence electron to higher energy level which is usually not available in Bunsen flame. So, Beryllium does not impart any colour to flame. Ca, Sr and Ba impart brick red, blood red and apple green colour respectively to the flame.
+129: 86.   (b)   MgSO4·7H2O is the chemical formula for Epsom salt, a naturally occurring hydrated magnesium sulphate mineral.
+130: 87.   (b)   Carbon dioxide is heavier than air, due to which it is abundantly found in places like deep caves, mines, and wells, which causes suffocation and leads to the death of a person.
+131: 88.   (a)   Phossy jaw disease is caused by constant contact with phosphorus (specifically white phosphorus).
+132: 89.   (a)   ZnO —heat→ ZnO (Yellow)   ;   ZnO (Yellow) —cool→ ZnO (White)
+133: 90.   (c)   NH4NO2 —Δ→ N2 + 2H2O
+134: 91.   (b)   
+135: 92.   (d)   When carbon tetrachloride (CCl4) is treated with silver nitrate (AgNO3), no reaction takes place. As a non-polar covalent compound, CCl4 does not ionize to provide chloride ion (Cl⁻), which are necessary for the formation of white ppt of AgCl.
+136: 93.   (c)   Phenol + 3Br2 (aq) → 2,4,6-tribromophenol (white ppt)
+137: 94.   (b)   Electron-withdrawing group (EWG): like –NO2 stabilize the phenoxide ion through inductive and resonance effects, increasing acidity.
+138: 95.   (a)   Calcium Carbide (CaC2). In Calcium Carbide, each carbon atom has one sigma and two pi bonds.
+139: 96.   (b)   Walden inversion is the inversion of a stereogenic center in a chiral molecule during a chemical reaction. It occurs during specific chemical reactions, such as bimolecular nucleophilic substitution (SN2) reactions.
+140: 97.   (b)   CH2=CH2 (Ethylene) —(1)O₃/(2)Zn/H₂O→ 2HCHO (Formaldehyde) + H2O2
+141: 98.   (a)   Acetophenone (C6H5COCH3) contains a methyl ketone group (–COCH3). When treated with NaOH/I2, it undergoes the haloform reaction to produce a yellow precipitate of iodoform (CHI3).
+142: C6H5COCH3 + 3I2 + 4NaOH → C6H5COONa + CHI3↓ (yellow ppt) + 3NaI + 3H2O
+143: Benzophenone (C6H5COC6H5) does not contain a methyl ketone group (–COCH3). Therefore, it does not give the iodoform test.
+144: 99.   (c)   Aromaticity of an organic compound requires:
+145: i.  Cyclic structure
+146: ii.  Planar structure
+147: iii.  Hückel's rule: (4n+2) π electrons
+148: (e.g., Cyclopentadienyl anion)
+149: 100.   (d)   Rectified spirit is the highly concentrated form of ethanol that contains 95% ethanol and 5% water by weight.
+150: 101.   (b)   Electrolysis of sodium succinate (CH2COONa)2: CH2=CH2 + CO2 + H2 + NaOH
+151: 102.   (c)   Wolff-Kishner reduction:
+152: (CH3)2C=O + H2N–NH2 —–H₂O→ (CH3)2C=N–NH2 —KOH/ethylene glycol/200°C→ CH3CH2CH3 + N2↑ (Propane)
+153: 103.   (b)   Benzaldehyde has a characteristic pleasant almond-like aroma and is widely used in the perfume and flavor industries.
+154: 104.   (a)   Whenever the octane number of any sample of petrol is mentioned, it basically stands for the amount of iso-octane present in the fuel. The remaining composition consists of n-heptane. Hence, the petrol whose octane number is 80 has 20% n-heptane + 80% iso-octane.
+155: 105.   (c)   Acetanilide and p-nitroaniline are less basic than aniline due to the presence of an electron-withdrawing group.
+156: Benzylamine is the most basic because of the lone pair on the –NH2 group; it is more pronounced due to the electron-releasing benzyl group.
+157: 106.   (d)   The reaction between propionic acid and aqueous sodium bicarbonate is an acid-base neutralization. The propionic acid donates a proton to the bicarbonate ion (HCO3⁻), forming unstable carbonic acid (H2CO3), which quickly decomposes into water and carbon dioxide.
+158: CH3CH2COOH + NaHCO3 → CH3CH2COONa + H2O + CO2↑
+159: 107.   (d)   (CH3)2CHCHO —CH₃MgX→ (CH3)2CH–C(CH3)(OMgX)H —H₃O⁺→ CH3CH(CH3)–C(OH)(CH3)H → 3-methylbutan-2-ol
+160: 108.   (c)   The atomic weight of an element is often fractional because it is a weighted average of the masses of all the naturally occurring isotopes of that element, taking into account their relative abundance.
+161: 109.   (b)   Atomic weight of Na = 23, Atomic weight of H = 1, Atomic weight of O = 16
+162: % of oxygen = (16 / (23+16+1)) × 100% = (16/40) × 100% = 40%
+163: 110.   (b)   Magnetic moment (μ) = √n(n+2) BM
+164: Zn2+: [Ar]3d10, n = 0 ⇒ μ = 0 BM
+165: Cr3+: [Ar]3d3, n = 3 ⇒ μ ≈ 3.87 BM
+166: Co3+: [Ar]3d6, n = 4 ⇒ μ ≈ 4.90 BM
+167: Fe3+: [Ar]3d5, n = 5 ⇒ μ ≈ 5.92 BM
+168: 111.   (a)   Boyle's temperature is the temperature at which a real gas obeys the ideal gas law (PV = nRT) over a wide range of pressure.
+169: 112.   (b)   The two nitrogen atoms are held together by a triple covalent bond. This is a very strong intramolecular force. Between N2 molecules, there are no permanent dipoles. The only force attracting of N2 molecule to another is a weak London dispersion force.
+170: 113.   (d)   
+171: 114.   (b)   Molarity of H2SO4 = M/2
+172: Normality of H2SO4 = 2 × N/2 = 1N
+173: Normality of NaOH = N/10
+174: Now, N1V1 = N2V2
+175: 1 × V1 = (1/10) × 5
+176: ∴ V1 = 1/2 litres
+177: 115.   (b)   The effect of temperature on reaction rate is shown by Arrhenius equation:
+178: k = Ae–Ea/RT
+179: 116.   (c)   Equilibrium constant is temperature dependent, not concentration dependent.
+180: 117.   (b)   pOH = pKb + log{[salt]/[base]} = pKb + log{[NH4Cl]/[NH4OH]}
+181: = 5 + log (0.02/0.2)
+182: = 5 + log (0.1)
+183: ∴ pOH = 5 – 1 = 4
+184: Here, pH = 14 – pOH = 14 – 4 = 10
+185: 118.   (c)   2CuS + 3O2 → 2Cu2O + 2SO2
+186: Oxidation state of S changes from –2 to +4. Therefore, S is oxidized.
+187: 119.   (c)   The salt used in a salt bridge should have approximately equal mobility of cation and anion. In a salt bridge, salts like KCl, NH4Cl, etc. are used.
+188: 120.   (c)   In a spontaneous reaction, the Gibbs free energy (G) of the system always decreases at constant temperature and pressure. This is described by the equation: ΔG = ΔH – TΔS
+189: 121.   (c)   ΔH = 40.8 kJ/mol = 40800 J/mol
+190: T = 100 + 273 = 373 K
+191: Now, ΔS = ΔHvap / Tboiling
+192: ΔS = 40800/373 ≈ 109 J K–1 mol–1
+193: 122.   (b)   For a first-order reaction, the half-life (t1/2) is given by the formula:
+194: t1/2 = 0.693/k
+195: 123.   (c)   r = K[A]m / 2r = K[2A]m  ⇒  2 = 2m  ⇒  m = 1
+196: 124.   (a)   C = 1.00M,  α = 0.01% = 0.01/100 = 10–4
+197: ∴ Ka = Cα2 = 1.00 × (10–4)2 = 1 × 10–8
+198: 125.   (a)   Down's process extracts sodium commercially by electrolyzing molten sodium chloride (NaCl) in a Down cell, using a graphite anode and an iron cathode, producing sodium metal at the cathode and chloride gas at the anode.
+199: 126.   (d)   Acetic acid is not an amino acid – it lacks an amino group (–NH2). Therefore, it cannot form a peptide bond.
+200: 127.   (d)   Gypsum helps to increase the setting time of the cement.
+201: 128.   (c)   Gelatinous precipitates e.g. Al(OH)3, Fe(OH)3 are the most difficult to filter.
+202: 129.   (d)   Nessler's reagent K2[HgI4] in alkaline medium is used to detect NH4⁺.
+203: 130.   (b)   
+204: Physics
+205: 131.   (b)   Impulse = Force × Time = [MLT–2][T] = [MLT–1]
+206: 132.   (a)   cosθ = (A⃗·B⃗)/(|A||B|) = (3î+4ĵ+5k̂)·(3î+4ĵ–5k̂) / (√(9+16+25)·√(9+16+25))
+207: = (9+16–25)/50 = 0
+208: ⇒ cosθ = 0, ∴ θ = 90°
+209: 133.   (b)   Rmax = u2/g = 400 m  (For θ = 45°)
+210: Hmax = u2/2g = 400/2 = 200 m  (For θ = 90°)
+211: 134.   (d)   Force = Mass × Acceleration. If mass and acceleration both are doubled, then force will become four times.
+212: 135.   (a)   μ = tanθ(1 – 1/n2) = 1 – 1/n2  [As θ = 45°]
+213: 136.   (c)   W = F⃗·s⃗ = (5î+3ĵ)·(2î–ĵ) = 10 – 3 = 7 J
+214: 137.   (b)   According to the law of conservation of angular momentum, the total angular momentum of a system remains constant (conserved) if the net external torque acting on the system is zero.
+215: 138.   (b)   vmax/Amax = Aω/Aω2 = 1/ω
+216: 139.   (b)   Strain ∝ stress ∝ F/A
+217: Ratio of strain = A2/A1 = (r2/r1)2 = (4/1)2 = 16/1
+218: 140.   (c)   A torque is acting on the wall of the dam trying to make it topple. The bottom is made very broad so that the dam will be stable.
+219: 141.   (a)   When the ball is heated, expansion of ball and cavity both occurs, hence volume of cavity increases.
+220: 142.   (d)   The amount of heat required to change the state of the unit mass of a substance from solid at its melting point is called latent heat of fusion.
+221: 143.   (c)   Using Charle's law P1/P2 = T1/T2
+222: or, P2 = P1T2/T1 = P(273+927)/(273+27) = 4P.
+223: 144.   (a)   CV = (f/2)R.  For monoatomic gas f = 3
+224: ⇒ (CV)mono = (3/2)R.
+225: 145.   (a)   ΔQ = 2 kcal = 2 × 103 × 4.2 J = 8400 J  and  ΔW = 500 J.
+226: Hence from ΔQ = ΔU + ΔW, ΔU = ΔQ – ΔW = 8400 – 500 = 7900 J
+227: 146.   (c)   At constant volume P ∝ T  ⇒  P1/P2 = T1/T2
+228: ⇒ P1/P2 = 300/400 = 3/4
+229: 147.   (b)   Heat passes quickly from the body into the metal which leads to a cold feeling.
+230: 148.   (c)   When light is reflected from denser medium, a phase difference of π always occurs.
+231: 149.   (b)   At point A, by Snell's law:
+232: μ = sin45°/sinr  ⇒  sinr = 1/(μ√2)  ……(i)
+233: At point B, for total internal reflection: sin i1 = 1/μ
+234: From figure, i1 = 90° – r
+235: ∴ sin(90° – r) = 1/μ
+236: ⇒ cosr = 1/μ  ……(ii)
+237: Now cosr = √(1 – sin2r) = √(1 – 1/2μ2) = √((2μ2–1)/2μ2)  ……(iii)
+238: From (ii) and (iii): 1/μ = √((2μ2–1)/2μ2)
+239: Squaring both sides and solving: μ = √(3/2)
+240: 150.   (c)   β = λD/d = (5000×10–10×1)/(0.1×10–3) m = 5×10–3 m = 0.5 cm
+241: 151.   (c)   
+242: 152.   (d)   Comparing given equation with standard equation of progressive wave. The velocity of wave:
+243: v = ω(Co-efficient of t) / k(Co-efficient of x) = 200π/0.5π = 400 cm/s
+244: 153.   (d)   Resultant amplitude:
+245: A = √(a2+a2+2aa cosφ) = √(4a2cos2(φ/2))
+246: ∴ I ∝ A2  ⇒  I ∝ 4a2
+247: 154.   (d)   n ∝ (1/l)√T  ⇒  n'/n = √(T'/T) × l/l' = √4 × 1/2 = 1
+248: ⇒ n' = n
+249: 155.   (a)   By using n' = n(v – (–v₀))/v
+250: 2n = n(v – v₀)/v
+251: ⇒ v₀ = –v = –(Speed of sound)
+252: Negative sign indicates that observer is moving opposite to the direction of velocity of sound.
+253: 156.   (a)   The force on the electron (F) = qE
+254: Acceleration (a) = F/m = qE/m
+255: v2 = u2 + 2as = 0 + 2 × (qE/m) × ℓ
+256: v = [2Eqℓ/m]1/2
+257: 157.   (d)   Force on charge F = q(Ea) = q × k·2p/r3
+258: ⇒ F ∝ 1/r3
+259: When r is doubled; F → 1/8 times
+260: 158.   (b)   
+261: 159.   (b)   The given circuit can be redrawn with three capacitors C in parallel:
+262: ⇒ CAB = 3C
+263: 160.   (c)   vd = J/(ne)  ⇒  vd ∝ J (current density)
+264: J1 = I/A  and  J2 = 2I/2A = I/A = J1;  ∴ (vd)1 = (vd)2 = v
+265: 161.   (c)   Short circuit current, Isc = E/r  ⇒  3 = 1.5/r
+266: ⇒ r = 0.5 Ω
+267: 162.   (b)   Production of e.m.f. by temperature difference is known as Seebeck effect.
+268: 163.   (d)   The magnetic induction at O due to the current in portion AB will be zero because O lies on AB when extended.
+269: 164.   (b)   
+270: 165.   (b)   
+271: 166.   (d)   e = –L(di/dt)  but e = 4V and di/dt = (0–1)/10–3 = –1/10–3
+272: ∴ (–1/10–3)(–L) = 4  ⇒  L = 4 × 10–3 henry
+273: 167.   (b)   In dc ammeter, a coil is free to rotate in the magnetic field of a fixed magnet. If an alternating current is passed through such a coil, the torque will reverse its direction each time the current changes direction and the average value of the torque will be zero.
+274: 168.   (a)   
+275: 169.   (d)   Energy of n photons, E = nhc/λ. Momentum gained by the body, p = E/c = nhc/(λc) = nh/λ
+276: 170.   (b)   λ/λ0 = [1/22 – 1/32] / [1/22 – 1/42] = (5/36)×(16/3) = 20/27
+277: or, λ = (20/27) λ0
+278: 171.   (d)   ω = v/r. Further v ∝ 1/n and r ∝ n2,
+279: Hence, ω ∝ 1/n3
+280: 172.   (b)   λmin = hc/eV, where h, c and e are constants. Hence λmin ∝ 1/V
+281: 173.   (b)   Q = 4(x2 – x1)
+282: 174.   (c)   
+283: 175.   (b)   Dynamic resistance, Rd = ΔV/ΔI. Here, ΔV = 0.7 – 0.65 V = 0.05 V,
+284: ΔI = 5 mA = 5×10–3 A    ∴ Rd = 0.05/(5×10–3) = 10 Ω
+285: 176.   (b)   f = (M–A)/A = (14.003–14)/14 = 2.1 × 10–4
+286: 177.   (c)   According to radioactive decay, N/N0 = (1/2)t/T₁/₂   Here, t = T1/2/2
+287: ∴ N/N0 = (1/2)1/2 = 1/√2
+288: 178.   (d)   The strong nuclear force is responsible for binding quarks together inside protons and neutrons. It is the strongest of the four fundamental forces at the subatomic scale.
+289: 179.   (c)   The muon is a lepton, a type of elementary particle. The proton and neutron are baryons, made of quarks, while the gluon is the mediator of the strong force.
+290: 180.   (a)   
+291: MAT
+292: 181.   (d)   The relationship is x³: (x+1)³ + 1
+293: 182.   (a)   
+294: 183.   (b)   1st figure ⇒ 11 + 44 + 33 + 22 = 110
+295: 2nd figure ⇒ 16 + 40 + 32 + 24 = 112
+296: 3rd figure ⇒ ? + 12 + 34 + 23 = 114  ⇒  ? = 114 – 59 = 45
+297: 184.   (d)   By direct coding:
+298: A M B E R O C K E Y
+299: ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓
+300: 1  3  2  5  7  6  0  8  5  9
+301: Similarly,  K E Y B O A R
+302:              ↓  ↓  ↓  ↓  ↓  ↓  ↓
+303:              8  5  9  2  6  1  7
+304: 185.   (a)   Roshani says the man's wife is the only daughter-in-law of her father-in-law, Mohan. This means the man's wife is married to Mohan's son, who is Roshani's husband. Therefore, the man is Roshani's brother-in-law and his relationship to Mohan is son.
+305: 186.   (b)   Raj finished before Mohit but behind Gaurav. So, the order is Gaurav, Raj, Mohit. Ashis finished before Sanchit but behind Mohit. So, the order is Mohit, Ashish, and Sanchit. Thus, the full order is: Gaurav, Raj, Mohit, Ashish, Sanchit. Clearly, Gaurav won the race.
+306: 187.   (a)   Given, 4 – 8 + 12 = 0
+307: On interchanging signs '+' and '–' and numbers 4 and 8 in option (a), we get 8 + 4 – 12 = 0 ⇒ 0 = 0
+308: 188.   (d)   Shuffling of Cabinet ministers is just not a regular process, but a step to ensure proper working and implementation of schemes and to avoid corruption. So, none of the arguments holds strong.
+309: 189.   (b)   Clearly, no student can be bound to live and work in the country against his wish. So, I does not follow. However, it is quite right to recover the extra benefits awarded to students if they do not serve their own country. So, II follows.
+310: 190.   (c)   Required difference = (3½% of Rs. 8400) – (3⅓% of Rs. 8400) = (7/2 – 10/3)% of Rs. 8400
+311: = 1/6 % of Rs. 8400 = Rs. (1/6 × 1/100 × 8400) = Rs. 14.
+312: 191.   (d)   S.P. of 10 clips = Rs. 1, Gain = 40%. C.P. of 10 Clips = Rs. (100/140 × 1) = Rs. 5/7
+313: For Rs. 5/7, clips bought = 10. For Rs. 1, clips bought = (10 × 7/5) = 14.
+314: 192.   (a)   Total number of teachers = 10
+315: Age of the new teacher = 25 years
+316: Age of the retired teacher = (25 + 3 × 10) years = 55 years
+317: 193.   (a)   Ratio of rates of working of A and B = 2:1.
+318: So, the ratio of time taken = 1:2
+319: ∴ A's 1 day's work = 1/6;    B's 1 day's work = 1/12.
+320: (A + B)'s 1 day's work = (1/6 + 1/12) = 3/12 = 1/4.
+321: So, A and B together can finish the work in 4 days.
+322: 194.   (d)   Let the present age of Simran's and Smriti's be 3x and 7x.
+323: After 4 years, Smriti's age will be:
+324: 7x + 4 = 39   ⇒   x = 5
+325: Thus, the age of Simran = 3x = 3 × 5 = 15
+326: Simran's age 4 years ago was 11 years.
+327: 195.   (b)   From the problem, it is clear that after repairing the car covers a distance 'x' in 6 hours travelling at a speed of 72 km/hr.
+328: Distance (x) = 72 × 6 = 432 km
+329: ∴ 3x = 432 × 3 = 1296 km.
+330: ∴ Time before repair = 1296/54 = 24 hours.
+331: 196.   (a)   The line is moving 45° CW and the arrow moves 90° CW after two steps. This pattern of movement is in answer option (a).
+332: 197.   (b)   The triangles are:
+333: In ADE, no. of triangles = 6
+334: In ABE, no. of triangles = 6
+335: In ABC, no. of triangles = 6
+336: In DEB, no. of triangles = 3
+337: In BEC, no. of triangles = 3
+338: ∴ Total number of triangles = 24
+339: 198.   (a)   
+340: 199.   (c)   
+341: 200.   (b)   1, 5, 7 have two similar elements, one inside the other.
+342: 2, 4, 8 have one element placed inside a different element.
+343: 3, 6, 9 have two similar elements, one inside the other and the area between the two elements is shaded.

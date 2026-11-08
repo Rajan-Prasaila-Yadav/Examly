@@ -38,6 +38,9 @@ model InstituteSetting {
 }
 
 model User {
+  batchFaculty    BatchFaculty[]
+  teachingClasses BatchClass[]
+  classAttendance ClassAttendance[]
   id              String          @id @default(cuid())
   instituteId     String?
   roleId          String
@@ -61,6 +64,7 @@ model User {
   permissionGrants PermissionGrant[]
   testAttempts    TestAttempt[]
   sessions        UserSession[]
+  passwordResetTokens PasswordResetToken[]
   sentMessages    ChatMessage[]   @relation("SentMessages")
   receivedMessages ChatMessage[]  @relation("ReceivedMessages")
   posts           CommunityPost[]
@@ -70,9 +74,14 @@ model User {
 
   @@index([instituteId, status])
   @@index([identifier])
+  @@index([roleId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Role {
+  permissionsConfigured Boolean @default(false)
+  permissionsVersion Int @default(0)
   id              String          @id @default(cuid())
   instituteId     String?
   name            String
@@ -98,18 +107,22 @@ model RolePermission {
   role            Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, resource, action])
+  @@index([roleId])
 }
 
 model PermissionGrant {
+  effect String @default("ALLOW")
   id              String          @id @default(cuid())
   userId          String
   resource        String
   action          String
-  isAllowed       Boolean         @default(true) // Explicit ALLOW or DENY override
+  scope           PermissionScope @default(INSTITUTE)
+  grantedAt       DateTime        @default(now())
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, resource, action])
+  @@index([userId])
 }
 
 model StudentProfile {
@@ -117,16 +130,21 @@ model StudentProfile {
   userId          String          @unique
   rollNumber      String
   batchId         String?
-  parentPhone     String?
   province        String?
   district        String?
   municipality    String?
   wardNumber      String?
+  parentPhone     String?
   isTrialActive   Boolean         @default(false)
   trialExpiresAt  DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now()) @updatedAt
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   batch           Batch?          @relation(fields: [batchId], references: [id])
+
+  @@index([batchId])
+  @@index([rollNumber])
 }
 
 model TeacherProfile {
@@ -153,4 +171,20 @@ model UserSession {
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
+}
+
+model PasswordResetToken {
+  id              String          @id @default(cuid())
+  userId          String
+  tokenHash       String          @unique // SHA-256 hash of secret token
+  expiresAt       DateTime
+  isConsumed      Boolean         @default(false)
+  consumedAt      DateTime?
+  ipAddress       String?
+  createdAt       DateTime        @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isConsumed])
+  @@index([tokenHash])
 }

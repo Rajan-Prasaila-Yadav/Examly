@@ -29,4 +29,13 @@ model AuditLog {
   user            User?             @relation(fields: [userId], references: [id])
 
   @@index([instituteId, action, createdAt])
+  @@index([userId, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}
+
+// Updated transactionally by navigation-cache-revision.sql triggers.
+model AppDataRevision {
+  id Int @id
+  version BigInt @default(1)
 }

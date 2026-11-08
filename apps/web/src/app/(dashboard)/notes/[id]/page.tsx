@@ -1,0 +1,1 @@
+export {NotesViewer as default} from '@/components/content-library';

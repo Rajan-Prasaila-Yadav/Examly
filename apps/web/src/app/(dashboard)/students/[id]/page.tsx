@@ -28,6 +28,7 @@ import {
   Layers,
 } from 'lucide-react';
 
+import { Profile360Skeleton } from '@/components/skeleton';
 import { useAuth } from '@/lib/auth-context';
 
 export default function StudentDetailPage() {
@@ -116,19 +117,15 @@ export default function StudentDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <Profile360Skeleton />;
   }
 
-  const user = data360?.user || authUser;
-  const studentProfile = data360?.studentProfile || user?.studentProfile || authUser?.studentProfile;
+  const user = data360?.user || data360?.student || authUser;
+  const studentProfile = data360?.studentProfile || data360?.student?.studentProfile || user?.studentProfile || authUser?.studentProfile;
   const batch = studentProfile?.batch || studentProfile?.batchInfo;
   const batchName = batch?.name || 'CEE 2026 Medical Entrance Batch';
 
-  const metrics = data360?.metrics || {
+  const metrics = data360?.metrics || data360?.analytics || {
     totalAttempts: 0,
     bestPercentage: 0,
     avgPercentage: 0,
@@ -136,7 +133,17 @@ export default function StudentDetailPage() {
     failedCount: 0,
     passRate: 0,
   };
-  const attempts = data360?.recentAttempts || data360?.attempts || [];
+  const rawAttempts = data360?.recentAttempts || data360?.attempts || data360?.student?.testAttempts || [];
+  const attempts = rawAttempts.map((att: any) => ({
+    ...att,
+    testTitle: att.testTitle || att.test?.title || 'Examination Test',
+    score: att.score ?? att.result?.totalScore ?? 0,
+    totalMarks: att.totalMarks ?? att.test?.totalMarks ?? 200,
+    percentage: att.percentage ?? att.result?.percentage ?? 0,
+    isPassed: att.isPassed ?? att.result?.isPassed ?? ((att.result?.percentage || 0) >= 50),
+    status: att.status || (att.submittedAt ? ((att.result?.isPassed ?? ((att.result?.percentage || 0) >= 50)) ? 'PASSED' : 'FAILED') : 'IN_PROGRESS'),
+    submittedAt: att.submittedAt || att.result?.publishedAt,
+  }));
 
   if (!user) {
     return (

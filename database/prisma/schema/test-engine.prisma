@@ -32,6 +32,11 @@ model Test {
   attempts          TestAttempt[]
 
   @@index([instituteId, isPublished, status])
+  @@index([batchId, status])
+  @@index([subjectId, status])
+  @@index([lessonId, status])
+  @@index([testStatus, startDateTime])
+  @@index([createdAt])
 }
 
 model TestConfig {
@@ -106,6 +111,7 @@ model QuestionSolution {
   hintHtml          String?
   shortExplanation  String?
   stepByStepHtml    String?           // Formatted calculation steps with KaTeX
+  solutionImageUrl  String?
 
   question          Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
@@ -127,6 +133,9 @@ model TestAttempt {
   result            TestResult?
 
   @@index([testId, studentId])
+  @@index([studentId, submittedAt])
+  @@index([testId, submittedAt])
+  @@index([submittedAt, testId, studentId])
 }
 
 model AttemptAnswer {
@@ -158,4 +167,9 @@ model TestResult {
   publishedAt       DateTime?
 
   attempt           TestAttempt       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([totalScore])
+  @@index([totalScore, percentage])
+  @@index([isPassed])
+  @@index([publishedAt])
 }

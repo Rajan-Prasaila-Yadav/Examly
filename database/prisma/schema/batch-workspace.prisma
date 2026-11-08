@@ -1,0 +1,41 @@
+model BatchFaculty {
+  batchId String
+  userId String
+  subjectIds String[]
+  createdAt DateTime @default(now())
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([batchId, userId])
+  @@index([userId])
+}
+
+model BatchClass {
+  id String @id @default(cuid())
+  batchId String
+  subjectId String
+  teacherId String
+  topic String
+  date String
+  startTime String
+  endTime String
+  status String @default("Created")
+  changedBy String?
+  updatedAt DateTime @updatedAt
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id])
+  teacher User @relation(fields: [teacherId], references: [id])
+  attendance ClassAttendance[]
+  @@index([batchId, date])
+  @@index([teacherId, date])
+}
+
+model ClassAttendance {
+  classId String
+  userId String
+  status String
+  markedBy String
+  updatedAt DateTime @updatedAt
+  class BatchClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([classId, userId])
+}

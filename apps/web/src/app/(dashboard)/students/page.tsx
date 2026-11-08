@@ -34,10 +34,9 @@ import {
   LayoutGrid,
   List,
   UserX,
+  Download,
 } from 'lucide-react';
 
-let cachedStudents: any[] = [];
-let cachedStudentsBatches: any[] = [];
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -54,9 +53,9 @@ export default function StudentsPage() {
     }
   }, [isStudent, user?.id, router]);
 
-  const [students, setStudents] = useState<any[]>(cachedStudents);
-  const [batches, setBatches] = useState<any[]>(cachedStudentsBatches);
-  const [isLoading, setIsLoading] = useState(cachedStudents.length === 0);
+  const [students, setStudents] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Default to Card / Grid view as requested
@@ -98,16 +97,29 @@ export default function StudentsPage() {
         api.get('/users/students', { params: { search, batchId: selectedBatchFilter || undefined } }),
         api.get('/batches'),
       ]);
-      if (stuRes.data) {
-        cachedStudents = stuRes.data;
-        setStudents(stuRes.data);
+      if (stuRes?.data) {
+        const raw = stuRes.data;
+        const studentList = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+          ? raw.data
+          : Array.isArray(raw?.students)
+          ? raw.students
+          : [];
+        setStudents(studentList);
+      } else {
+        setStudents([]);
       }
-      if (batRes.data) {
-        cachedStudentsBatches = batRes.data;
-        setBatches(batRes.data);
-      }
-      if (batRes.data?.length > 0 && !batchId) {
-        setBatchId(batRes.data[0].id);
+      if (batRes?.data) {
+        const batchList = Array.isArray(batRes.data)
+          ? batRes.data
+          : Array.isArray(batRes.data.data)
+          ? batRes.data.data
+          : [];
+        setBatches(batchList);
+        if (batchList.length > 0 && !batchId) {
+          setBatchId(batchList[0].id);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -360,6 +372,34 @@ export default function StudentsPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!Array.isArray(students) || students.length === 0) {
+      toast.error('No students to export');
+      return;
+    }
+    const headers = ['Full Name', 'Roll Number', 'Batch', 'Email', 'Phone', 'Province', 'District', 'Status', 'Date Joined'];
+    const rows = (Array.isArray(students) ? students : []).map((s) => [
+      `"${s.fullName || ''}"`,
+      `"${s.studentProfile?.rollNumber || s.identifier || ''}"`,
+      `"${s.studentProfile?.batch?.name || 'Unassigned'}"`,
+      `"${s.email || ''}"`,
+      `"${s.phone || ''}"`,
+      `"${s.studentProfile?.province || ''}"`,
+      `"${s.studentProfile?.district || ''}"`,
+      `"${s.status || 'ACTIVE'}"`,
+      `"${new Date(s.createdAt).toLocaleDateString()}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Examly_Students_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('CSV Exported', `Exported ${(students || []).length} student records.`);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -371,12 +411,21 @@ export default function StudentsPage() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Enroll New Student
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            onClick={handleExportCSV}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
+            title="Export Roster to CSV"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Enroll New Student
+          </button>
+        </div>
       </div>
 
       {/* Main Table / Grid Container */}
@@ -414,7 +463,7 @@ export default function StudentsPage() {
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-auto">
-            <span className="text-xs text-slate-500 font-medium shrink-0">{students.length} Students Listed</span>
+            <span className="text-xs text-slate-500 font-medium shrink-0">{(Array.isArray(students) ? students : []).length} Students Listed</span>
 
             {/* View Mode Toggle */}
             <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/60">
@@ -450,7 +499,7 @@ export default function StudentsPage() {
             {/* ── VIEW MODE 1: CARDS GRID VIEW (DEFAULT) ── */}
             {viewMode === 'grid' && (
               <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {students.map((stu) => {
+            {(Array.isArray(students) ? students : []).map((stu) => {
               const currentBatch = stu.studentProfile?.batch || batches.find((b: any) => b.id === stu.studentProfile?.batchId);
               const currentBatchName = currentBatch ? currentBatch.name : 'Unassigned Batch';
               const isAssigned = !!currentBatch;
@@ -577,7 +626,7 @@ export default function StudentsPage() {
               );
             })}
 
-            {students.length === 0 && (
+            {(!Array.isArray(students) || students.length === 0) && (
               <div className="col-span-full text-center py-12 text-slate-400 text-xs">
                 No students found. Click &quot;Enroll New Student&quot; to add one.
               </div>
@@ -599,7 +648,7 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {students.map((stu) => {
+                {(Array.isArray(students) ? students : []).map((stu) => {
                   return (
                     <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* 1. Student Name & Avatar */}
@@ -705,7 +754,7 @@ export default function StudentsPage() {
                   );
                 })}
 
-                {students.length === 0 && (
+                {(!Array.isArray(students) || students.length === 0) && (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                       No students found. Click &quot;Enroll New Student&quot; to add one.

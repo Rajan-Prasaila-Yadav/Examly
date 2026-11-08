@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: 'Next-generation learning and examination management platform for institutions, faculty, and students.',
 };
 
+import { AppQueryProvider } from '@/lib/query/query-provider';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+
 export default function RootLayout({
   children,
 }: {
@@ -30,9 +33,13 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AppQueryProvider>
+            <AuthProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </AuthProvider>
+          </AppQueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

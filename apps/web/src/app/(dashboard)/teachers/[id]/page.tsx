@@ -15,9 +15,9 @@ import {
   Save,
   Check,
   BookOpen,
-  GraduationCap,
   Sparkles,
 } from 'lucide-react';
+import { Profile360Skeleton } from '@/components/skeleton';
 
 export default function TeacherDetailPage() {
   const params = useParams();
@@ -64,11 +64,7 @@ export default function TeacherDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <Profile360Skeleton />;
   }
 
   const teacher = data360?.user;

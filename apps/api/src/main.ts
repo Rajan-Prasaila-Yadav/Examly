@@ -1,55 +1,41 @@
-// apps/api/src/main.ts — build: 2026-09-01T02:04Z
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { json, urlencoded } from 'express';
-import { AppModule } from './app.module';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+// apps/api/src/main.ts — Production Fastify API Server Bootstrap
+import 'dotenv/config';
+import { createFastifyApp } from './fastify/server';
 
 async function bootstrap() {
-  const logger = new Logger('ExamlyBootstrap');
-  const app = await NestFactory.create(AppModule);
+  const port = parseInt(process.env.PORT || '4000', 10);
+  const host = process.env.HOST || '0.0.0.0';
 
-  app.use(json({ limit: '25mb' }));
-  app.use(urlencoded({ extended: true, limit: '25mb' }));
+  try {
+    const app = await createFastifyApp();
 
-  // Global prefix
-  app.setGlobalPrefix('api/v1');
+    const address = await app.listen({ port, host });
+    console.log('========================================================================');
+    console.log(`🚀 EXAMLY HIGH-PERFORMANCE FASTIFY API ENGINE`);
+    console.log(`📡 Server listening at: ${address}`);
+    console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🛡️  Zero-Trust RBAC & Timing Telemetry: ACTIVE`);
+    console.log('========================================================================');
 
-  // CORS
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
-
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-
-  // Global HTTP Request & Error Logger
-  app.useGlobalInterceptors(new LoggingInterceptor());
-
-  // Swagger OpenAPI Documentation Setup
-  const config = new DocumentBuilder()
-    .setTitle('Examly Multi-Tenant API')
-    .setDescription('Enterprise Zero-Trust Learning & Examination Platform REST & WebSocket API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  const port = process.env.PORT || 4000;
-  await app.listen(port);
-
-  logger.log(`🚀 Examly API Server running on: http://localhost:${port}/api/v1`);
-  logger.log(`📚 Interactive Swagger OpenAPI Docs: http://localhost:${port}/api/docs`);
+    // Graceful Shutdown Handlers
+    const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
+    for (const signal of signals) {
+      process.on(signal, async () => {
+        console.log(`\n🛑 Received ${signal}, draining connections and shutting down gracefully...`);
+        try {
+          await app.close();
+          console.log('👋 Fastify API server closed successfully.');
+          process.exit(0);
+        } catch (err) {
+          console.error('Error during graceful shutdown:', err);
+          process.exit(1);
+        }
+      });
+    }
+  } catch (err) {
+    console.error('💥 Fatal error during Fastify API bootstrap:', err);
+    process.exit(1);
+  }
 }
 
 bootstrap();

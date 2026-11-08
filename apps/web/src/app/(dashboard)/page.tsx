@@ -23,14 +23,6 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-let cachedOverview: {
-  batches: any[];
-  tests: any[];
-  studentsCount: number;
-  teachersCount: number;
-  student360: any;
-} | null = null;
-
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
   const isStudent =
@@ -45,52 +37,36 @@ export default function DashboardOverviewPage() {
     (typeof user?.role === 'object' &&
       ((user.role as any)?.name === 'TEACHER' || (user.role as any)?.code === 'TEACHER'));
 
-  const [batches, setBatches] = useState<any[]>(cachedOverview?.batches || []);
-  const [tests, setTests] = useState<any[]>(cachedOverview?.tests || []);
-  const [studentsCount, setStudentsCount] = useState<number>(cachedOverview?.studentsCount || 0);
-  const [teachersCount, setTeachersCount] = useState<number>(cachedOverview?.teachersCount || 0);
-  const [student360, setStudent360] = useState<any>(cachedOverview?.student360 || null);
-  const [isLoading, setIsLoading] = useState(!cachedOverview);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [tests, setTests] = useState<any[]>([]);
+  const [studentsCount, setStudentsCount] = useState<number>(0);
+  const [teachersCount, setTeachersCount] = useState<number>(0);
+  const [student360, setStudent360] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  const [batchError,setBatchError]=useState('');
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [batchRes, testRes, studentsRes, teachersRes, profileRes] = await Promise.all([
-          api.get('/batches').catch(() => ({ data: [] })),
-          api.get('/tests').catch(() => ({ data: [] })),
-          !isStudent ? api.get('/users/students').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-          !isStudent ? api.get('/users/teachers').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-          isStudent ? api.get(`/users/students/${user?.id || 'me'}/360`).catch(() => null) : Promise.resolve(null),
-        ]);
-
-        const fetchedBatches = batchRes.data || [];
-        const fetchedTests = testRes.data || [];
-        const totalStudents = studentsRes.data?.length || 0;
-        const totalTeachers = teachersRes.data?.length || 0;
-        const profileData = profileRes?.data || null;
-
-        cachedOverview = {
-          batches: fetchedBatches,
-          tests: fetchedTests,
-          studentsCount: totalStudents,
-          teachersCount: totalTeachers,
-          student360: profileData,
-        };
-
-        setBatches(fetchedBatches);
-        setTests(fetchedTests);
-        setStudentsCount(totalStudents);
-        setTeachersCount(totalTeachers);
-        setStudent360(profileData);
-      } catch (e) {
-        console.error('Failed to load dashboard overview data:', e);
-      } finally {
-        setIsLoading(false);
-      }
+    if(!user?.id)return;
+    let active=true,version=0;
+    setBatches([]);setTests([]);setStudentsCount(0);setTeachersCount(0);setStudent360(null);
+    const fetchData=async(force=false)=>{
+      const current=++version;setIsLoading(true);setBatchError('');
+      const config={bypassCache:force,timeout:30000};
+      const results=await Promise.allSettled([
+        api.get('/batches',config),api.get('/tests',config),
+        !isStudent?api.get('/users/students',config):Promise.resolve({data:[]}),
+        !isStudent?api.get('/users/teachers',config):Promise.resolve({data:[]}),
+        isStudent?api.get(`/users/students/${user.id}/360`,config):Promise.resolve({data:null}),
+      ]);
+      if(!active||current!==version)return;
+      const value=(i:number)=>results[i].status==='fulfilled'?(results[i] as PromiseFulfilledResult<any>).value.data:null;
+      if(results[0].status==='rejected')setBatchError((results[0] as PromiseRejectedResult).reason?.response?.status===403?'Your role does not have permission to view batches. Ask your administrator to enable Batches: Read.':'Could not load your batches. This does not mean you are not enrolled. Please retry.');
+      setBatches(value(0)||[]);setTests(value(1)||[]);setStudentsCount(value(2)?.length||0);setTeachersCount(value(3)?.length||0);setStudent360(value(4));setIsLoading(false);
     };
-
-    fetchData();
-  }, [isStudent, user?.id]);
+    const refresh=()=>{void fetchData(true);};void fetchData();
+    window.addEventListener('focus',refresh);window.addEventListener('examly-permissions-changed',refresh);window.addEventListener('examly-refresh-dashboard',refresh);
+    return()=>{active=false;window.removeEventListener('focus',refresh);window.removeEventListener('examly-permissions-changed',refresh);window.removeEventListener('examly-refresh-dashboard',refresh);};
+  }, [isStudent,user?.id]);
 
   const isTestEnded = (t: any) => {
     if (t.testStatus === 'EXPIRED' || t.testStatus === 'ENDED' || t.testStatus === 'COMPLETED') {
@@ -114,7 +90,7 @@ export default function DashboardOverviewPage() {
     {
       title: 'Enrolled Batches',
       value: String(batches.length),
-      change: batches.length > 0 ? 'Active Access' : 'Not Enrolled',
+      change: isLoading ? 'Loading…' : batchError ? 'Unable to load' : batches.length > 0 ? 'Active Access' : 'Not Enrolled',
       icon: GraduationCap,
       color: 'from-blue-500 to-brand-600',
       shadow: 'shadow-blue-500/20',
@@ -197,6 +173,7 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
+      {batchError&&<div role="alert" className="rounded-xl border border-red-300 p-4 text-red-700">{batchError} <button className="underline" onClick={()=>window.dispatchEvent(new Event('examly-refresh-dashboard'))}>Retry</button></div>}
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-900 via-brand-800 to-slate-900 p-6 sm:p-8 text-white shadow-xl shadow-brand-900/10">
         <div className="relative z-10 max-w-2xl">
@@ -460,7 +437,7 @@ export default function DashboardOverviewPage() {
                 </div>
               ))}
 
-              {batches.length === 0 && !isLoading && (
+              {batches.length === 0 && !isLoading && !batchError && (
                 <p className="text-xs text-slate-400 py-4 text-center">No batches found in database.</p>
               )}
             </div>

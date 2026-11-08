@@ -14,6 +14,7 @@ enum RoleType {
   ADMIN
   TEACHER
   STUDENT
+  EMPLOYEE
 }
 
 enum PermissionScope {

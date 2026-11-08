@@ -1,0 +1,556 @@
+0: CEE Set 25 Hints and Solutions
+1: U-Think Crazy Entrance Preparation | Aug 10
+2: Explanations for Questions 1–200, arranged by subject. Answer letters follow the supplied solution book. Review notes identify conflicts with the question paper and clarify apparent printing errors.
+3: Zoology  |  Questions 1–40
+4: (c) Sphincter of Oddi
+5: The sphincter of Oddi, also known as the hepatopancreatic sphincter, is a muscular valve that regulates the flow of bile and pancreatic juice into the duodenum. The sphincter of Boyden surrounds the terminal part of the common bile duct.
+6: Review note: The book describes Boyden’s sphincter as surrounding the opening of the common bile duct into the pancreatic duct. The explanation here uses the terminal common bile duct wording; the selected answer remains (c).
+7: (d) Paneth cells
+8: Paneth cells secrete lysozyme and are found in the intestinal crypts. The book additionally mentions S cells, CCK cells and K cells, and identifies Kupffer cells as macrophages of the liver.
+9: Review note: The source groups S, CCK and K cells under argentaffin cells. These are distinct enteroendocrine cell types; this ancillary classification is not needed to identify Paneth cells as the answer.
+10: (c) Between the lens and the retina
+11: The vitreous chamber lies behind the lens and contains vitreous humour, which helps maintain the shape of the eyeball.
+12: (c) Tectorial membrane
+13: The tectorial membrane is a gelatinous structure within the cochlea of the inner ear and plays a crucial role in hearing.
+14: Review note: The scan calls the tectorial membrane ‘cellular’. The standard description is acellular; the selected structure remains the tectorial membrane.
+15: (b) Pons
+16: The apneustic and pneumotaxic centres are present in the pons. They respectively stimulate and inhibit inspiratory activity. The inspiratory centre is in the dorsal medulla; the expiratory centre is in the ventral medulla.
+17: (b) Nodes of Ranvier
+18: Nodes of Ranvier are small gaps in the myelin sheath. They permit ion exchange and speed the propagation of nerve impulses.
+19: Review note: The scan’s phrase ‘energy deficiency’ appears to be a typographical error. It has not been repeated as a function of the nodes of Ranvier.
+20: (a) Broca’s area
+21: Broca’s area is located in the frontal lobe of the dominant hemisphere, usually the left. It is responsible for speech production and language processing, controlling motor functions involved in the muscle movements needed for speaking.
+22: 
+23: (c) SA node
+24: The SA node lies near the opening of the superior vena cava in the right atrium. It initiates the heartbeat and acts as the natural pacemaker.
+25: Review note: The source’s extra statements about the AV node and non-rhythmic conduction in the bundle of His are not required for this question. The keyed answer is the SA node, the normal pacemaker.
+26: (b) Infundibular stalk
+27: The pituitary gland is attached to the hypothalamus by the infundibular stalk and lies in the sella turcica of the sphenoid bone.
+28: Blood vessels transport hormones but do not form this attachment. The malleus is an auditory ossicle of the middle ear. Pituicytes are supporting cells of the posterior pituitary, not the connecting structure.
+29: (b) Corpus luteum
+30: An LH surge triggers ovulation, causing the mature Graafian follicle to rupture and release the ovum. The ruptured follicle becomes the corpus luteum, a temporary endocrine gland or “yellow body”.
+31: Progesterone prepares and maintains the endometrium for implantation. Relaxin helps relax uterine muscles and pelvic ligaments during pregnancy. Inhibin inhibits FSH secretion from the anterior pituitary.
+32: (c) Between fertilization and parturition
+33: Gestation is the interval from fertilization to parturition. During this period the embryo develops into a fetus and completes its growth in the uterus. The book quotes approximately 280 days, 40 weeks or 9 months for human pregnancy; see the clarification below.
+34: Review note: The quoted 280 days or 40 weeks is conventionally measured from the last menstrual period. The interval from fertilization is about 266 days or 38 weeks. The definition asked for still corresponds to option (c).
+35: (b) ERV + RV
+36: (c) Carbon dioxide concentration
+37: An increase in the carbon dioxide concentration of blood stimulates the respiratory centre in the medulla oblongata and produces the urge to breathe.
+38: (b) Nephrons
+39: Nephrons are the structural and functional units of the kidney. They filter blood, reabsorb useful substances and form urine.
+40: (b) Hypertonic
+41: Hypertonic urine has a higher solute concentration than blood plasma, the typical condition described in the book. Isotonic or equitonic solutions have the same osmotic concentration as the comparison solution. Hypotonic urine is more dilute and may occur after drinking excess water.
+42: (c) Tuna
+43: The book identifies tuna as the fish associated with extensive migration across ocean basins, and mentions the Earth’s magnetic field, ocean currents and temperature gradients as navigation cues.
+44: (b) Biodiversity hotspot
+45: A biodiversity hotspot combines high endemism with substantial habitat loss. A polar biome is defined by its cold climate. A Ramsar site is a wetland of international importance. A biosphere reserve supports conservation and sustainable use; it is not synonymous with a hotspot.
+46: (c) Beer
+47: Beer is a fermented beverage produced by yeast fermentation. Cheese, yogurt, bread and buns are fermented foods; milk itself is not a fermented product.
+48: (b) Mouse
+49: (d) P. malariae
+50: Plasmodium malariae causes quartan malaria, characterized by a fever cycle of approximately 72 hours. The other listed species are associated with tertian malaria.
+51: (c) Merozoite
+52: (a) Only one earthworm develops
+53: The book states that metamorphosis is absent in the earthworm. A cocoon may contain several fertilized eggs, but only one embryo develops in the account used here.
+54: (b) 6th segment behind
+55: Lymph glands occur on both sides of the dorsal blood vessel from the 26th segment backwards, generally one pair per segment. They are small, whitish structures thought to produce phagocytic cells or corpuscles.
+56: Review note: Option (b) in the existing Word question paper reads ‘6th segment behind’. The photographed question and solution indicate ‘26th segment and behind’. The book key is (b); the question-paper option needs this digit restored.
+57: (a) To protect the eyes underwater
+58: The nictitating membrane is a transparent third eyelid. It protects a frog’s eyes while underwater or swimming, and from dust and injury on land, while still permitting vision.
+59: (a) 3 digestive enzymes and 2 hormones
+60: The frog pancreas is a mixed gland with both exocrine and endocrine functions. The book lists three main digestive enzymes and two hormones, insulin and glucagon.
+61: (d) Echinodermata
+62: Adult echinoderms, such as starfish, exhibit radial symmetry. Other examples of radially symmetrical animals include jellyfish and sea anemones.
+63: (b) Miracidium and metacercaria
+64: Miracidium enters the snail, the intermediate host. Cercariae eventually leave the snail and develop into metacercariae, the stage that infects the primary host.
+65: (b) Spider
+66: The spider belongs to class Arachnida. Housefly, cockroach and mosquito belong to class Insecta.
+67: (b) They have a body plan with two germ layers and radial symmetry.
+68: Coelenterates, or cnidarians, are diploblastic, radially symmetrical and acoelomate, with a gastrovascular cavity.
+69: (c) Different function but same structure
+70: Homologous organs have the same basic anatomical structure but perform different functions. Examples include the forelimbs of humans and bats, and the mouthparts of cockroaches and butterflies.
+71: (c) Natural selection
+72: Darwin proposed natural selection as the mechanism of evolution, often summarized as “survival of the fittest”.
+73: Germplasm theory is associated with Weismann; use and disuse with Lamarck; mutation theory with Hugo de Vries.
+74: (d) Tool maker
+75: Homo habilis means “handy man” or “tool maker”, reflecting its association with simple stone tools. Homo sapiens refers to modern humans; Homo erectus means “upright man”.
+76: (b) Stratified cuboidal epithelium
+77: Stratified cuboidal epithelium consists of multiple cell layers with cuboidal cells in the superficial layer. Stratified epithelia are named after their superficial cells. Mammary glands contain milk-secreting alveoli lined by cuboidal cells and surrounded by myoepithelial cells; their larger ducts may have stratified cuboidal epithelium.
+78: (d) Hyaline cartilage
+79: Hyaline cartilage caps the ends of bones at joints and is then called articular cartilage. Its smooth surface reduces friction and permits smooth joint movement.
+80: (c) Presence of actin and myosin filaments
+81: Skeletal muscle fibres are cylindrical; visceral smooth-muscle cells are spindle-shaped. Both contain the contractile proteins actin, in thin filaments, and myosin, in thick filaments.
+82: (d) Areolar connective tissue
+83: Mast cells occur mainly in areolar connective tissue, especially around blood vessels and beneath the skin. They participate in inflammation and allergic reactions by releasing histamine and heparin.
+84: (b) Pulmonary tuberculosis
+85: Chronic cough, blood-streaked sputum, night sweats and weight loss are characteristic features of pulmonary tuberculosis caused by Mycobacterium tuberculosis.
+86: (b) AIDS-related complex (ARC)
+87: The book uses AIDS-related complex (ARC) for an early symptomatic stage of HIV infection with fever, fatigue, weight loss and lymphadenopathy, before full-blown AIDS or severe opportunistic infections.
+88: (b) Tumor suppressor genes
+89: Tumour suppressor genes inhibit uncontrolled cell proliferation. They regulate the cell cycle, promote DNA repair and may trigger apoptosis in damaged cells.
+90: (d) Cell-mediated immunity
+91: The thymus supports the maturation of T lymphocytes, which are essential for cell-mediated immunity. Absence of the thymus impairs T-cell development and responses to infected or abnormal cells.
+92: Botany  |  Questions 41–80
+93: (c) Sex chromosome
+94: Sex chromosomes determine the chromosomal sex of a human male. The usual male complement is XY.
+95: (d) Antirrhinum
+96: Incomplete dominance occurs in Antirrhinum, or snapdragon. Crossing red-flowered and white-flowered plants produces pink-flowered offspring.
+97: (d) Co-dominance
+98: In the AB blood group, both A and B alleles are expressed in the phenotype. This is codominance.
+99: (c) Polygenic inheritance
+100: Human height shows continuous variation because it is influenced by many genes, or polygenes. It is an example of polygenic inheritance.
+101: (b) Polygenic inheritance
+102: The ratio 1:4:6:4:1 is a characteristic F2 pattern for a two-locus additive model of polygenic inheritance, in which several genes contribute cumulative effects to a trait.
+103: (a) XXX
+104: The book’s term “super female” refers to the XXX chromosome complement, which can arise through nondisjunction of sex chromosomes.
+105: (a) Disaccharides
+106: Maltose, lactose and sucrose are disaccharides, each composed of two monosaccharide units.
+107: (a) Simple lipids
+108: (b) Endodermis
+109: The endodermis is called the starch sheath because its cells often contain abundant starch grains. The pericycle participates in lateral-root formation; the epidermis is the outer protective layer; the hypodermis lies just below it and provides support.
+110: (b) Vascular bundles closed
+111: Monocot stem vascular bundles are closed, meaning that vascular cambium is absent. Without this cambium, ordinary secondary thickening does not occur.
+112: (a) Xylem is sandwiched between phloem
+113: A bicollateral vascular bundle contains two regions of phloem, one outside and one inside, with xylem between them.
+114: (b) Bacterial multiplication is reduced
+115: Refrigeration slows bacterial growth and reproduction rather than completely killing bacteria. The slower multiplication helps food remain fresh for longer.
+116: (a) Rabies virus
+117: Rabies virus has a characteristic bullet shape and belongs to the family Rhabdoviridae. The book contrasts it with spherical varicella virus, brick-shaped variola virus and icosahedral poliovirus.
+118: (b) Cyphellae
+119: Cyphellae are small pore-like structures on the lower surface of some lichens. They allow gaseous exchange, including movement of oxygen and carbon dioxide.
+120: (c) Mushroom
+121: Fairy rings arise from the radial outward growth of fungal mycelium. Mushrooms, commonly basidiomycetes, appear in a ring as the mycelium spreads.
+122: (d) Dispersal of spores
+123: Elaters in liverworts and pseudo-elaters in hornworts respond to humidity by twisting and untwisting. Their hygroscopic movements assist spore dispersal.
+124: (c) Ferns
+125: Antheridia with a jacket containing two ring cells are characteristic of ferns, or pteridophytes.
+126: (a) Scales of the cones
+127: In conifers, sporangia are borne on the scales of male and female cones: microsporangia in male cones and megasporangia associated with ovules in female cones.
+128: (b) Unicostate parallel
+129: Musa is a monocot. Its leaves show unicostate parallel venation: a single prominent midrib with parallel veins extending on either side.
+130: Review note: The question paper has identical wording for options (c) and (d), ‘Divergent reticulate’. The book key (b), unicostate parallel, is unaffected.
+131: (b) Taiga
+132: The taiga, or boreal forest, is the largest terrestrial biome. Its broad belt of coniferous forest extends across North America, Europe and Asia.
+133: (c) Community
+134: Review note: The book gives (c), ‘Community’, without an explanation. The wording ‘Pond is a’ is normally used for an ecosystem, but ‘ecosystem’ is absent from the choices. The source key is retained for review.
+135: (b) Industrial wastes
+136: Industrial effluents may contain toxic chemicals, heavy metals and untreated wastes. Their discharge can damage aquatic life and make water unsuitable for human use.
+137: (a) Microconsumers
+138: Bacteria act as decomposers, breaking down dead organic matter. They are therefore described as microconsumers.
+139: (b) Release ATP
+140: Mitochondria produce ATP through cellular respiration. ATP acts as the cell’s energy currency, giving mitochondria the description “powerhouse of the cell”.
+141: (d) Ribosomes
+142: Ribosomes are attached to the surface of rough endoplasmic reticulum and give it its rough appearance.
+143: (c) Division of nucleus
+144: Karyokinesis is division of the nucleus. Cytokinesis is division of the cytoplasm, separating the cell into two daughter cells.
+145: (d) Stem and root tip both
+146: Somatic cell division is mitosis. It occurs actively in meristematic tissues, including the root tip and stem or shoot tip.
+147: (b) G2-phase
+148: During G2, the cell prepares for mitosis and synthesizes proteins needed for spindle-fibre formation, supporting chromosome separation.
+149: (c) Two
+150: The book counts the two pyruvate-to-acetyl-CoA reactions: one glucose forms two pyruvate molecules, and each undergoes one oxidative decarboxylation. Thus its stated count is two. See the scope clarification below.
+151: Review note: The book counts only the two pyruvate-to-acetyl-CoA reactions. The stem says ‘during complete oxidation of glucose’, which also includes oxidative decarboxylation in the Krebs cycle. The question needs to specify whether it asks for reaction types, occurrences per glucose, or the link reaction alone.
+152: (c) Stroma outside photosynthetic lamellae
+153: The dark reaction, or Calvin cycle, takes place in the chloroplast stroma. It does not directly require light, but uses ATP and NADPH produced by the light reactions.
+154: (b) Do not absorb but reflect green light
+155: Chlorophyll absorbs red and blue light efficiently. Green light is largely reflected, making leaves appear green.
+156: (a) Climacteric
+157: The climacteric is the sharp rise in respiration during the ripening of fruits such as banana. It is associated with increased ethylene production and changes in softness, sweetness and colour.
+158: (c) Night
+159: Skototropism is growth or movement towards darkness, in contrast to growth towards light. It occurs in some climbing plants and other organisms.
+160: (a) Dissolves in water and alters osmotic balance
+161: Glucose is highly soluble in water. Storing a large amount as free glucose would raise the osmotic concentration of cell sap, draw excess water into cells and disturb osmotic balance.
+162: (a) Circinotropous
+163: In Opuntia, the funiculus grows around the ovule, causing it to turn through a complete circle. This ovule is circinotropous.
+164: (c) Reproduction without fusion of gametes
+165: Apomixis is asexual reproduction through seeds without fertilization or fusion of male and female gametes. The embryo may develop from an egg cell or other cells without the usual sexual process.
+166: (a) Totipotency
+167: Totipotency is the ability of a plant cell to develop into a whole plant. Gene cloning copies particular genes; tissue culture uses totipotency; regeneration refers more generally to regrowth of parts.
+168: (c) Genetic engineering
+169: Genetic engineering introduces specific genetic changes. Selection is a traditional method, mutation generates random changes, and tissue culture is primarily a propagation technique.
+170: (c) Distillate of fermented molasses
+171: Rum is obtained by distilling the fermented products of molasses.
+172: (b) Hibiscus rosa-sinensis
+173: China rose is Hibiscus rosa-sinensis, a member of Malvaceae. Gossypium hirsutum is cotton, Abelmoschus esculentus is okra, and Hibiscus cannabinus is kenaf.
+174: Chemistry  |  Questions 81–130
+175: (b) Oxygen
+176: After losing one electron, O+ has the stable half-filled 2p3 configuration. Removing a second electron therefore requires more energy than for the other listed elements.
+177: The order quoted in the book is Li > Ne > O > F > N > B > C > Be.
+178: (a) Magnesium bicarbonate
+179: Bicarbonates of calcium and magnesium cause temporary hardness. Their chlorides and sulphates cause permanent hardness.
+180: (c) NaF
+181: As halide-ion size increases, lattice energy and melting point generally decrease for these sodium halides.
+182: NaF > NaCl > NaBr > NaI.
+183: (a) Si
+184: Zone refining, or zone melting, purifies crystalline materials, especially semiconductors such as silicon and germanium.
+185: (d) Be
+186: Beryllium has a small atomic size and tightly held electrons. An ordinary Bunsen flame does not supply enough energy to excite them sufficiently for a characteristic flame colour. Calcium, strontium and barium give brick-red, crimson-red and apple-green colours respectively.
+187: (b) MgSO4·7H2O
+188: MgSO4·7H2O is Epsom salt, hydrated magnesium sulphate.
+189: (b) CO2
+190: Carbon dioxide is denser than air and can accumulate in deep wells, caves or mines. A high concentration can cause suffocation.
+191: (a) Phosphorus
+192: Phossy jaw is associated with prolonged exposure to white phosphorus.
+193: (a) ZnO
+194: Zinc oxide changes reversibly from white when cool to yellow when hot.
+195: ZnO (white)→heatZnO (yellow)
+196: ZnO (yellow)→coolZnO (white)
+197: (c) NH4NO2
+198: Ammonium nitrite decomposes on heating to nitrogen and water.
+199: NH4NO2→ΔN2+2H2O
+200: (b) 3-buten-1-ol
+201: (d) No reaction takes place
+202: Carbon tetrachloride is a covalent compound and does not supply free chloride ions to silver nitrate under these conditions. No white AgCl precipitate forms.
+203: (c) 2,4,6-tribromophenol
+204: Phenol reacts with excess aqueous bromine to form 2,4,6-tribromophenol, a white precipitate.
+205: 
+206: (b) Para-nitrophenol
+207: The electron-withdrawing nitro group stabilizes the phenoxide ion through inductive and, at the ortho and para positions, resonance effects. The book selects para-nitrophenol, option (b).
+208: (a) 1σ and 2π
+209: The carbon–carbon triple bond in the acetylide ion contains one σ bond and two π bonds.
+210: Ca2+[C≡C]2-
+211: Review note: The scan shows a triangular Ca–C–C sketch. The explanation uses the acetylide description Ca2+[C≡C]2− to identify the one σ and two π bonds of the carbon–carbon triple bond.
+212: (b) SN2 mechanism
+213: Walden inversion is inversion of configuration at a stereogenic centre. It occurs during an SN2 reaction because the nucleophile attacks from the side opposite the leaving group.
+214: (b) Formaldehyde
+215: Reductive ozonolysis of ethylene produces formaldehyde.
+216: CH2=CH2→Zn/H2OO32HCHO
+217: Review note: The scan includes H2O2 as a product while also specifying a Zn/H2O reductive work-up. The cleaned scheme shows the organic product, formaldehyde, without that inconsistent peroxide product.
+218: (a) NaOH/I2
+219: Acetophenone contains a methyl-ketone group, –COCH3, and gives the iodoform test with NaOH/I2. Benzophenone lacks this group and does not give the test.
+220: C6H5COCH3+3I2+4NaOH→
+221: C6H5COONa+CHI3↓+3NaI+3H2O
+222: Iodoform, CHI3, is the yellow precipitate.
+223: (c) Cyclopentadienyl anion
+224: Aromaticity requires a cyclic, planar, conjugated structure with (4n+2) π electrons. The cyclopentadienyl anion has six π electrons and meets Hückel’s rule.
+225: 
+226: (d) Rectified spirit
+227: Rectified spirit is the concentrated ethanol–water mixture described in the question as approximately 95% ethanol. The source states 95% ethanol and 5% water by weight.
+228: (b) Ethene
+229: Kolbe electrolysis of sodium succinate produces ethene. The two carboxylate groups undergo decarboxylation.
+230: NaOOCCH2CH2COONa+2H2O→
+231: CH2=CH2+2CO2+H2+2NaOH
+232: Review note: The stem begins ‘Aniline is purified by’ and then asks about Kolbe electrolysis of sodium succinate. These phrases do not form a single coherent question. The book answer (b), ethene, belongs to sodium succinate electrolysis. Stoichiometric coefficients omitted in the source scheme have been supplied.
+233: (c) Wolff–Kishner reduction
+234: In the Wolff–Kishner reduction, a ketone reacts with hydrazine to form a hydrazone. Heating with KOH in ethylene glycol reduces the carbonyl carbon to a methylene group, with nitrogen released.
+235: (CH3)2CO+H2NNH2→(CH3)2C=NNH2+H2O
+236: (CH3)2C=NNH2→200∘CKOH/ethylene glycolCH3CH2CH3+N2↑
+237: (b) Benzaldehyde
+238: Benzaldehyde has a pleasant almond-like aroma and is used in perfume and flavour industries.
+239: (a) 80
+240: The book uses a mixture containing 20% n-heptane and 80% iso-octane. On the octane-rating scale, this mixture has an octane number of 80. See the wording discrepancy below.
+241: Review note: The question paper says ‘iso-heptane’, while the book’s explanation requires ‘iso-octane’. An octane number of 80 follows for 20% n-heptane and 80% iso-octane, not from the printed iso-heptane wording alone.
+242: (c) Benzylamine
+243: Benzylamine is the most basic of the listed compounds because its nitrogen lone pair is not delocalized directly into the benzene ring. Electron-withdrawing or resonance effects reduce the basicity of acetanilide, p-nitroaniline and aniline.
+244: (d) Bicarbonate
+245: Propionic acid donates a proton to bicarbonate, forming unstable carbonic acid, which decomposes into water and CO2. The carbon of the CO2 therefore comes from bicarbonate.
+246: CH3CH2COOH+NaHCO3→
+247: CH3CH2COONa+H2O+CO2↑
+248: (d) 3-Methyl butan-2-ol
+249: Methylmagnesium halide adds a methyl group to the aldehyde carbon. Acidic hydrolysis of the magnesium alkoxide gives 3-methylbutan-2-ol.
+250: (CH3)2CHCHO+CH3MgX→(CH3)2CHCH(OMgX)CH3
+251: (CH3)2CHCH(OMgX)CH3→H3O+(CH3)2CHCH(OH)CH3
+252: (c) Isotope of the same element
+253: Atomic weight is a weighted average of the masses of the naturally occurring isotopes, taking their relative abundances into account. The average is commonly fractional.
+254: (b) 40%
+255: Use Na = 23, O = 16 and H = 1.
+256: %O=1623+16+1×100=1640×100=40%
+257: (b) Fe3+
+258: The spin-only magnetic moment depends on the number n of unpaired electrons.
+259: μ=n(n+2) BM
+260: Zn2+: [Ar]3d10, n = 0, μ = 0 BM. Cr3+: [Ar]3d3, n = 3, μ ≈ 3.87 BM. Co3+: [Ar]3d6, n = 4 in the high-spin treatment used here, μ ≈ 4.90 BM. Fe3+: [Ar]3d5, n = 5, μ ≈ 5.92 BM.
+261: (a) Boyle’s temperature
+262: Boyle temperature is the temperature at which a real gas most closely obeys the ideal-gas equation over a useful range of pressure.
+263: PV=nRT
+264: (b) London force
+265: Within each N2 molecule, the two nitrogen atoms have a triple covalent bond. Between N2 molecules, the attraction is London dispersion because the molecules have no permanent dipole. The book’s answer refers to the intermolecular force.
+266: Review note: The stem asks for the ‘bond present in N2 molecules’, but option (b) and the book explanation concern forces between molecules. Within N2 the bond is triple covalent. To make (b) unambiguous, the stem should ask about intermolecular attraction.
+267: (d) Sodium cyanide
+268: Review note: The book gives (d), sodium cyanide, without explanation. The question’s inclusion of a coordinate bond is not clarified by the source. Keep this item under review rather than treating the missing explanation as verification.
+269: (b) 12 L
+270: Semimolar H2SO4 is 0.5 M and therefore 1 N for complete neutralization. Decinormal NaOH is 0.1 N.
+271: N1V1=N2V2
+272: 1×V1=0.1×5
+273: V1=0.5 L=12 L
+274: (b) Arrhenius equation
+275: The Arrhenius equation expresses the temperature dependence of the rate constant.
+276: k=Ae-Ea/(RT)
+277: (c) Remains unchanged
+278: For a specified reaction, the equilibrium constant depends on temperature, not on the initial reactant concentration. Doubling concentration at unchanged temperature does not change the equilibrium constant.
+279: (b) 10
+280: For the basic buffer, use the Henderson–Hasselbalch form for pOH.
+281: pOH=pKb+log[NH4Cl][NH4OH]
+282: pOH=5+log0.020.2=5+log0.1=4
+283: pH=14-4=10
+284: (c) S is oxidized
+285: The oxidation state of sulphur changes from −2 in the sulphide to +4 in SO2. The increase in oxidation state means that sulphur is oxidized. The printed reaction equation has an imbalance; see the note below.
+286: Review note: The printed equation 2CuS + 3O2 → 2Cu2O + 2SO2 is not balanced in copper or oxygen. The oxidation-state change S: −2 → +4 still supports (c). If the intended sulphide is Cu2S, 2Cu2S + 3O2 → 2Cu2O + 2SO2 is balanced.
+287: (c) Velocity of K+ = NO3−
+288: A salt bridge should contain a salt whose cation and anion have approximately equal ionic mobilities. KCl and NH4Cl are other examples mentioned in the source.
+289: (c) Decreases
+290: At constant temperature and pressure, a spontaneous process decreases Gibbs free energy.
+291: ΔG=ΔH-TΔS<0
+292: (c) 109 J K−1 mol−1
+293: Convert the enthalpy to joules per mole and temperature to kelvin.
+294: ΔHvap=40.8 kJ mol-1=40800 J mol-1
+295: T=100+273=373 K
+296: ΔS=ΔHvapT=40800373≈109 J K-1 mol-1
+297: (b) First order
+298: For a first-order reaction, the half-life is independent of the initial concentration.
+299: t12=0.693k
+300: (c) 1
+301: Write the rate law and compare the rates when the concentration doubles.
+302: r=k[A]m,2r=k[2A]m
+303: 2=2m⇒m=1
+304: (a) 1 × 10−8
+305: For a weak monoprotic acid, use Ka≈Cα2.
+306: α=0.01100=10-4
+307: Ka≈1.00×(10-4)2=1×10-8
+308: (a) C is anode and Fe is cathode
+309: The Downs process electrolyses molten sodium chloride using a graphite anode and an iron cathode. Sodium forms at the cathode and chlorine gas at the anode.
+310: (d) Acetic acid
+311: Acetic acid is not an amino acid because it lacks an amino group. It therefore cannot provide both functional groups required for incorporation into a polypeptide chain.
+312: (d) Retarder
+313: Gypsum retards the setting of cement, increasing the available setting time.
+314: (c) Gelatinous
+315: Gelatinous precipitates, such as Al(OH)3 and Fe(OH)3, are especially difficult to filter.
+316: (d) NH4+
+317: Nessler’s reagent, alkaline K2[HgI4], is used to detect ammonium ions, NH4+.
+318: (b) Selective adsorption
+319: Physics  |  Questions 131–180
+320: (b) MLT−1
+321: Impulse equals force multiplied by time.
+322: [Impulse]=[MLT-2][T]=[MLT-1]
+323: (a) 90°
+324: Use the scalar product of the two vectors.
+325: cosθ=A→·B→‖A‖‖B‖
+326: cosθ=9+16-259+16+259+16+25=0
+327: θ=90∘
+328: (b) 200 m
+329: The maximum range determines the launch speed. The book then considers the greatest height possible with that same speed, achieved by vertical projection.
+330: Rmax=u2g=400 m
+331: Hmax=u22g=4002=200 m
+332: Review note: The book’s 200 m result is the greatest height attainable with the same launch speed, using vertical projection. The height of the trajectory that itself has maximum horizontal range, at 45°, would instead be 100 m. The wording should distinguish these interpretations.
+333: (d) Increases four times
+334: Force is mass multiplied by acceleration. Doubling both gives four times the original force.
+335: F'=(2m)(2a)=4ma=4F
+336: (a) (1-1n2)
+337: Comparing the times for rough and smooth inclines gives the coefficient of kinetic friction.
+338: μ=tanθ(1-1n2)
+339: θ=45∘⇒μ=1-1n2
+340: (c) +7 joules
+341: Work is the scalar product of force and displacement.
+342: W=F→·r→=(5i+3j)·(2i-j)
+343: W=10-3=7 J
+344: (b) When no external torque acts on the system
+345: The total angular momentum of a system remains constant when the net external torque is zero.
+346: (b) 1ω
+347: For simple harmonic motion, maximum speed is Aω and maximum acceleration is Aω2.
+348: vmaxamax=AωAω2=1ω
+349: (b) 16:1
+350: Both wires have the same Young’s modulus and experience the same force. Strain is inversely proportional to cross-sectional area.
+351: ε1ε2=A2A1=(r2r1)2
+352: ε1ε2=(41)2=161
+353: (c) Pressure of water increases with depth
+354: Water pressure increases with depth. A broader base strengthens the dam against the larger forces and their overturning effect near the bottom.
+355: (a) Increase
+356: On heating, both the metal sphere and its cavity expand. The volume of the cavity increases.
+357: (d) Latent heat of fusion
+358: Latent heat of fusion is the heat needed to change unit mass from solid to liquid at its melting point without changing temperature.
+359: (c) 4P
+360: At constant volume, pressure is proportional to absolute temperature.
+361: P1T1=P2T2
+362: P2=P927+27327+273=P1200300=4P
+363: Review note: The book calls the constant-volume pressure–temperature relation Charles’s law. The derivation here states the relation directly, avoiding that naming error.
+364: (a) 32R
+365: A monatomic ideal gas has three translational degrees of freedom.
+366: CV=f2R=32R
+367: (a) 7900 J
+368: Using the book’s conversion 1 cal = 4.2 J, the absorbed heat is 8400 J. Work done by the system is 500 J.
+369: ΔU=Q-W=8400-500=7900 J
+370: Review note: The source rearranges the first law incorrectly in one line, but calculates 8400 − 500 = 7900 J. The working here uses ΔU = Q − W, matching the stated heat absorbed and work done.
+371: (c) Book answer
+372: The book prints a constant-volume gas relation under this number:
+373: P1P2=T1T2=300400=34
+374: This calculation does not address the Carnot-engine question in the question paper. See the discrepancy note below.
+375: Review note: The source prints answer (c) and an unrelated gas-law calculation. For the Carnot engine in the actual question, Qc/Qh = Tc/Th = (T/3)/T = 1/3. Therefore Qc = Q/3, which is option (b). The separate book key retains (c) pending correction of the source.
+376: (b) Metal has high thermal conductivity
+377: Heat flows from the hand into metal more quickly because metal has higher thermal conductivity than wood. It therefore feels colder.
+378: (c) π
+379: Reflection from an optically denser medium introduces a phase reversal of π radians.
+380: (b) 32
+381: At the upper surface A, apply Snell’s law. At the vertical face B, apply the limiting condition for total internal reflection.
+382: μ=sin45∘sinr⇒sinr=1μ2
+383: i1=90∘-r,sini1=1μ
+384: cosr=1μ
+385: cosr=1-sin2r=2μ2-12μ2
+386: 1μ2=2μ2-12μ2⇒μ=32
+387: 
+388: (c) 0.5 cm
+389: Use the fringe-width formula for Young’s double-slit experiment.
+390: β=λDd=5000×10-10×10.1×10-3
+391: β=5×10-3 m=0.5 cm
+392: (c) Book answer
+393: Review note: The book gives (c), I0/4, with no working. For already plane-polarized incident light and a single analyser at 45°, Malus’s law gives I0 cos245° = I0/2, option (b). I0/4 requires an additional polarizing stage starting from unpolarized light. The question does not specify this clearly.
+394: (d) 400 cm/sec
+395: Compare the wave equation with y=Asin(kx-ωt).
+396: v=ωk=200π0.5π=400 cm s-1
+397: (d) 4a2
+398: For equal amplitudes a and phase difference φ, the resultant amplitude is
+399: A=a2+a2+2a2cosϕ=2a|cosϕ2|
+400: At constructive interference, φ = 0, so A = 2a and intensity is proportional to 4a2.
+401: Review note: The source’s 4a2 result assumes constructive interference. More generally the intensity varies as 4a2 cos2(φ/2); the phase relation should be specified.
+402: (d) n
+403: For a sonometer wire with unchanged linear density, frequency is proportional to the square root of tension and inversely proportional to length.
+404: n'n=T'Tll'=4×12=1
+405: n'=n
+406: (a) Velocity of sound towards the source
+407: For a moving observer and stationary source, the book uses the sign convention in which motion opposite to the travelling sound is negative.
+408: n'=nv-vov
+409: 2n=nv-vov⇒vo=-v
+410: Thus the observer moves towards the source at the speed of sound.
+411: 
+412: (a) [2Eqlm]12
+413: The electric force has magnitude qE. Starting from rest, apply the constant-acceleration equation over distance ℓ.
+414: a=Fm=qEm
+415: v2=2al=2Eqlm
+416: v=2Eqlm
+417: (d) F8
+418: The axial field of a short electric dipole varies as the inverse cube of distance.
+419: F=qEa=q2kpr3⇒F∝1r3
+420: r'=2r⇒F'=F8
+421: (b) This problem does not have spherical symmetry
+422: (b) 3C
+423: Redrawing the connections shows that all three capacitors are connected in parallel between A and B.
+424: CAB=C+C+C=3C
+425: 
+426: (c) v
+427: Drift speed is proportional to current density when the charge-carrier density remains unchanged.
+428: vd=Jne,J1=IA
+429: J2=2I2A=IA=J1
+430: vd'=vd=v
+431: (c) 0.5 ohm
+432: For a short-circuited cell, the current is limited by its internal resistance.
+433: Isc=Er⇒r=1.53=0.5 Ω
+434: (b) Seebeck effect
+435: The Seebeck effect is the production of an e.m.f. when the two junctions of dissimilar metals are maintained at different temperatures.
+436: (d) Zero
+437: Point O lies on the extension of the straight segment AB. The current element and the displacement to O are parallel, so the contribution of AB to the magnetic field at O is zero.
+438: (b) The magnetic field is perpendicular to the plane of the coil
+439: (b) Book answer
+440: Review note: The source supplies only (b), ‘Less’. The comparison needs a stated convention: a beta-minus particle and a photoelectron have the same electron charge and rest mass; a speed-dependent relativistic-mass comparison requires additional assumptions. The book’s letter is retained rather than silently reinterpreted.
+441: (d) Book answer
+442: The book prints an inductive-e.m.f. calculation under this number:
+443: e=-Ldidt,e=4 V
+444: didt=0-110-3=-103 A s-1
+445: L=4×10-3 H
+446: This is not the dimensional-scaling problem in the question paper. See the discrepancy note below.
+447: Review note: The source’s 4 mH calculation addresses a different inductive-e.m.f. problem. For the stated geometric scaling, L is proportional to N2A/ℓ. Fixed turns per unit length gives N′ = 2N; doubling all lengths gives A′ = 4A and ℓ′ = 2ℓ. Thus L′/L = 4×4/2 = 8, option (c), rather than the printed (d).
+448: (b) Average value of the complete cycle is zero
+449: In a moving-coil DC ammeter, reversing the current reverses the torque. For symmetrical alternating current, the average torque over a complete cycle is zero.
+450: (a) ωLR
+451: (d) nhλ
+452: The energy of n photons is nhc/λ. Their total absorbed momentum is energy divided by c.
+453: E=nhcλ,p=Ec=nhλ
+454: (b) (2027)λ0
+455: Use the Rydberg relation for transitions ending at n = 2.
+456: λλ0=122-132122-142
+457: λλ0=536×163=2027
+458: λ=2027λ0
+459: (d) Inversely proportional to n3
+460: In the Bohr model, electron speed varies as 1/n and orbital radius as n2.
+461: ω=vr⇒ω∝1n3
+462: (b) Voltage applied to the tube
+463: The minimum X-ray wavelength depends inversely on the accelerating voltage.
+464: λmin=hceV⇒λmin∝1V
+465: (b) 4(x2 − x1)
+466: The reactants contain four nucleons in total, and the product α-particle also contains four. The energy released is the increase in total binding energy.
+467: Q=4x2-4x1=4(x2-x1)
+468: (c) Holes are minority carriers and pentavalent atoms are the dopants
+469: (b) 10 Ω
+470: Dynamic resistance is the small change in voltage divided by the corresponding change in current.
+471: ΔV=0.70-0.65=0.05 V
+472: ΔI=5×10-3 A
+473: Rd=ΔVΔI=0.055×10-3=10 Ω
+474: (b) 2.1 × 10−4
+475: Using the definition of packing fraction employed in the question,
+476: f=M-AA=14.003-1414≈2.1×10-4
+477: (c) Book answer
+478: The book evaluates the fraction remaining after half of one half-life:
+479: NN0=(12)tT12,t=T122
+480: NN0=(12)12=12
+481: See the note below about the different wording in the question paper.
+482: Review note: The book uses t = T1/2/2 and obtains 1/√2, option (c). The question says ‘after half-life’, meaning t = T1/2, for which the remaining fraction is 1/2; that value is absent from the choices. The stem should say ‘after half of one half-life’ if the book answer is intended.
+483: (d) Strong nuclear force
+484: The strong interaction binds quarks inside protons and neutrons. It is the strongest of the four fundamental interactions at the relevant subatomic scale.
+485: (c) Muon
+486: The muon is a lepton. Protons and neutrons are baryons composed of quarks; gluons mediate the strong interaction.
+487: (a) 4π2r3GT2
+488: Mental Agility Test  |  Questions 181–200
+489: (d) 65
+490: The relationship is x3:(x+1)3+1.
+491: 8=23⇒33+1=28
+492: 27=33⇒43+1=65
+493: (a) 219
+494: (b) 45
+495: The centre is the sum of the four surrounding numbers.
+496: 11+44+33+22=110
+497: 16+40+32+24=112
+498: ?+12+34+23=114
+499: ?=114-69=45
+500: Review note: The source prints the intermediate subtraction as 114 − 59 = 45. Since 12 + 34 + 23 = 69, the corrected working is 114 − 69 = 45. The answer letter (b) is unchanged.
+501: (d) 8592617
+502: Direct substitution gives A → 1, M → 3, B → 2, E → 5, R → 7, O → 6, C → 0, K → 8 and Y → 9.
+503: Therefore KEYBOAR → 8592617.
+504: (a) Son
+505: The man’s wife is Mohan’s daughter-in-law. Therefore the man is Mohan’s son. The book’s additional description of his relationship to Roshani is inconsistent; see the note below.
+506: Review note: The book’s final statement that the man is Roshani’s brother-in-law conflicts with its own reasoning. The question asks only his relationship to Mohan: son, option (a).
+507: (b) Gaurav
+508: The order is Gaurav, Raj, Mohit, Anish/Ashish, Sanchit. Gaurav therefore wins the race.
+509: Review note: The question stem names Anish, while its option (d) and the source explanation use Ashish/Ashis. Gaurav is first under either spelling, so answer (b) is unaffected.
+510: (a) 4 − 8 + 12 = 0
+511: In option (a), interchange + and − and also 4 and 8.
+512: 4-8+12=0⟶8+4-12=0
+513: The transformed equation is true.
+514: (d) If neither I nor II is strong
+515: The book treats neither argument as strong. It reasons that cabinet reshuffling should be judged by effective administration, implementation and accountability, rather than by either blanket argument in the question.
+516: (b) Only II follows
+517: The book accepts only course II. Its reasoning rejects compelling graduates to remain in the country and instead accepts recovery of the educational subsidy from those who choose to settle abroad.
+518: (c) Rs. 14
+519: Subtract the two tax rates and apply the difference to Rs. 8400.
+520: (312-313)%=(72-103)%=16%
+521: Difference=16×1100×8400=Rs. 14
+522: (d) 14
+523: The selling price of 10 clips is Rs. 1 at a gain of 40%.
+524: Cost of 10 clips=100140×1=57 rupee
+525: Clips per rupee=10÷57=14
+526: Review note: The source’s final multiplication is printed inconsistently. Since ten clips cost 5/7 rupee, the number per rupee is 10 ÷ (5/7) = 14, not 10 × (5/7). The answer remains (d).
+527: (a) 55 years
+528: The total age decreases by 10 × 3 = 30 years. The retired teacher was therefore 30 years older than the new teacher.
+529: 25+3×10=55 years
+530: (a) 4 days
+531: A works twice as fast as B. Since B takes 12 days, A takes 6 days.
+532: Combined daily work=16+112=14
+533: Time=4 days
+534: (d) 11 years
+535: Let the present ages be 3x and 7x.
+536: 7x+4=39⇒x=5
+537: Simran's present age=3x=15
+538: Four years ago, Simran was 15 − 4 = 11 years old.
+539: (b) Book answer
+540: The book assumes the car covers x in 6 hours at 72 km/h after repair, and uses 54 km/h before repair.
+541: x=72×6=432 km
+542: 3x=1296 km
+543: t=129654=24 hours
+544: These speeds are reversed relative to the supplied question paper. See the discrepancy note below.
+545: Review note: The book reverses the question’s speeds. With the actual printed data, x = 54×6 = 324 km and the pre-repair time for 3x is 972/72 = 13.5 hours, which is absent from the options. The source’s 24 hours, option (b), follows only from the reversed speeds.
+546: (a) A
+547: The line rotates 45° clockwise per step. The arrow rotates 90° clockwise after every two steps. The next figure is answer figure A.
+548: (b) 24
+549: Using the labelled figure, the book counts six triangles in each of ADE, ABE and ABC, plus three in each of DEB and BEC.
+550: 6+6+6+3+3=24 triangles
+551: 
+552: (a) 1 only
+553: (c) 3
+554: (b) 1,5,7; 2,4,8; 3,6,9
+555: Figures 1, 5 and 7 contain two similar elements, one inside the other. Figures 2, 4 and 8 contain one element inside a different element. Figures 3, 6 and 9 contain similar inner and outer elements with the intervening area shaded.

@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-09-01T10:45:04.662Z",
+  "databaseOperations": [
+    {
+      "name": "1. Unbounded Student List (getStudents)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 79283,
+      "samplePayloadSizeKb": 77.42,
+      "errorRatePercent": 0,
+      "min": 441.81,
+      "p50": 447.31,
+      "p95": 605.29,
+      "p99": 605.29,
+      "max": 605.29,
+      "avg": 477.78
+    },
+    {
+      "name": "2. Batch Detail Over-fetch (BatchesService.findOne)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2,
+      "samplePayloadSizeKb": 0,
+      "errorRatePercent": 0,
+      "min": 145.83,
+      "p50": 147.28,
+      "p95": 149.57,
+      "p99": 149.57,
+      "max": 149.57,
+      "avg": 147.33
+    },
+    {
+      "name": "3. Lesson Hierarchy Detail (LessonsService.findOne)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2312,
+      "samplePayloadSizeKb": 2.26,
+      "errorRatePercent": 0,
+      "min": 1169.05,
+      "p50": 1175.35,
+      "p95": 1235.37,
+      "p99": 1235.37,
+      "max": 1235.37,
+      "avg": 1185.56
+    },
+    {
+      "name": "4. Test Catalog List (TestsService.findAll)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2846,
+      "samplePayloadSizeKb": 2.78,
+      "errorRatePercent": 0,
+      "min": 870.82,
+      "p50": 878.56,
+      "p95": 1023.13,
+      "p99": 1023.13,
+      "max": 1023.13,
+      "avg": 906.51
+    },
+    {
+      "name": "5. Test Detail + Questions (TestsService.findOne)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2,
+      "samplePayloadSizeKb": 0,
+      "errorRatePercent": 0,
+      "min": 145.02,
+      "p50": 147.24,
+      "p95": 148.91,
+      "p99": 148.91,
+      "max": 148.91,
+      "avg": 147.44
+    },
+    {
+      "name": "6. Test Leaderboard (TestsService.getAttemptsLeaderboard)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 635,
+      "samplePayloadSizeKb": 0.62,
+      "errorRatePercent": 0,
+      "min": 436.38,
+      "p50": 437.87,
+      "p95": 442.91,
+      "p99": 442.91,
+      "max": 442.91,
+      "avg": 438.85
+    },
+    {
+      "name": "7. Community Posts Feed (CommunityService.findAll)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2,
+      "samplePayloadSizeKb": 0,
+      "errorRatePercent": 0,
+      "min": 144.43,
+      "p50": 147.76,
+      "p95": 148.06,
+      "p99": 148.06,
+      "max": 148.06,
+      "avg": 146.87
+    },
+    {
+      "name": "8. Auth Profile & RBAC (AuthService.getProfile)",
+      "iterations": 5,
+      "samplePayloadSizeBytes": 2480,
+      "samplePayloadSizeKb": 2.42,
+      "errorRatePercent": 0,
+      "min": 1022.13,
+      "p50": 1029.65,
+      "p95": 1166.54,
+      "p99": 1166.54,
+      "max": 1166.54,
+      "avg": 1055.17
+    }
+  ],
+  "redisMetrics": {
+    "status": "Connected (Upstash)",
+    "min": 84.14,
+    "p50": 86.63,
+    "p95": 293.92,
+    "p99": 293.92,
+    "max": 293.92,
+    "avg": 107.25
+  },
+  "bundleMetrics": [
+    {
+      "Page": "Live Test Runner (tests/[id]/runner)",
+      "Source Size (KB)": 114.9
+    },
+    {
+      "Page": "Lesson Detail & Content (lessons/[id])",
+      "Source Size (KB)": 113.12
+    },
+    {
+      "Page": "Test Control Room (tests/[id])",
+      "Source Size (KB)": 95.75
+    },
+    {
+      "Page": "Test Authoring Wizard (tests/create)",
+      "Source Size (KB)": 74.47
+    },
+    {
+      "Page": "Student Roster (students)",
+      "Source Size (KB)": 49.24
+    },
+    {
+      "Page": "Subject Detail (subjects/[id])",
+      "Source Size (KB)": 38.91
+    },
+    {
+      "Page": "Video Player & Forum (lessons/[id]/videos/[videoId])",
+      "Source Size (KB)": 58.68
+    }
+  ]
+}

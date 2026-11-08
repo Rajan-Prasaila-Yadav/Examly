@@ -23,13 +23,20 @@ model Batch {
   students        StudentProfile[]
   tests           Test[]
   posts           CommunityPost[]
+  faculty         BatchFaculty[]
+  classes         BatchClass[]
 
   @@index([instituteId, status])
+  @@index([sortOrder])
+  @@index([createdAt])
 }
 
 model Subject {
   id              String          @id @default(cuid())
-  batchId         String
+  batchId         String?
+  instituteId     String?
+  code            String?
+  description     String?
   name            String          // e.g., "Physics", "Chemistry", "Zoology"
   iconUrl         String?
   status          RecordStatus    @default(ACTIVE)
@@ -38,11 +45,13 @@ model Subject {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  batch           Batch           @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batch           Batch?          @relation(fields: [batchId], references: [id], onDelete: Cascade)
   lessons         Lesson[]
   tests           Test[]
+  classes         BatchClass[]
 
   @@index([batchId, status])
+  @@index([sortOrder])
 }
 
 model Lesson {
@@ -63,9 +72,13 @@ model Lesson {
   tests           Test[]
 
   @@index([subjectId, status])
+  @@index([sortOrder])
 }
 
 model Video {
+  subtitleUrl     String?
+  watermark       Boolean         @default(true)
+  personalNotes   VideoPersonalNote[]
   id              String          @id @default(cuid())
   lessonId        String
   title           String          // e.g., "1.1 Introduction to Mechanics"
@@ -84,11 +97,16 @@ model Video {
   lesson          Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   reactions       VideoReaction[]
   comments        VideoComment[]
+  watchProgress   VideoWatchProgress[]
 
   @@index([lessonId, status])
+  @@index([lessonId, sortOrder])
 }
 
 model Note {
+  description     String?
+  allowDownload   Boolean         @default(true)
+  opens           NoteOpen[]
   id              String          @id @default(cuid())
   lessonId        String
   title           String
@@ -99,6 +117,9 @@ model Note {
   createdAt       DateTime        @default(now())
 
   lesson          Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, status])
+  @@index([sortOrder])
 }
 
 model ResourceNode {
@@ -129,6 +150,7 @@ model VideoReaction {
   video           Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@unique([videoId, userId]) // Exactly 1 reaction per user
+  @@index([userId])
 }
 
 model VideoComment {
@@ -147,6 +169,8 @@ model VideoComment {
   reactions       CommentReaction[]
 
   @@index([videoId, parentId])
+  @@index([videoId, createdAt])
+  @@index([userId])
 }
 
 model CommentReaction {
@@ -160,4 +184,21 @@ model CommentReaction {
 
   @@unique([commentId, userId])
 }
+
+model VideoWatchProgress {
+  id              String          @id @default(cuid())
+  userId          String
+  videoId         String
+  progressSeconds Int             @default(0)
+  durationSeconds Int             @default(0)
+  isCompleted     Boolean         @default(false)
+  lastWatchedAt   DateTime        @default(now()) @updatedAt
+
+  video           Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([userId, lastWatchedAt])
+  @@index([videoId])
+}
+
 

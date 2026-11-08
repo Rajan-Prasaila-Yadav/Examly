@@ -29,10 +29,9 @@ import {
   LayoutGrid,
   List,
   GraduationCap,
+  Download,
 } from 'lucide-react';
 
-let cachedTeachers: any[] = [];
-let cachedTeacherBatches: any[] = [];
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -49,9 +48,9 @@ export default function TeachersPage() {
     }
   }, [isStudent, router]);
 
-  const [teachers, setTeachers] = useState<any[]>(cachedTeachers);
-  const [batches, setBatches] = useState<any[]>(cachedTeacherBatches);
-  const [isLoading, setIsLoading] = useState(cachedTeachers.length === 0);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list'); // Default to list view as requested
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,13 +75,23 @@ export default function TeachersPage() {
         api.get('/users/teachers'),
         api.get('/batches'),
       ]);
-      if (tchRes.data) {
-        cachedTeachers = tchRes.data;
-        setTeachers(tchRes.data);
+      if (tchRes?.data) {
+        const teacherList = Array.isArray(tchRes.data)
+          ? tchRes.data
+          : Array.isArray(tchRes.data.data)
+          ? tchRes.data.data
+          : [];
+        setTeachers(teacherList);
+      } else {
+        setTeachers([]);
       }
-      if (batRes.data) {
-        cachedTeacherBatches = batRes.data;
-        setBatches(batRes.data);
+      if (batRes?.data) {
+        const batchList = Array.isArray(batRes.data)
+          ? batRes.data
+          : Array.isArray(batRes.data.data)
+          ? batRes.data.data
+          : [];
+        setBatches(batchList);
       }
     } catch (e) {
       console.error(e);
@@ -247,6 +256,33 @@ export default function TeachersPage() {
     );
   });
 
+  const handleExportCSV = () => {
+    if (teachers.length === 0) {
+      toast.error('No faculty records to export');
+      return;
+    }
+    const headers = ['Full Name', 'Faculty Code', 'Designation', 'Specialization', 'Email', 'Phone', 'Status', 'Date Joined'];
+    const rows = filteredTeachers.map((t) => [
+      `"${t.fullName || ''}"`,
+      `"${t.teacherProfile?.facultyCode || t.identifier || ''}"`,
+      `"${t.teacherProfile?.designation || 'Faculty'}"`,
+      `"${(t.teacherProfile?.specialization || []).join('; ') || 'General'}"`,
+      `"${t.email || ''}"`,
+      `"${t.phone || ''}"`,
+      `"${t.status || 'ACTIVE'}"`,
+      `"${new Date(t.createdAt).toLocaleDateString()}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Examly_Faculty_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('CSV Exported', `Exported ${filteredTeachers.length} faculty records.`);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -258,12 +294,21 @@ export default function TeachersPage() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Onboard Faculty Teacher
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            onClick={handleExportCSV}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
+            title="Export Faculty to CSV"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Onboard Faculty Teacher
+          </button>
+        </div>
       </div>
 
       {/* Main Table / Grid Container */}

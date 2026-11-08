@@ -20,11 +20,37 @@ interface CacheEntry {
 
 const memoryCache = new Map<string, CacheEntry>();
 const inflightRequests = new Map<string, Promise<AxiosResponse<any>>>();
-const CACHE_TTL_MS = 25 * 1000; // 25 seconds fast cache
+const CACHE_TTL_MS = 60 * 1000; // Bounded per-session navigation cache
+let cacheGeneration=0;
+let refreshRequest:Promise<any>|null=null;
+const SNAPSHOT_KEY='examly.navigation.v1';
+let verifiedScope='';
+let scopeResolved=false;
+let resolveScope:()=>void;
+const scopeReady=new Promise<void>(resolve=>{resolveScope=resolve;});
+const persistable=(url:string)=>/^\/(batches(?:\/[^/]+(?:\/workspace)?)?|content\/(subjects|lessons|notes|videos)(?:\/[^/]+)?)$/.test(url) && !url.includes('/picker/');
+function persistSnapshots(){
+ if(!verifiedScope||typeof window==='undefined')return;
+ try{const entries=[...memoryCache.entries()].filter(([key])=>key.endsWith(':'+verifiedScope)&&persistable(key.split(':')[1])).slice(-40).map(([key,r])=>[key,{data:r.data,status:r.status,statusText:r.statusText,headers:{},config:{},timestamp:r.timestamp}]);const text=JSON.stringify({scope:verifiedScope,savedAt:Date.now(),entries});if(text.length<2000000)localStorage.setItem(SNAPSHOT_KEY,text);}catch{}
+}
+export function setApiCacheScope(userId?:string,version?:string){
+ const next=userId&&version?`${userId}@${version}`:'';
+ const changed=!!verifiedScope&&verifiedScope!==next;
+ if(next!==verifiedScope){cacheGeneration++;memoryCache.clear();inflightRequests.clear();verifiedScope=next;
+  try{const saved=JSON.parse(localStorage.getItem(SNAPSHOT_KEY)||'null');if(next&&saved?.scope===next&&Date.now()-saved.savedAt<86400000){for(const [key,value] of saved.entries||[])memoryCache.set(key,{...value,timestamp:Date.now()});}else localStorage.removeItem(SNAPSHOT_KEY);}catch{}
+ }
+ scopeResolved=true;resolveScope();
+ if(changed&&typeof window!=='undefined')window.dispatchEvent(new Event('examly-data-changed'));
+}
+if(typeof window!=='undefined')window.addEventListener('storage',event=>{if(event.key==='examly.navigation.invalidate'){invalidateApiCache();window.dispatchEvent(new Event('examly-permissions-changed'));window.dispatchEvent(new Event('examly-data-changed'));}});
+
 
 export function invalidateApiCache(pattern?: string) {
+  cacheGeneration++;
+  inflightRequests.clear();
   if (!pattern) {
     memoryCache.clear();
+    try{localStorage.removeItem(SNAPSHOT_KEY);}catch{}
     return;
   }
   for (const key of memoryCache.keys()) {
@@ -32,6 +58,7 @@ export function invalidateApiCache(pattern?: string) {
       memoryCache.delete(key);
     }
   }
+  persistSnapshots();
 }
 
 const axiosInstance = axios.create({
@@ -39,7 +66,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 8000,
+  timeout: 30000,
 });
 
 axiosInstance.interceptors.request.use((config) => {
@@ -60,17 +87,15 @@ axiosInstance.interceptors.response.use(
     // Invalidate cache on mutations
     const method = response.config.method?.toUpperCase();
     if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-      const url = response.config.url || '';
-      if (url.includes('/batches')) invalidateApiCache('/batches');
-      if (url.includes('/students')) invalidateApiCache('/students');
-      if (url.includes('/teachers')) invalidateApiCache('/teachers');
-      if (url.includes('/tests')) invalidateApiCache('/tests');
-      if (url.includes('/curriculum') || url.includes('/subjects') || url.includes('/lessons')) {
-        invalidateApiCache('/curriculum');
-        invalidateApiCache('/subjects');
-        invalidateApiCache('/lessons');
+      const url=response.config.url||'';
+      // Playback telemetry must not evict unrelated page data every few seconds.
+      if (/\/(progress|open|reactions|comments|personal-notes)(\/|$)/.test(url)) {
+        invalidateApiCache(url.replace(/\/(progress|open|reactions|comments|personal-notes).*$/,''));
+      } else {
+        // Writes can affect counts, pickers, reports and enrollment across pages.
+        invalidateApiCache();
+        if(typeof window!=='undefined'){try{localStorage.setItem('examly.navigation.invalidate',String(Date.now())+Math.random());}catch{}window.dispatchEvent(new Event('examly-permissions-changed'));}
       }
-      if (url.includes('/users')) invalidateApiCache('/users');
     }
     return response;
   },
@@ -82,7 +107,8 @@ axiosInstance.interceptors.response.use(
         const refreshToken = localStorage.getItem('examly_refresh_token');
         if (refreshToken) {
           try {
-            const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+            if(!refreshRequest)refreshRequest=axios.post(`${API_BASE_URL}/auth/refresh`,{refreshToken},{timeout:30000}).finally(()=>{refreshRequest=null;});
+            const {data}=await refreshRequest;
             localStorage.setItem('examly_access_token', data.accessToken);
             localStorage.setItem('examly_refresh_token', data.refreshToken);
             originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
@@ -113,65 +139,28 @@ export const api = {
     config?: AxiosRequestConfig & { bypassCache?: boolean },
   ): Promise<AxiosResponse<T>> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('examly_access_token') || '' : '';
-    const cacheKey = `GET:${url}:${JSON.stringify(config?.params || {})}:${token}`;
+    if(token&&!scopeResolved&&persistable(url)&&typeof window!=='undefined'&&localStorage.getItem('examly_user'))await scopeReady;
+    const cacheKey = `GET:${url}:${JSON.stringify(config?.params || {})}:${verifiedScope||token}`;
 
     if (!config?.bypassCache) {
-      const cached = memoryCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-        // Trigger background revalidation if older than 5s
-        if (Date.now() - cached.timestamp > 5000) {
-          axiosInstance
-            .get<T>(url, config)
-            .then((fresh) => {
-              memoryCache.set(cacheKey, {
-                data: fresh.data,
-                status: fresh.status,
-                statusText: fresh.statusText,
-                headers: fresh.headers,
-                config: fresh.config,
-                timestamp: Date.now(),
-              });
-            })
-            .catch(() => {});
-        }
-
-        return Promise.resolve({
-          data: cached.data as T,
-          status: cached.status,
-          statusText: cached.statusText,
-          headers: cached.headers,
-          config: cached.config,
-        } as AxiosResponse<T>);
-      }
-
-      // Deduplicate simultaneous inflight requests
-      const inflight = inflightRequests.get(cacheKey);
-      if (inflight) {
-        return inflight as Promise<AxiosResponse<T>>;
-      }
+      const cached=memoryCache.get(cacheKey);
+      if(cached && Date.now()-cached.timestamp<CACHE_TTL_MS) return cached as AxiosResponse<T>;
     }
-
-    const requestPromise = axiosInstance
-      .get<T>(url, config)
-      .then((res: AxiosResponse<T>) => {
-        memoryCache.set(cacheKey, {
-          data: res.data,
-          status: res.status,
-          statusText: res.statusText,
-          headers: res.headers,
-          config: res.config,
-          timestamp: Date.now(),
-        });
-        inflightRequests.delete(cacheKey);
-        return res;
-      })
-      .catch((err) => {
-        inflightRequests.delete(cacheKey);
-        throw err;
-      });
-
-    inflightRequests.set(cacheKey, requestPromise as Promise<AxiosResponse<any>>);
-    return requestPromise;
+    // Strict Mode, parallel panels and forced reloads share the same in-flight read.
+    const existing=inflightRequests.get(cacheKey);
+    if(existing)return existing as Promise<AxiosResponse<T>>;
+    const generation=cacheGeneration;
+    const promise=axiosInstance.get<T>(url,config).then(res=>{
+      // A read started before a write/logout must never repopulate the cache.
+      if(generation===cacheGeneration){
+        if(memoryCache.size>=200)memoryCache.delete(memoryCache.keys().next().value!);
+        memoryCache.set(cacheKey,{...res,timestamp:Date.now()});
+        if(persistable(url))persistSnapshots();
+      }
+      return res;
+    }).finally(()=>{if(inflightRequests.get(cacheKey)===promise)inflightRequests.delete(cacheKey);});
+    inflightRequests.set(cacheKey,promise);
+    return promise;
   },
 
   post: async <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
@@ -196,3 +185,6 @@ export const api = {
 
   invalidateCache: invalidateApiCache,
 };
+
+export default api;
+

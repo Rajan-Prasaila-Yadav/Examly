@@ -1,218 +1,27 @@
-// apps/web/src/app/(dashboard)/settings/roles/page.tsx
 'use client';
-
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, Check, Save, Sparkles, UserCheck, RefreshCw } from 'lucide-react';
-import { api } from '@/lib/api';
-
-export default function RolePermissionsPage() {
-  const [roles, setRoles] = useState<any[]>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
-  const [isSaved, setIsSaved] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const resources = [
-    { key: 'batches', name: 'Batches & Academic Classes' },
-    { key: 'subjects', name: 'Subjects & Curriculum' },
-    { key: 'lessons', name: 'Lessons & Chapters' },
-    { key: 'videos', name: 'Video Lectures & Streams' },
-    { key: 'notes', name: 'Notes' },
-    { key: 'resources', name: 'Resources' },
-    { key: 'tests', name: 'Live Tests & Question Bank' },
-    { key: 'students', name: 'Student Records & Enrollment' },
-    { key: 'teachers', name: 'Faculty Teachers Management' },
-    { key: 'community', name: 'Community Feed & Polls' },
-    { key: 'chat', name: '1-on-1 Doubt Solving' },
-  ];
-
-  const actions = ['create', 'read', 'update', 'delete', 'publish'];
-
-  // Matrix State: resource -> array of granted actions
-  const [permissionsMatrix, setPermissionsMatrix] = useState<Record<string, string[]>>({
-    batches: ['read'],
-    subjects: ['read'],
-    lessons: ['read'],
-    videos: ['create', 'read', 'update'],
-    notes: ['create', 'read', 'update'],
-    tests: ['create', 'read', 'update', 'publish'],
-    students: ['read'],
-    teachers: ['read'],
-    community: ['create', 'read', 'update'],
-    chat: ['create', 'read', 'update'],
-  });
-
-  const fetchRoles = async () => {
-    try {
-      const res = await api.get('/users/roles');
-      setRoles(res.data);
-      if (res.data.length > 0) {
-        const firstRole = res.data[0];
-        setSelectedRoleId(firstRole.id);
-        mapRolePermissions(firstRole);
-      }
-    } catch (e) {
-      console.error('Failed to fetch roles', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const mapRolePermissions = (roleObj: any) => {
-    const matrix: Record<string, string[]> = {};
-    (roleObj.permissions || []).forEach((p: any) => {
-      if (!matrix[p.resource]) {
-        matrix[p.resource] = [];
-      }
-      matrix[p.resource].push(p.action);
-    });
-    setPermissionsMatrix(matrix);
-  };
-
-  useEffect(() => {
-    fetchRoles();
-  }, []);
-
-  const handleRoleChange = (roleId: string) => {
-    setSelectedRoleId(roleId);
-    const roleObj = roles.find((r) => r.id === roleId);
-    if (roleObj) {
-      mapRolePermissions(roleObj);
-    }
-  };
-
-  const handleToggle = (resource: string, action: string) => {
-    setPermissionsMatrix((prev) => {
-      const current = prev[resource] || [];
-      const hasAction = current.includes(action);
-      const updated = hasAction ? current.filter((a) => a !== action) : [...current, action];
-      return { ...prev, [resource]: updated };
-    });
-  };
-
-  const handleSave = async () => {
-    if (!selectedRoleId) return;
-    try {
-      const permsArray: { resource: string; action: string }[] = [];
-      Object.entries(permissionsMatrix).forEach(([resource, acts]) => {
-        acts.forEach((action) => {
-          permsArray.push({ resource, action });
-        });
-      });
-
-      await api.put(`/users/roles/${selectedRoleId}/matrix`, {
-        permissions: permsArray,
-      });
-
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2500);
-      fetchRoles();
-    } catch (e) {
-      alert('Failed to save permissions matrix');
-    }
-  };
-
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Dynamic RBAC & Role Permission Matrix
-            </h1>
-            <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200">
-              SCR-ADM-23
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configure dynamic resource action grants with instant session invalidation and database synchronization.
-          </p>
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-brand-600/20 flex items-center gap-2 transition-all self-start sm:self-auto"
-        >
-          {isSaved ? <Check className="w-4 h-4 text-emerald-300" /> : <Save className="w-4 h-4" />}
-          {isSaved ? 'Matrix Saved to Database!' : 'Save Dynamic Matrix'}
-        </button>
-      </div>
-
-      {/* Role Selector Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-200/70 rounded-2xl w-fit">
-        {roles.length > 0 ? (
-          roles.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => handleRoleChange(r.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                selectedRoleId === r.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>{r.code === 'TEACHER' ? '👨‍🏫' : r.code === 'ADMIN' ? '👔' : '🎓'}</span>
-              <span>{r.name}</span>
-            </button>
-          ))
-        ) : (
-          <div className="px-4 py-2 text-xs font-semibold text-slate-500">Loading roles...</div>
-        )}
-      </div>
-
-      {/* Matrix Table (SCR-ADM-23) */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-6 sm:p-8 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-brand-600" />
-            Permissions Matrix: {roles.find((r) => r.id === selectedRoleId)?.name || 'Faculty Role'}
-          </h2>
-          <span className="text-xs text-slate-400 font-mono">Resource × Action Grants</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-3.5 px-4">System Resource</th>
-                {actions.map((act) => (
-                  <th key={act} className="py-3.5 px-4 text-center capitalize">
-                    {act}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {resources.map((res) => {
-                const currentActions = permissionsMatrix[res.key] || [];
-
-                return (
-                  <tr key={res.key} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{res.name}</td>
-
-                    {actions.map((act) => {
-                      const isGranted = currentActions.includes(act);
-
-                      return (
-                        <td key={act} className="py-3.5 px-4 text-center">
-                          <label className="inline-flex items-center justify-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isGranted}
-                              onChange={() => handleToggle(res.key, act)}
-                              className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 transition-all cursor-pointer"
-                            />
-                          </label>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+import React,{useEffect,useState} from 'react';
+import {api,invalidateApiCache} from '@/lib/api';
+import {useAuth} from '@/lib/auth-context';
+type Role={id:string;name:string;code:string;editable:boolean;configured:boolean;version:number;members:number;permissions:string[]};
+type Policy={roles:Role[];institutes:{id:string;name:string}[];instituteId:string;catalog:Record<string,{label:string;actions:string[]}>};
+export default function RolePermissionsPage(){
+ const {user,can,refreshPermissions}=useAuth();
+ const [data,setData]=useState<Policy|null>(null),[roleId,setRoleId]=useState(''),[draft,setDraft]=useState<string[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[query,setQuery]=useState('');
+ const role=data?.roles.find(r=>r.id===roleId);const editable=!!role?.editable&&can('roles','update');
+ const changed=role?new Set([...draft,...role.permissions]).size-new Set(draft.filter(p=>role.permissions.includes(p))).size:0;
+ async function load(instituteId?:string,code?:string){setLoading(true);setError('');try{const r=await api.get('/users/roles',{params:{instituteId},bypassCache:true,timeout:30000} as any);setData(r.data);const chosen=r.data.roles.find((r:Role)=>r.code===code)||r.data.roles.find((r:Role)=>r.code==='TEACHER')||r.data.roles[0];setRoleId(chosen?.id||'');setDraft(chosen?.permissions||[]);}catch(e:any){setError(e.response?.data?.message||'Unable to load permissions.');}finally{setLoading(false);}}
+ useEffect(()=>{void load();},[]);
+ function discard(){return !changed||window.confirm('Discard unsaved permission changes?');}
+ async function save(){if(!role||!data)return;setSaving(true);setError('');setNotice('');try{await api.put(`/users/roles/${role.id}/matrix`,{instituteId:data.instituteId,version:role.version,permissions:draft.map(p=>{const [resource,action]=p.split('.');return {resource,action};})},{timeout:30000});invalidateApiCache();await refreshPermissions();window.dispatchEvent(new Event('examly-permissions-changed'));await load(data.instituteId,role.code);setNotice('Permissions saved. The API applies this policy to the next request from each member.');}catch(e:any){setError(e.response?.data?.message||'Save failed. Your changes have not been confirmed.');}finally{setSaving(false);}}
+ const actions=['read','create','update','delete','publish','export','take','upload','moderate','manage'];
+ return <div className="batch-prototype"><header className="ex-workspace-head"><div><h1>Roles & permissions</h1><p>Control what each role can do within an institute.</p></div><button className="ex-btn outline" disabled={saving||loading} onClick={()=>{if(discard())void load(data?.instituteId,role?.code);}}>Reload</button></header>
+ {error&&<p className="ex-error" role="alert">{error}</p>}{notice&&<p className="ex-notice" role="status">{notice}</p>}
+ {loading?<div className="ex-card ex-empty">Loading saved permissions…</div>:data&&<>
+ <div className="ex-toolbar ex-mb"><label>Institute <select aria-label="Institute" value={data.instituteId||''} disabled={saving||user?.role!=='SUPER_ADMIN'} onChange={e=>{if(discard())void load(e.target.value,role?.code);}}><option value="" disabled>Select an institute</option>{data.institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label><input aria-label="Search permissions" placeholder="Search permissions…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
+ <nav className="ex-tabs" aria-label="Roles">{data.roles.map(r=><button key={r.id} disabled={saving} className={r.id===roleId?'on':''} onClick={()=>{if(discard()){setRoleId(r.id);setDraft(r.permissions);setNotice('');}}}>{r.name}</button>)}</nav>
+ {role&&<><div className="ex-card" style={{padding:20,marginBottom:16}}><h2>{role.name}</h2><p>{role.members} members · {role.configured?'Saved institute policy':'Inherited default policy'} · Version {role.version}</p><p>{role.code==='SUPER_ADMIN'?'Super Admin has protected system-wide access.':!editable?'This policy is read-only for your account.':'Checked actions are allowed; unchecked actions are denied. Data access remains limited by institute, enrollment and record ownership.'}</p><p>Uploads also require the relevant content creation permission. Test attempts remain restricted to students. Administrative settings are reserved for administrators.</p></div>
+ <div className="ex-card" style={{overflowX:'auto'}}><table className="ex-table" style={{width:'100%'}}><thead><tr><th>Feature</th>{actions.map(a=><th key={a} style={{textTransform:'capitalize'}}>{a}</th>)}</tr></thead><tbody>{Object.entries(data.catalog).filter(([k,v])=>(k+' '+v.label).toLowerCase().includes(query.toLowerCase())).map(([resource,v])=><tr key={resource}><td><b>{v.label}</b></td>{actions.map(action=>{const key=`${resource}.${action}`;const protectedAction=(!['ADMIN','SUPER_ADMIN'].includes(role.code)&&['roles','settings','system'].includes(resource))||(action==='take'&&role.code!=='STUDENT');return <td key={action} style={{textAlign:'center'}}>{v.actions.includes(action)?<input type="checkbox" aria-label={`${role.name}: ${v.label} ${action}`} checked={draft.includes(key)} disabled={!editable||saving||protectedAction||(user?.role!=='SUPER_ADMIN'&&!can(resource,action))} onChange={e=>setDraft(old=>e.target.checked?[...old,key]:old.filter(p=>p!==key))}/>:<span aria-label="Not applicable">—</span>}</td>;})}</tr>)}</tbody></table></div>
+ <div className="ex-toolbar" style={{marginTop:20,justifyContent:'flex-end'}}><span>{changed} unsaved changes</span><button className="ex-btn outline" disabled={!changed||saving} onClick={()=>setDraft(role.permissions)}>Discard changes</button><button className="ex-btn" disabled={!editable||!changed||saving||!data.instituteId} onClick={save}>{saving?'Saving…':'Save permissions'}</button></div></>}
+ </>}
+ </div>;
 }

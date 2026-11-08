@@ -1,0 +1,22 @@
+[
+  {
+    "path": "/auth/permissions",
+    "status": 200,
+    "ms": 2085
+  },
+  {
+    "path": "/batches",
+    "status": 200,
+    "ms": 3114
+  },
+  {
+    "path": "/content/subjects",
+    "status": 200,
+    "ms": 1963
+  },
+  {
+    "path": "/batches/cmtfpgl1000019wu4n13v3931/workspace",
+    "status": 200,
+    "ms": 5316
+  }
+]

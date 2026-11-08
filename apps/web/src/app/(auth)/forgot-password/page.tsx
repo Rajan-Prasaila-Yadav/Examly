@@ -28,11 +28,7 @@ function ForgotPasswordContent() {
 
     try {
       const res = await api.post('/auth/forgot-password', { email });
-      setSuccess(res.data.message);
-      if (res.data.resetToken) {
-        // For testing purposes, show the token
-        setSuccess(`${res.data.message}. Token: ${res.data.resetToken}`);
-      }
+      setSuccess(res.data.message || 'If an account exists, a password reset link will be sent.');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send reset link');
     } finally {

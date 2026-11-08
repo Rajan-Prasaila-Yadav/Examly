@@ -1,6 +1,7 @@
 // apps/web/src/app/(dashboard)/tests/[id]/page.tsx
 'use client';
 
+import {TestEngineSettings} from '@/components/test-engine-settings';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -831,6 +832,7 @@ export default function TestDetailPage() {
       )}
 
       {/* ── TAB 2: COMPREHENSIVE TEST ANALYTICS (SCR-ADM-16) ── */}
+      {activeTab === 'settings' && <TestEngineSettings test={test}/>} 
       {activeTab === 'analytics' && (
         <div className="space-y-6">
           {/* Top KPI Metrics Row */}

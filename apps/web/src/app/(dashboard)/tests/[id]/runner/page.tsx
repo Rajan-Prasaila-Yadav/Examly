@@ -598,7 +598,7 @@ function LiveTestRunnerContent() {
     try {
       if (attemptId && attemptId !== 'attempt-live-demo') {
         const res = await api.post(`/tests/attempts/${attemptId}/submit`, { answers: userAnswers });
-        const resultData = res.data || {};
+        const resultData = res.data?.result || res.data || {};
         const negativeMarks =
           resultData.negativeMarks !== undefined
             ? resultData.negativeMarks

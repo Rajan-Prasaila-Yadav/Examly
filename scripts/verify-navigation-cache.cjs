@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),axios=require('axios');let now=0,calls=0,token='account-a',hold=null;const storage=new Map();const store={getItem:k=>k==='examly_access_token'?token:storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+axios.defaults.adapter=async config=>{calls++;if(hold)await hold.promise;return {data:{value:calls},status:200,statusText:'OK',headers:{},config};};
+const source=ts.transpileModule(fs.readFileSync('apps/web/src/lib/api.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText;
+const context={exports:{},require:n=>n==='axios'?axios:require(n),process:{env:{}},localStorage:store,window:{location:{},addEventListener:()=>{},dispatchEvent:()=>{}},Event,Date:{now:()=>now},FormData,Promise,Map,console};vm.runInNewContext(source,context);const {api,invalidateApiCache}=context.exports;
+(async()=>{
+await api.get('/batches');assert.equal(calls,1);await api.get('/batches');assert.equal(calls,1,'Repeat navigation uses saved data');
+await api.get('/batches',{bypassCache:true});assert.equal(calls,2,'Explicit refresh reaches API');
+now=61000;await api.get('/batches');assert.equal(calls,3,'Expired cache refreshes');
+token='account-b';await api.get('/batches');assert.equal(calls,4,'Accounts isolated');
+invalidateApiCache();await Promise.all([api.get('/content/subjects',{bypassCache:true}),api.get('/content/subjects',{bypassCache:true})]);assert.equal(calls,5,'Concurrent forced reads coalesced');
+await api.post('/batches/new/assign/students',{ids:['id']});await api.get('/content/subjects');assert.equal(calls,7,'Mutation invalidates dependent reads');
+invalidateApiCache();hold={};hold.promise=new Promise(r=>hold.resolve=r);const pending=api.get('/batches');await new Promise(r=>setImmediate(r));invalidateApiCache();hold.resolve();hold=null;await pending;const count=calls;await api.get('/batches');assert.equal(calls,count+1,'In-flight read cannot resurrect invalidated cache');
+context.exports.setApiCacheScope('user-a','revision-1');await api.get('/content/subjects');assert.ok(storage.get('examly.navigation.v1'));
+const reopened={...context,exports:{}};vm.runInNewContext(source,reopened);reopened.exports.setApiCacheScope('user-a','revision-1');const before=calls;await reopened.exports.api.get('/content/subjects');assert.equal(calls,before,'Reopened session restores matching authorized revision without re-fetching content');
+reopened.exports.setApiCacheScope('user-a','revision-2');await reopened.exports.api.get('/content/subjects');assert.equal(calls,before+1,'Database change discards persisted snapshots');
+reopened.exports.setApiCacheScope('user-b','revision-2');await reopened.exports.api.get('/content/subjects');assert.equal(calls,before+2,'Other account cannot reuse saved snapshots');
+reopened.exports.setApiCacheScope();assert.equal(storage.has('examly.navigation.v1'),false,'Logout purges saved content');
+console.log('PASS: persisted reload, revision changes, account isolation and logout.');
+console.log('PASS: repeat navigation, forced refresh, expiry, account isolation, concurrent read deduplication, mutation invalidation, in-flight invalidation race.');
+})().catch(e=>{console.error(e);process.exitCode=1;});
