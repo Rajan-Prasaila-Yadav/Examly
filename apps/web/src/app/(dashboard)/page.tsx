@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { StatCardSkeleton } from '@/components/skeleton';
+import DashboardFeatureRail from '@/components/dashboard-feature-rail';
 import {
   GraduationCap,
   Users,
@@ -294,200 +295,18 @@ export default function DashboardOverviewPage() {
 
   const activeStats = isStudent ? studentStats : isTeacher ? teacherStats : adminStats;
 
-  // Clean, High-Contrast Launchpad Capabilities
-  const quickCategories = useMemo(() => {
-    if (isStudent) {
-      return [
-        {
-          id: 'batches',
-          label: 'My Courses',
-          subtitle: `${batches.length} Enrolled`,
-          icon: GraduationCap,
-          href: '/batches',
-          iconColor: 'text-blue-500 dark:text-blue-400',
-        },
-        {
-          id: 'tests',
-          label: 'Mock Tests',
-          subtitle: `${liveTestsCount} Live Now`,
-          icon: FileCheck2,
-          href: '/tests',
-          iconColor: 'text-rose-500 dark:text-rose-400',
-        },
-        {
-          id: 'videos',
-          label: 'Video Lectures',
-          subtitle: 'HD Classes',
-          icon: Video,
-          href: '/videos',
-          iconColor: 'text-purple-500 dark:text-purple-400',
-        },
-        {
-          id: 'notes',
-          label: 'Lecture Notes',
-          subtitle: 'PDF Downloads',
-          icon: FileText,
-          href: '/notes',
-          iconColor: 'text-emerald-500 dark:text-emerald-400',
-        },
-        {
-          id: 'curriculum',
-          label: 'Subjects',
-          subtitle: `${totalCurriculumSubjects} Topics`,
-          icon: BookOpen,
-          href: '/curriculum',
-          iconColor: 'text-amber-500 dark:text-amber-400',
-        },
-        {
-          id: 'analytics',
-          label: 'My Performance',
-          subtitle: '360 Analytics',
-          icon: BarChart3,
-          href: user?.id ? `/students/${user.id}` : '/students',
-          iconColor: 'text-indigo-500 dark:text-indigo-400',
-        },
-        {
-          id: 'community',
-          label: 'Discussion',
-          subtitle: 'Doubt Q&A',
-          icon: MessageSquare,
-          href: '/community',
-          iconColor: 'text-teal-500 dark:text-teal-400',
-        },
-      ];
-    } else if (isTeacher) {
-      return [
-        {
-          id: 'create-test',
-          label: 'Create Test',
-          subtitle: 'KaTeX & Sections',
-          icon: Plus,
-          href: '/tests/create',
-          iconColor: 'text-brand-500 dark:text-brand-400',
-        },
-        {
-          id: 'test-builder',
-          label: 'Test Suite',
-          subtitle: `${tests.length} Papers`,
-          icon: FileCheck2,
-          href: '/tests/builder',
-          iconColor: 'text-purple-500 dark:text-purple-400',
-        },
-        {
-          id: 'batches',
-          label: 'Assigned Batches',
-          subtitle: `${batches.length} Classes`,
-          icon: GraduationCap,
-          href: '/batches',
-          iconColor: 'text-blue-500 dark:text-blue-400',
-        },
-        {
-          id: 'upload-video',
-          label: 'Upload Video',
-          subtitle: 'Lectures',
-          icon: Video,
-          href: '/videos',
-          iconColor: 'text-rose-500 dark:text-rose-400',
-        },
-        {
-          id: 'upload-notes',
-          label: 'Upload Notes',
-          subtitle: 'Study Material',
-          icon: FileText,
-          href: '/notes',
-          iconColor: 'text-emerald-500 dark:text-emerald-400',
-        },
-        {
-          id: 'students',
-          label: 'My Students',
-          subtitle: `${studentsCount} Learners`,
-          icon: Users,
-          href: '/students',
-          iconColor: 'text-amber-500 dark:text-amber-400',
-        },
-        {
-          id: 'community',
-          label: 'Q&A Forum',
-          subtitle: 'Solve Doubts',
-          icon: MessageSquare,
-          href: '/community',
-          iconColor: 'text-indigo-500 dark:text-indigo-400',
-        },
-      ];
-    } else {
-      return [
-        {
-          id: 'manage-batches',
-          label: 'Batches',
-          subtitle: `${batches.length} Active`,
-          icon: GraduationCap,
-          href: '/batches',
-          iconColor: 'text-blue-500 dark:text-blue-400',
-        },
-        {
-          id: 'manage-tests',
-          label: 'Examinations',
-          subtitle: `${tests.length} Authored`,
-          icon: FileCheck2,
-          href: '/tests/builder',
-          iconColor: 'text-purple-500 dark:text-purple-400',
-        },
-        {
-          id: 'manage-students',
-          label: 'Students Roster',
-          subtitle: `${studentsCount} Enrolled`,
-          icon: Users,
-          href: '/students',
-          iconColor: 'text-emerald-500 dark:text-emerald-400',
-        },
-        {
-          id: 'manage-teachers',
-          label: 'Faculty Roster',
-          subtitle: `${teachersCount} Instructors`,
-          icon: UserSquare2,
-          href: '/teachers',
-          iconColor: 'text-amber-500 dark:text-amber-400',
-        },
-        {
-          id: 'curriculum',
-          label: 'Curriculum Tree',
-          subtitle: 'Subjects & Units',
-          icon: BookOpen,
-          href: '/curriculum',
-          iconColor: 'text-indigo-500 dark:text-indigo-400',
-        },
-        {
-          id: 'roles',
-          label: 'Role Permissions',
-          subtitle: 'RBAC Security',
-          icon: ShieldCheck,
-          href: '/settings/roles',
-          iconColor: 'text-rose-500 dark:text-rose-400',
-        },
-        {
-          id: 'audit',
-          label: 'Audit Trail',
-          subtitle: 'System Logs',
-          icon: ShieldCheck,
-          href: '/settings/audit',
-          iconColor: 'text-slate-500 dark:text-slate-400',
-        },
-      ];
-    }
-  }, [
-    isStudent,
-    isTeacher,
-    batches.length,
-    liveTestsCount,
-    totalCurriculumSubjects,
-    tests.length,
-    studentsCount,
-    teachersCount,
-    user?.id,
-  ]);
-
   return (
     <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto pb-12 font-sans">
+      {/* ── 1. 3D CAPABILITIES RAIL (UNSTOP-STYLE REFERENCE) ── */}
+      <DashboardFeatureRail
+        batchesCount={batches.length}
+        liveTestsCount={liveTestsCount}
+        totalTestsCount={tests.length}
+        subjectsCount={totalCurriculumSubjects}
+        studentsCount={studentsCount}
+        teachersCount={teachersCount}
+        studentId={user?.id}
+      />
       {batchError && (
         <div
           role="alert"
@@ -502,32 +321,6 @@ export default function DashboardOverviewPage() {
           </button>
         </div>
       )}
-
-      {/* ── 1. QUICK CAPABILITIES LAUNCHPAD ── */}
-      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
-        {quickCategories.map((cat) => {
-          const Icon = cat.icon;
-          return (
-            <Link
-              key={cat.id}
-              href={cat.href}
-              className="p-3.5 rounded-2xl bg-white dark:bg-[#191A30] border border-slate-200/80 dark:border-[#2A2C4A] hover:border-brand-500/60 dark:hover:border-brand-500/60 hover:shadow-md hover:scale-[1.02] transition-all flex flex-col items-center justify-center text-center group cursor-pointer shadow-xs"
-            >
-              <div
-                className={`w-10 h-10 rounded-xl bg-slate-50 dark:bg-[#131428] border border-slate-100 dark:border-[#2A2C4A] flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform ${cat.iconColor}`}
-              >
-                <Icon className="w-5 h-5" />
-              </div>
-              <span className="font-bold text-slate-900 dark:text-[#ECECFA] text-xs truncate max-w-full">
-                {cat.label}
-              </span>
-              <span className="text-[10px] text-slate-500 dark:text-[#9A9DBD] font-mono mt-0.5">
-                {cat.subtitle}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
 
       {/* ── 2. STAT METRICS CARDS ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

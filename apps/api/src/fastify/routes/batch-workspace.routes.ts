@@ -86,7 +86,24 @@ export const batchWorkspaceRoutes: FastifyPluginAsync = async app => {
     }
    }else if(kind==='tests'){
     const tests=await tx.test.findMany({where:{id:{in:ids},instituteId:b.instituteId,status:'ACTIVE'},include:testInclude});if(tests.length!==ids.length)return fail('Test unavailable');
-    for(const t of tests)await copyTest(tx,t,b.id);
+    for(const t of tests){
+     if(t.testType==='BATCH_LEVEL'){await copyTest(tx,t,b.id);continue;}
+     const sourceSubject=t.subjectId?await tx.subject.findUnique({where:{id:t.subjectId}}):null;
+     if(!sourceSubject)return fail('This test is missing its subject. Repair its destination before copying.',409);
+     const subjectSources=[sourceSubject.id,sourceSubject.copiedFromId].filter(Boolean) as string[];
+     const targetSubject=await tx.subject.findFirst({where:{batchId:b.id,status:'ACTIVE',OR:[{id:{in:subjectSources}},{copiedFromId:{in:subjectSources}}]}});
+     if(!targetSubject)return fail(`Copy the subject "${sourceSubject.name}" into this batch before adding its test.`,409);
+     let targetLessonId:string|null=null;
+     if(t.testType==='LESSON_LEVEL'){
+      const sourceLesson=t.lessonId?await tx.lesson.findUnique({where:{id:t.lessonId}}):null;
+      if(!sourceLesson)return fail('This test is missing its lesson. Repair its destination before copying.',409);
+      const lessonSources=[sourceLesson.id,sourceLesson.copiedFromId].filter(Boolean) as string[];
+      const targetLesson=await tx.lesson.findFirst({where:{subjectId:targetSubject.id,status:'ACTIVE',OR:[{id:{in:lessonSources}},{copiedFromId:{in:lessonSources}}]}});
+      if(!targetLesson)return fail(`The batch needs a copy of lesson "${sourceLesson.name}" before its test can be added.`,409);
+      targetLessonId=targetLesson.id;
+     }
+     await copyTest(tx,t,b.id,targetSubject.id,targetLessonId);
+    }
    }else return fail('Unknown assignment');
   },{timeout:60000});return {success:true};
  });

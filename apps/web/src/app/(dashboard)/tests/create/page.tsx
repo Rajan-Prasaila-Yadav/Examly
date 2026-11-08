@@ -464,15 +464,15 @@ function CreateTestWizardContent() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('examly_test_creation_wizard_draft');
+      const saved = localStorage.getItem(`examly_test_creation_wizard_draft:${user?.id||'signed-out'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.title || parsed.authoredQuestions?.some(isSlotFilled)) {
           if (parsed.title) setTitle(parsed.title);
           if (parsed.description) setDescription(parsed.description);
-          if (parsed.batchId) setBatchId(parsed.batchId);
-          if (parsed.subjectId) setSubjectId(parsed.subjectId);
-          if (parsed.lessonId) setLessonId(parsed.lessonId);
+          if (!paramBatchId&&!paramSubjectId&&!paramLessonId&&parsed.batchId) setBatchId(parsed.batchId);
+          if (!paramBatchId&&!paramSubjectId&&!paramLessonId&&parsed.subjectId) setSubjectId(parsed.subjectId);
+          if (!paramBatchId&&!paramSubjectId&&!paramLessonId&&parsed.lessonId) setLessonId(parsed.lessonId);
           if (parsed.durationMinutes) setDurationMinutes(parsed.durationMinutes);
           if (parsed.totalQuestions) setTotalQuestions(parsed.totalQuestions);
           if (parsed.positiveMarkRate) setPositiveMarkRate(parsed.positiveMarkRate);
@@ -523,7 +523,7 @@ function CreateTestWizardContent() {
         authoredQuestions,
         currentStep,
       };
-      localStorage.setItem('examly_test_creation_wizard_draft', JSON.stringify(stateToSave));
+      localStorage.setItem(`examly_test_creation_wizard_draft:${user?.id||'signed-out'}`, JSON.stringify(stateToSave));
     }
   }, [
     title,
@@ -562,7 +562,7 @@ function CreateTestWizardContent() {
   ]);
 
   const handleClearDraft = () => {
-    localStorage.removeItem('examly_test_creation_wizard_draft');
+    localStorage.removeItem(`examly_test_creation_wizard_draft:${user?.id||'signed-out'}`);
     setDraftBannerVisible(false);
     window.location.reload();
   };
@@ -733,7 +733,7 @@ function CreateTestWizardContent() {
       const startDateTime = new Date(`${startDate}T${startTime}:00`);
       const endDateTime = new Date(`${endDate}T${endTime}:00`);
       const filled = authoredQuestions.filter(isSlotFilled);
-      const finalBatchId = batchId || (batches.length > 0 ? batches[0].id : undefined);
+      const finalBatchId = batchId || undefined;
       if (testScope === 'BATCH_LEVEL' && !finalBatchId) {
         alert('Please select an Academic Batch to assign this batch-level test to.');
         setIsSubmitting(false);
@@ -796,7 +796,7 @@ function CreateTestWizardContent() {
       if (isEditing && paramTestId) {
         await api.put(`/tests/${paramTestId}/full`, payload, { timeout: 60000 });
         try {
-          localStorage.removeItem('examly_test_creation_wizard_draft');
+          localStorage.removeItem(`examly_test_creation_wizard_draft:${user?.id||'signed-out'}`);
         } catch {}
         invalidateApiCache('/batches');
         invalidateApiCache('/tests');
@@ -805,7 +805,7 @@ function CreateTestWizardContent() {
       } else {
         const res = await api.post('/tests', payload, { timeout: 60000 });
         try {
-          localStorage.removeItem('examly_test_creation_wizard_draft');
+          localStorage.removeItem(`examly_test_creation_wizard_draft:${user?.id||'signed-out'}`);
         } catch {}
         invalidateApiCache('/batches');
         invalidateApiCache('/tests');
@@ -988,24 +988,26 @@ function CreateTestWizardContent() {
           <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-slate-800">
-                Academic Curriculum Hierarchy Binding *
+                Where this test appears
               </label>
               <span className="text-[11px] font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
                 {testScope === 'BATCH_LEVEL' ? 'Batch Scope' : testScope === 'SUBJECT_LEVEL' ? 'Subject Scope' : 'Chapter / Lesson Scope'}
               </span>
             </div>
 
+            <div className="ex-test-destination" role="status"><b>{batchId?batches.find((b:any)=>b.id===batchId)?.name||'Selected batch':'Main library'}</b><span>{testScope!=='BATCH_LEVEL'&&subjectId?' / '+(subjects.find((s:any)=>s.id===subjectId)?.name||'Selected subject'):''}{testScope==='LESSON_LEVEL'&&lessonId?' / '+(lessons.find((l:any)=>l.id===lessonId)?.name||'Selected lesson'):''}</span><p>{batchId?'Published tests appear in this batch and the selected subject or lesson.':'Library tests are reusable. Copy the subject or test into a batch to make it available to enrolled students.'}</p></div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Batch Selector */}
               <div className={testScope === 'BATCH_LEVEL' ? 'sm:col-span-3' : testScope === 'SUBJECT_LEVEL' ? 'sm:col-span-1' : 'sm:col-span-1'}>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Target Academic Batch *</label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Batch / library</label>
                 <select
                   value={batchId}
                   onChange={(e) => handleBatchChange(e.target.value)}
                   className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                 >
+                  {testScope === 'BATCH_LEVEL'&&<option value="" disabled>Choose a batch</option>}
                   {testScope !== 'BATCH_LEVEL' && (
-                    <option value="">-- Main Curriculum (No Batch Required) --</option>
+                    <option value="">Main library — not assigned to students</option>
                   )}
                   {batches.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -1016,7 +1018,8 @@ function CreateTestWizardContent() {
               </div>
 
               {/* Subject Selector */}
-              {testScope !== 'BATCH_LEVEL' && (
+              {testScope === 'BATCH_LEVEL'&&<option value="" disabled>Choose a batch</option>}
+                  {testScope !== 'BATCH_LEVEL' && (
                 <div className={testScope === 'SUBJECT_LEVEL' ? 'sm:col-span-2' : 'sm:col-span-1'}>
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">Target Subject *</label>
                   <select

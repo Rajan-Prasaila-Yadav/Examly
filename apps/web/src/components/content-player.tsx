@@ -618,7 +618,7 @@ export default function ContentPlayer() {
 
         {/* Right Column: "Course videos" Sidebar matching Image 1 and Image 2 */}
         <aside className="ex-card ex-course-videos-modern">
-          <h3 className="ex-course-sidebar-title">Course videos</h3>
+          <small className="ex-eyebrow">CONTINUE LEARNING</small><h3 className="ex-course-sidebar-title">{data.lesson.subject.name}</h3><p className="ex-muted ex-playlist-summary">{data.playlist.length} videos · {data.playlist.filter((r:R)=>r.watchProgress?.[0]?.isCompleted).length} completed</p>
 
           <div className="ex-course-search-wrap">
             <Search size={16} />
@@ -636,7 +636,7 @@ export default function ContentPlayer() {
               const lessonVideos = playlist.filter((r: R) => (r.lesson?.name || 'Lessons') === lessonName);
 
               return (
-                <details key={lessonName} open className="ex-course-accordion">
+                <details key={lessonName} open={!!search||lessonVideos.some((r:R)=>r.id===id)} className="ex-course-accordion">
                   <summary className="ex-course-accordion-summary">
                     <span className="ex-accordion-label">▾ {lessonName}</span>
                     <span className="ex-accordion-count">({lessonVideos.length})</span>
@@ -651,6 +651,7 @@ export default function ContentPlayer() {
                         <Link
                           key={r.id}
                           href={`/videos/${r.id}`}
+                          aria-current={isActive?'page':undefined}
                           className={`ex-playlist-card-item ${isActive ? 'is-active' : ''}`}
                         >
                           <div className="ex-playlist-icon-col">
@@ -670,7 +671,7 @@ export default function ContentPlayer() {
                               {r.title}
                             </h4>
                             <span className="ex-playlist-card-duration">
-                              {time(r.durationSeconds)}
+                              {isActive?'Now playing · ':isCompleted?'Completed · ':''}{r.durationSeconds>0?time(r.durationSeconds):'Video lesson'}
                             </span>
                           </div>
                         </Link>

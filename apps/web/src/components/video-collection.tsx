@@ -76,6 +76,9 @@ export default function VideoCollection({
   const [subjectFilter, setSubjectFilter] = useState('');
   const [lessonFilter, setLessonFilter] = useState('');
   const [datePreset, setDatePreset] = useState('all');
+  const [selectedDates,setSelectedDates]=useState<string[]>([]);
+  const [datePick,setDatePick]=useState('');
+  const localDay=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -97,10 +100,10 @@ export default function VideoCollection({
     for (const r of rows) {
       const sId = r.subjectId || r.lesson?.subjectId || r.lesson?.subject?.id;
       const sName = r.subjectName || r.lesson?.subject?.name;
-      if (sId && sName) map.set(sId, sName);
+      if (sId && sName && (!batchFilter||(r.batchId||r.lesson?.subject?.batchId||r.subject?.batchId)===batchFilter)) map.set(sId, sName);
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [rows]);
+  }, [rows,batchFilter]);
 
   const lessons = useMemo(() => {
     const map = new Map<string, string>();
@@ -108,18 +111,18 @@ export default function VideoCollection({
       const lId = r.lessonId || r.lesson?.id;
       const lName = r.lessonName || r.lesson?.name;
       if (lId && lName) {
-        if (!subjectFilter || (r.subjectId || r.lesson?.subjectId) === subjectFilter) {
+        if ((!batchFilter||(r.batchId||r.lesson?.subject?.batchId||r.subject?.batchId)===batchFilter)&&(!subjectFilter || (r.subjectId || r.lesson?.subjectId) === subjectFilter)) {
           map.set(lId, lName);
         }
       }
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [rows, subjectFilter]);
+  }, [rows, subjectFilter,batchFilter]);
 
   const filtered = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const todayStr = localDay(now);
+    const yesterday = localDay(new Date(Date.now()-86400000));
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
@@ -148,10 +151,13 @@ export default function VideoCollection({
       }
 
       // Date / Month filter
+      if(datePreset!=='all'&&!r.createdAt)return false;
       if (r.createdAt) {
         const d = new Date(r.createdAt);
-        const dStr = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+        const dStr = !isNaN(d.getTime()) ? localDay(d) : '';
 
+        if(datePreset!=='all'&&!dStr)return false;
+        if(datePreset==='dates'&&selectedDates.length&&!selectedDates.includes(dStr))return false;
         if (datePreset === 'today') {
           if (dStr !== todayStr) return false;
         } else if (datePreset === 'yesterday') {
@@ -205,6 +211,7 @@ export default function VideoCollection({
     subjectFilter,
     lessonFilter,
     datePreset,
+    selectedDates,
     startDate,
     endDate,
     sort,
@@ -227,7 +234,7 @@ export default function VideoCollection({
     setBatchFilter('');
     setSubjectFilter('');
     setLessonFilter('');
-    setDatePreset('all');
+    setDatePreset('all');setSelectedDates([]);setDatePick('');
     setStartDate('');
     setEndDate('');
     setQuery('');
@@ -322,7 +329,7 @@ export default function VideoCollection({
                   className="ex-input"
                   value={batchFilter}
                   onChange={(e) => {
-                    setBatchFilter(e.target.value);
+                    setBatchFilter(e.target.value);setSubjectFilter('');setLessonFilter('');
                     setPage(1);
                   }}
                 >
@@ -380,7 +387,7 @@ export default function VideoCollection({
             )}
 
             <label className="ex-filter-item">
-              <span>Date / Month</span>
+              <span>Added date</span>
               <select
                 className="ex-input"
                 value={datePreset}
@@ -394,10 +401,11 @@ export default function VideoCollection({
                 <option value="yesterday">Yesterday</option>
                 <option value="this_month">This month</option>
                 <option value="prev_month">Previous month</option>
-                <option value="range">Custom range…</option>
+                <option value="range">Custom range…</option><option value="dates">Multiple dates…</option>
               </select>
             </label>
 
+            {datePreset==='dates'&&<label className="ex-filter-item"><span>Choose dates</span><div className="ex-date-pick"><input type="date" className="ex-input" value={datePick} onChange={e=>setDatePick(e.target.value)}/><button type="button" className="ex-btn ghost" disabled={!datePick} onClick={()=>{setSelectedDates([...new Set([...selectedDates,datePick])]);setDatePick('');setPage(1);}}>Add</button></div><div className="ex-date-chips">{selectedDates.map(d=><button type="button" key={d} className="ex-chip" aria-label={'Remove '+d} onClick={()=>setSelectedDates(selectedDates.filter(x=>x!==d))}>{d}<X size={12}/></button>)}</div></label>}
             {datePreset === 'range' && (
               <>
                 <label className="ex-filter-item">
@@ -406,6 +414,7 @@ export default function VideoCollection({
                     type="date"
                     className="ex-input"
                     value={startDate}
+                    max={endDate||undefined}
                     onChange={(e) => {
                       setStartDate(e.target.value);
                       setPage(1);
@@ -418,6 +427,7 @@ export default function VideoCollection({
                     type="date"
                     className="ex-input"
                     value={endDate}
+                    min={startDate||undefined}
                     onChange={(e) => {
                       setEndDate(e.target.value);
                       setPage(1);
@@ -428,7 +438,7 @@ export default function VideoCollection({
             )}
           </div>
 
-          <div className="ex-filter-footer">
+          <div className="ex-filter-footer"><small className="ex-muted">Dates refer to when videos were added to Examly.</small>
             <button type="button" className="ex-btn ghost text-xs" onClick={clearAllFilters}>
               Reset all filters
             </button>
