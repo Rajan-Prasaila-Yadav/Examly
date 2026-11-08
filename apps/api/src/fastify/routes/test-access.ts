@@ -1,5 +1,5 @@
 import {FastifyInstance} from 'fastify';
-export function resultVisible(test:any,manual=false){const mode=test.config?.publishMode||'AFTER_TEST_END';return mode==='IMMEDIATE'||(mode==='AFTER_TEST_END'&&Date.now()>=+new Date(test.endDateTime))||(mode==='SCHEDULED'&&test.config?.publishDateTime&&Date.now()>=+new Date(test.config.publishDateTime))||(mode==='MANUAL_BY_ADMIN'&&manual);}
+export function resultVisible(test:any,manual=false){const mode=test.config?.publishMode||'IMMEDIATE';return mode==='IMMEDIATE'||(mode==='AFTER_TEST_END'&&Date.now()>=+new Date(test.endDateTime))||(mode==='SCHEDULED'&&test.config?.publishDateTime&&Date.now()>=+new Date(test.config.publishDateTime))||(mode==='MANUAL_BY_ADMIN'&&manual);}
 export function installTestAccess(app:FastifyInstance){
  app.addHook('onRoute',options=>{
   const url=options.url;if(!url.startsWith('/api/v1/tests'))return;
@@ -23,7 +23,7 @@ export function installTestAccess(app:FastifyInstance){
       const match=await app.prisma.subject.findFirst({where:{batchId:profile.batchId,OR:[{id:test.subjectId||'__none__'},{copiedFromId:test.subjectId||'__none__'}]}});
       if(!match)return reply.code(404).send({message:'Test not available for this enrollment'});
     }
-    if((url.endsWith('/result')||url.endsWith('/leaderboard'))&&!resultVisible(test,!!attempt?.result?.publishedAt))return reply.code(403).send({message:'Results have not been released yet'});
+    if((url.endsWith('/result')||url.endsWith('/leaderboard'))&&!attempt?.result&&!resultVisible(test,!!attempt?.result?.publishedAt))return reply.code(403).send({message:'Results have not been released yet'});
     if(url==='/api/v1/tests/:id'&&Date.now()<+test.startDateTime)return reply.code(403).send({message:'Test has not started yet'});
    }else if(request.method!=='GET'&&test._count.attempts&&(/\/questions|\/sections/.test(url)||request.method==='PUT'&&url==='/api/v1/tests/:id'))return reply.code(409).send({message:'Questions and scoring settings are locked after attempts begin'});
   };
@@ -32,7 +32,7 @@ export function installTestAccess(app:FastifyInstance){
  app.addHook('onSend',async(request:any,reply,payload)=>{
   const test=request.examlyTest;
   if(request.method!=='GET'&&test&&reply.statusCode<300){app.cache.invalidateTag('tests');app.cache.invalidate(`test:detail:${test.id}:true`);app.cache.invalidate(`test:detail:${test.id}:false`);}
-  if(request.user?.roleCode==='STUDENT'&&test&&request.routeOptions.url.endsWith('/submit')&&!resultVisible(test)&&typeof payload==='string'){
+  if(request.user?.roleCode==='STUDENT'&&test&&request.routeOptions.url.endsWith('/submit')&&test.config?.publishMode==='MANUAL_BY_ADMIN'&&typeof payload==='string'){
    const body=JSON.parse(payload);if(body.result&&!body.result.publishedAt){delete body.result;body.resultsPending=true;return JSON.stringify(body);}
   }
   return payload;

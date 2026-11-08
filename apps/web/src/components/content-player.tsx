@@ -162,7 +162,17 @@ export default function ContentPlayer() {
           videoId: youtubeId,
           width: '100%',
           height: '100%',
-          playerVars: { playsinline: 1, rel: 0, origin: window.location.origin },
+          playerVars: {
+            playsinline: 1,
+            rel: 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            iv_load_policy: 3,
+            autohide: 1,
+            origin: window.location.origin,
+          },
           events: {
             onReady: (e: any) => {
               if (!alive) return;
@@ -291,7 +301,21 @@ export default function ContentPlayer() {
           <div className="ex-video-frame" ref={container}>
             <div className="ex-video-stage" style={{ filter: `brightness(${brightness}%)` }}>
               {youtubeId ? (
-                <div className="ex-youtube" ref={frame} />
+                <div className="ex-youtube-wrap">
+                  <div className="ex-youtube" ref={frame} />
+                  <div
+                    className="ex-video-click-shield"
+                    onClick={toggle}
+                    onDoubleClick={() => {
+                      if (!document.fullscreenElement) {
+                        container.current?.requestFullscreen?.();
+                      } else {
+                        document.exitFullscreen?.();
+                      }
+                    }}
+                    title={playing ? 'Click to pause · Double click for fullscreen' : 'Click to play · Double click for fullscreen'}
+                  />
+                </div>
               ) : safe ? (
                 <video
                   ref={htmlVideo}

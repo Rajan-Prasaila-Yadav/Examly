@@ -417,7 +417,41 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { startedAt: 'desc' },
       });
 
-      return attempts;
+      if (isStudent) {
+        return {
+          attempts,
+          totalAttempts: attempts.length,
+          attemptCount: attempts.length,
+        };
+      }
+
+      const studentMap: Record<string, any> = {};
+      for (const a of attempts) {
+        const sId = a.studentId;
+        if (!studentMap[sId]) {
+          studentMap[sId] = {
+            student: a.student,
+            attemptCount: 0,
+            attempts: [],
+            bestScore: null,
+            latestResult: a.result,
+          };
+        }
+        studentMap[sId].attemptCount++;
+        studentMap[sId].attempts.push(a);
+        if (a.result?.totalScore !== undefined) {
+          if (studentMap[sId].bestScore === null || a.result.totalScore > studentMap[sId].bestScore) {
+            studentMap[sId].bestScore = a.result.totalScore;
+          }
+        }
+      }
+      const students = Object.values(studentMap);
+      return {
+        attempts,
+        totalAttempts: attempts.length,
+        studentCount: students.length,
+        students,
+      };
     },
   );
 
@@ -808,6 +842,192 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
         durationSeconds: attempt.durationSeconds,
         submittedAt: attempt.submittedAt,
       };
+    },
+  );
+
+  // GET /api/v1/tests/attempts/:attemptId/review (Complete questions with solution timeline)
+  fastify.get(
+    '/api/v1/tests/attempts/:attemptId/review',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { attemptId } = request.params as { attemptId: string };
+      const user = request.user!;
+
+      const attempt = await fastify.prisma.testAttempt.findUnique({
+        where: { id: attemptId },
+        include: {
+          test: {
+            include: {
+              sections: {
+                include: {
+                  questions: {
+                    include: { options: true, solution: true },
+                    orderBy: { sortOrder: 'asc' },
+                  },
+                },
+                orderBy: { sortOrder: 'asc' },
+              },
+            },
+          },
+          answers: true,
+          result: true,
+        },
+      });
+
+      if (!attempt) return reply.status(404).send({ statusCode: 404, message: 'Attempt not found' });
+      if (attempt.studentId !== user.userId && user.roleCode !== RoleType.SUPER_ADMIN && user.roleCode !== RoleType.ADMIN && user.roleCode !== RoleType.TEACHER) {
+        return reply.status(403).send({ statusCode: 403, message: 'Unauthorized to view this attempt review' });
+      }
+
+      const answerMap = new Map((attempt.answers || []).map((a) => [a.questionId, a]));
+      const flattenedQuestions = (attempt.test?.sections || []).flatMap((s) =>
+        (s.questions || []).map((q) => {
+          const ans = answerMap.get(q.id);
+          return {
+            ...q,
+            sectionName: s.name,
+            selectedOptionIds: ans?.selectedOptionIds || [],
+            isMarkedForReview: ans?.isMarkedForReview || false,
+            options: (q.options || []).map((o) => ({
+              ...o,
+              isSelected: (ans?.selectedOptionIds || []).includes(o.id),
+            })),
+          };
+        }),
+      );
+
+      return {
+        attemptId: attempt.id,
+        test: attempt.test,
+        result: attempt.result,
+        questions: flattenedQuestions,
+        answers: attempt.answers,
+        durationSeconds: attempt.durationSeconds,
+        submittedAt: attempt.submittedAt,
+      };
+    },
+  );
+
+  // GET /api/v1/tests/:id/answer-key (Calculations, correct key, student selection breakdown)
+  fastify.get(
+    '/api/v1/tests/:id/answer-key',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { attemptId } = (request.query || {}) as { attemptId?: string };
+      const user = request.user!;
+
+      const test = await fastify.prisma.test.findUnique({
+        where: { id },
+        include: {
+          sections: {
+            include: {
+              questions: {
+                include: { options: true, solution: true },
+                orderBy: { sortOrder: 'asc' },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      });
+      if (!test) return reply.status(404).send({ statusCode: 404, message: 'Test not found' });
+
+      let attempt: any = null;
+      if (attemptId) {
+        attempt = await fastify.prisma.testAttempt.findUnique({
+          where: { id: attemptId },
+          include: { answers: true, result: true },
+        });
+      } else if (user.roleCode === RoleType.STUDENT) {
+        attempt = await fastify.prisma.testAttempt.findFirst({
+          where: { testId: id, studentId: user.userId, submittedAt: { not: null } },
+          include: { answers: true, result: true },
+          orderBy: { submittedAt: 'desc' },
+        });
+      }
+
+      const answerMap = new Map((attempt?.answers || []).map((a: any) => [a.questionId, a]));
+      let qNum = 0;
+      const answerKey = (test.sections || []).flatMap((sec) =>
+        (sec.questions || []).map((q) => {
+          qNum++;
+          const ans = answerMap.get(q.id);
+          const correctOpts = (q.options || []).filter((o) => o.isCorrect);
+          const correctLabels = correctOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
+          const userSelectedOpts = (q.options || []).filter((o) => (ans?.selectedOptionIds || []).includes(o.id));
+          const userLabels = userSelectedOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
+
+          const hasAns = (ans?.selectedOptionIds || []).length > 0;
+          const isCorrect =
+            hasAns &&
+            correctOpts.length > 0 &&
+            correctOpts.length === (ans?.selectedOptionIds || []).length &&
+            correctOpts.every((o) => (ans?.selectedOptionIds || []).includes(o.id));
+          const isWrong = hasAns && !isCorrect;
+
+          const marksPos = q.marksPositive ?? 4;
+          const marksNeg = q.marksNegative ?? 1;
+
+          return {
+            questionNumber: qNum,
+            questionId: q.id,
+            sectionName: sec.name,
+            questionText: q.contentHtml?.replace(/<[^>]+>/g, '') || `Question ${qNum}`,
+            correctAnswer: correctLabels || '—',
+            yourAnswer: userLabels || '—',
+            status: isCorrect ? 'CORRECT' : isWrong ? 'WRONG' : 'UNANSWERED',
+            marks: isCorrect ? marksPos : 0,
+            negative: isWrong ? marksNeg : 0,
+            explanation: q.solution?.shortExplanationHtml || q.solution?.stepByStepHtml || '—',
+          };
+        }),
+      );
+
+      return {
+        testId: test.id,
+        testTitle: test.title,
+        answerKey,
+        result: attempt?.result || null,
+      };
+    },
+  );
+
+  // GET /api/v1/tests/:id/export/answer-key/pdf
+  fastify.get(
+    '/api/v1/tests/:id/export/answer-key/pdf',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const test = await fastify.prisma.test.findUnique({
+        where: { id },
+      });
+      const title = (test?.title || 'Examination').replace(/[^a-zA-Z0-9 ]/g, '');
+      const pdf = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 260 >>\nstream\nBT\n/F1 16 Tf\n50 780 Td\n(Examly - ${title}) Tj\n/F1 10 Tf\n0 -25 Td\n(Report: Official Answer Key & Calculation Report) Tj\n0 -20 Td\n(Generated on: ${new Date().toLocaleString()}) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000120 00000 n \n0000000210 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n520\n%%EOF\n`;
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="answer-key-${id}.pdf"`);
+      return reply.send(Buffer.from(pdf, 'utf-8'));
+    },
+  );
+
+  // GET /api/v1/tests/:id/export/attempts/pdf
+  fastify.get(
+    '/api/v1/tests/:id/export/attempts/pdf',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const pdf = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 240 >>\nstream\nBT\n/F1 16 Tf\n50 780 Td\n(Examly Examination Attempts History) Tj\n/F1 10 Tf\n0 -25 Td\n(Test ID: ${id} | Generated: ${new Date().toLocaleString()}) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000120 00000 n \n0000000210 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n500\n%%EOF\n`;
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="attempts-${id}.pdf"`);
+      return reply.send(Buffer.from(pdf, 'utf-8'));
     },
   );
 

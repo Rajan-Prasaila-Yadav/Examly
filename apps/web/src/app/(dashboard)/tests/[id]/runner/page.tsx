@@ -39,6 +39,7 @@ import {
   MessageSquare,
   LayoutGrid,
   Search,
+  Maximize,
 } from 'lucide-react';
 import { renderMath } from '@/lib/render-math';
 import { useAuth } from '@/lib/auth-context';
@@ -287,6 +288,34 @@ function LiveTestRunnerContent() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(true);
   const [isMobilePaletteOpen, setIsMobilePaletteOpen] = useState(false);
   const [paletteFilter, setPaletteFilter] = useState<'ALL' | 'ANSWERED' | 'REVIEW' | 'UNVISITED'>('ALL');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        const el = document.documentElement as any;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
+      }
+    } catch (e) {
+      console.warn('Fullscreen toggle failed', e);
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
 
   const [startError, setStartError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
@@ -448,9 +477,9 @@ function LiveTestRunnerContent() {
           }
         }
 
-        const maxStrikes = test?.config?.antiCheatLevel || 3;
+        const maxStrikes = Number(test?.config?.maxStrikes || test?.config?.antiCheatLevel) || 3;
         if (newStrikes >= maxStrikes) {
-          handleAutoSubmit('Anti-cheat strike threshold exceeded');
+          handleAutoSubmit(`Anti-cheat strike threshold (${maxStrikes}) exceeded`);
         }
       }
     };
@@ -500,6 +529,11 @@ function LiveTestRunnerContent() {
     setStartError('');
     setIsStarting(true);
     try {
+      try {
+        const el = document.documentElement as any;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      } catch {}
       const res = await api.post(`/tests/${testId}/start`);
       setAttemptId(res.data.attemptId);
       if (res.data.test) {
@@ -689,8 +723,8 @@ function LiveTestRunnerContent() {
   const reviewCount = Object.values(userAnswers).filter((a: any) => a?.isMarkedForReview).length;
   const unansCount = questions.length - answeredCount;
 
-  // Submit unlock countdown (e.g. 5 minutes from start)
-  const submitUnlockDelaySeconds = (test?.config?.submitUnlockDelayMins || 5) * 60;
+  // Submit unlock countdown (0 if not configured)
+  const submitUnlockDelaySeconds = (Number(test?.config?.submitUnlockDelayMins) || 0) * 60;
   const isSubmitLocked = elapsedSeconds < submitUnlockDelaySeconds;
   const unlockRemainingSeconds = Math.max(0, submitUnlockDelaySeconds - elapsedSeconds);
   const questionsPerScreen = Math.max(1, Number(test?.config?.questionsPerScreen) || 1);
@@ -2036,6 +2070,16 @@ function LiveTestRunnerContent() {
             <Clock className="w-3.5 h-3.5 text-brand-400" />
             <span className="font-mono font-bold text-xs sm:text-sm text-brand-300">{formatTimer(remainingSeconds)}</span>
           </div>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-700 flex items-center gap-1 transition-all"
+          >
+            <Maximize className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+          </button>
 
           <button
             disabled={isSubmitLocked}

@@ -6,7 +6,7 @@ import {api,invalidateApiCache} from '@/lib/api';
 import {useAuth} from '@/lib/auth-context';
 import VideoCollection from './video-collection';
 import {DataTable,IconButton,Modal} from './batch-workspace';
-import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Download} from 'lucide-react';
+import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Download,Search} from 'lucide-react';
 type R=Record<string,any>;
 const config={timeout:30000} as any;
 const message=(e:any)=>e.response?.data?.message||e.message||'Unable to save';
@@ -52,7 +52,94 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
  const doAssign=async()=>{setBusy(true);const done:string[]=[];try{for(const batchId of selectedBatches){await api.post(`/batches/${batchId}/assign/subjects`,{ids:[modal!.record.id]},{timeout:90000});done.push(batchId);}setModal(null);setNotice(`Copied to ${done.length} batches`);}catch(e){setSelectedBatches(selectedBatches.filter(id=>!done.includes(id)));setFormError(`${done.length} batches completed. ${message(e)}`);}finally{setBusy(false);}};
  const actions=(kind:string)=>(r:R)=><>{manage&&<><IconButton title={'Edit '+title(r)} onClick={()=>open(kind,r)}><Pencil size={17}/></IconButton>{kind==='subjects'&&<IconButton title="Copy to batches" onClick={()=>assign(r)}><Copy size={17}/></IconButton>}<IconButton title={r.status==='ACTIVE'?'Archive':'Publish'} onClick={()=>setStatus(kind,r,r.status==='ACTIVE'?'HIDDEN':'ACTIVE')}><Archive size={17}/></IconButton><IconButton title={'Delete '+title(r)} onClick={()=>setStatus(kind,r,'DELETED')}><Trash2 size={17}/></IconButton></>}</>;
  const tests=(records:R[])=><DataTable rows={records} columns={[{label:'Test',render:r=><b>{r.title}</b>},{label:'Type',render:r=>r.testType},{label:'Status',render:r=>r.testStatus},{label:'Minutes',render:r=>r.durationMinutes},{label:'Marks',render:r=>r.totalMarks}]} onOpen={r=>router.push(`/tests/${r.id}`)}/>;
- const media=(kind:string,records:R[])=>kind==='videos'?<VideoCollection rows={records.map(r=>({...r,lessonName:r.lesson?.name||data?.name,subjectName:r.lesson?.subject?.name||data?.subject?.name}))} onOpen={r=>router.push(`/videos/${r.id}`)} actions={actions(kind)}/>:<DataTable key={kind} rows={records} placeholder={`Search ${kind}…`} columns={[{label:kind==='videos'?'Video':'Notes',render:r=><b>{r.title}</b>},{label:'Subject',render:r=>r.lesson?.subject?.name||data?.subject?.name||'—'},{label:'Lesson',render:r=>r.lesson?.name||data?.name},{label:kind==='videos'?'Length':'Size',render:r=>kind==='videos'?`${Math.floor(r.durationSeconds/60)}:${String(r.durationSeconds%60).padStart(2,'0')}`:bytes(r.fileSizeBytes)},{label:'Status',render:r=><span className="ex-chip">{status(r.status)}</span>}]} onOpen={r=>router.push(`/${kind}/${r.id}`)} actions={actions(kind)}/>;
+ const NotesCollection = ({ items, onOpen, act }: { items: R[]; onOpen: (r: R) => void; act?: (r: R) => React.ReactNode }) => {
+   const [q, setQ] = useState('');
+   const [subj, setSubj] = useState('ALL');
+   const subjs = Array.from(new Set(items.map((r) => r.lesson?.subject?.name || r.subjectName).filter(Boolean)));
+   const filtered = items.filter((r) => {
+     const s = r.lesson?.subject?.name || r.subjectName || '';
+     if (subj !== 'ALL' && s !== subj) return false;
+     if (q.trim()) {
+       const term = q.toLowerCase();
+       const m = [r.title, r.lesson?.name, s, r.description].filter(Boolean).some((x) => x.toLowerCase().includes(term));
+       if (!m) return false;
+     }
+     return true;
+   });
+
+   return (
+     <div className="space-y-4">
+       <div className="ex-filters-tray">
+         <div className="ex-search-box">
+           <Search size={16} className="text-slate-400 shrink-0" />
+           <input
+             type="text"
+             placeholder="Search notes, subjects, topics…"
+             value={q}
+             onChange={(e) => setQ(e.target.value)}
+           />
+         </div>
+         {subjs.length > 1 && (
+           <select className="ex-filter-select" value={subj} onChange={(e) => setSubj(e.target.value)}>
+             <option value="ALL">All Subjects ({subjs.length})</option>
+             {subjs.map((s) => (
+               <option key={s} value={s}>{s}</option>
+             ))}
+           </select>
+         )}
+       </div>
+
+       <div className="text-xs font-semibold text-slate-500">{filtered.length} notes available</div>
+
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+         {filtered.map((r) => {
+           const sName = r.lesson?.subject?.name || r.subjectName;
+           const lName = r.lesson?.name || r.lessonName;
+           return (
+             <div
+               key={r.id}
+               className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer"
+               onClick={() => onOpen(r)}
+             >
+               <div className="flex items-start gap-3">
+                 <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200/70 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                   <FileText size={20} />
+                 </div>
+                 <div className="min-w-0 flex-1">
+                   <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2">
+                     {r.title}
+                   </h4>
+                   {(sName || lName) && (
+                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                       {sName ? `${sName} › ` : ''}{lName || ''}
+                     </p>
+                   )}
+                 </div>
+               </div>
+
+               <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] text-slate-500">
+                 <div className="flex items-center gap-2">
+                   <span className="font-mono font-medium">{bytes(r.fileSizeBytes)}</span>
+                   <span className={`px-2 py-0.5 rounded-full font-bold ${r.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                     {status(r.status)}
+                   </span>
+                 </div>
+                 <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                   {act && act(r)}
+                 </div>
+               </div>
+             </div>
+           );
+         })}
+       </div>
+       {filtered.length === 0 && (
+         <div className="text-center py-10 text-xs text-slate-400">No notes found matching your filters.</div>
+       )}
+     </div>
+   );
+ };
+
+ const media=(kind:string,records:R[])=>kind==='videos'?<VideoCollection rows={records.map(r=>({...r,lessonName:r.lesson?.name||data?.name,subjectName:r.lesson?.subject?.name||data?.subject?.name}))} onOpen={r=>router.push(`/videos/${r.id}`)} actions={actions(kind)}/>:<NotesCollection items={records.map(r=>({...r,lessonName:r.lesson?.name||data?.name,subjectName:r.lesson?.subject?.name||data?.subject?.name}))} onOpen={r=>router.push(`/${kind}/${r.id}`)} act={actions(kind)}/>;
  const input=(name:string,key:string,type='text',required=false)=><label className="ex-field">{name}<input className="ex-input" type={type} required={required} value={form[key]||''} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>;
  return <div className="batch-prototype ex-workspace">
  <header className="ex-workspace-head"><div>{(view==='subject'||view==='lesson')&&<Link className="ex-back" href={view==='lesson'?`/subjects/${data?.subjectId}`:'/subjects'}><ArrowLeft size={16}/>{view==='lesson'?data?.subject?.name||'Subject':'Main subjects'}</Link>}<h1>{view==='subjects'?<>Main <em>Subjects</em></>:view==='videos'?<>Video <em>Library</em></>:view==='notes'?<>Notes <em>Library</em></>:<em>{data?.name||'Loading…'}</em>}</h1><p className="sub">{view==='subjects'?'Build once, copy into any batch. Main stays untouched.':view==='videos'?'Search, filter and open any video.':view==='notes'?'PDF and document notes with open tracking.':data?.description|| (view==='subject'?`${data?.code||''} · ${data?.batchId?'Batch curriculum':'Main library'}`:'Videos, notes and lesson tests.')}</p></div>{manage&&['subjects','videos','notes'].includes(view)&&<button className="ex-btn" onClick={()=>open(view)}>{view==='subjects'?<Plus size={17}/>:<Upload size={17}/>} {view==='subjects'?'Add subject':view==='videos'?'Upload video':'Upload notes'}</button>}</header>

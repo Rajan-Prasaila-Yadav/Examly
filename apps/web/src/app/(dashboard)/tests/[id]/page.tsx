@@ -148,9 +148,33 @@ export default function TestDetailPage() {
       setNegativeMarkRate(testRes.data.negativeMarkRate !== undefined ? testRes.data.negativeMarkRate : 1.0);
       setStartDateTime(formatForDateTimeLocal(testRes.data.startDateTime));
       setEndDateTime(formatForDateTimeLocal(testRes.data.endDateTime));
-      setLeaderboard(boardRes.data);
+      setLeaderboard(Array.isArray(boardRes.data) ? boardRes.data : []);
       setAnalytics(analyticsRes.data);
-      setAttempts(attemptsRes.data);
+
+      let normAttempts: any = attemptsRes.data;
+      if (Array.isArray(normAttempts)) {
+        const studentMap: Record<string, any> = {};
+        for (const a of normAttempts) {
+          const sId = a.studentId || a.id;
+          if (!studentMap[sId]) {
+            studentMap[sId] = { student: a.student, attemptCount: 0, attempts: [], bestScore: null, latestResult: a.result };
+          }
+          studentMap[sId].attemptCount++;
+          studentMap[sId].attempts.push(a);
+          if (a.result?.totalScore !== undefined) {
+            if (studentMap[sId].bestScore === null || a.result.totalScore > studentMap[sId].bestScore) {
+              studentMap[sId].bestScore = a.result.totalScore;
+            }
+          }
+        }
+        normAttempts = {
+          attempts: normAttempts,
+          totalAttempts: normAttempts.length,
+          studentCount: Object.keys(studentMap).length,
+          students: Object.values(studentMap),
+        };
+      }
+      setAttempts(normAttempts);
     } catch (e) {
       console.error(e);
     } finally {
