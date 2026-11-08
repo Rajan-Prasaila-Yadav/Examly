@@ -13,7 +13,18 @@ const AuditLogsQuerySchema = z.object({
 });
 
 export const systemRoutes: FastifyPluginAsync = async (fastify) => {
-  // Public Health & Liveness Endpoints
+  // Public Root, Health & Liveness Endpoints
+  fastify.get('/', async () => {
+    return {
+      name: 'Examly High-Performance Fastify API Engine',
+      status: 'ok',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      health: '/api/v1/health',
+    };
+  });
+
   fastify.get('/health', async () => {
     return {
       status: 'ok',

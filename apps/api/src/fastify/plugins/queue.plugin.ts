@@ -37,8 +37,8 @@ declare module 'fastify' {
 }
 
 const queuePlugin: FastifyPluginAsync = async (fastify) => {
-  const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-  const isRedisConfigured = !!process.env.REDIS_URL;
+  const redisUrl = process.env.REDIS_URL;
+  const isRedisConfigured = !!redisUrl;
 
   const defaultJobOptions = {
     attempts: 3,
@@ -53,45 +53,80 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
   let redisConnection: IORedis | null = null;
   let isConnected = false;
 
-  try {
-    redisConnection = new IORedis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      lazyConnect: true,
-      retryStrategy: () => null, // Do not spam reconnects if offline in local development
-    });
+  if (isRedisConfigured) {
+    try {
+      redisConnection = new IORedis(redisUrl!, {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+        lazyConnect: true,
+        connectTimeout: 5000,
+        retryStrategy: () => null, // Do not spam reconnects if offline
+      });
 
-    await redisConnection.connect().then(() => {
+      // Catch error events to prevent unhandled event crashes in node
+      redisConnection.on('error', (err) => {
+        fastify.log.warn({ msg: err.message }, 'Redis connection warning');
+      });
+
+      await redisConnection.connect();
       isConnected = true;
-    }).catch(() => {
+    } catch (e: any) {
       isConnected = false;
-    });
-  } catch (e) {
-    isConnected = false;
+      fastify.log.warn({ err: e.message }, 'Redis unreachable, fallback to standalone mock queue');
+    }
+  } else {
+    fastify.log.info('REDIS_URL not configured. Background queues operating in standalone mock mode.');
   }
 
-  // Define BullMQ Queues
-  const connectionOptions = isConnected && redisConnection ? { connection: redisConnection } : undefined;
+  // Define BullMQ Queues or Standalone Mock Queues
+  let youtubeImportQueue: any;
+  let exportQueue: any;
+  let notificationsQueue: any;
+  let analyticsQueue: any;
 
-  const youtubeImportQueue = new Queue('youtube-imports', {
-    connection: (connectionOptions?.connection || { host: '127.0.0.1', port: 6379, lazyConnect: true }) as any,
-    defaultJobOptions,
-  });
+  if (isConnected && redisConnection) {
+    youtubeImportQueue = new Queue('youtube-imports', {
+      connection: redisConnection,
+      defaultJobOptions,
+    });
 
-  const exportQueue = new Queue('data-exports', {
-    connection: (connectionOptions?.connection || { host: '127.0.0.1', port: 6379, lazyConnect: true }) as any,
-    defaultJobOptions,
-  });
+    exportQueue = new Queue('data-exports', {
+      connection: redisConnection,
+      defaultJobOptions,
+    });
 
-  const notificationsQueue = new Queue('notifications', {
-    connection: (connectionOptions?.connection || { host: '127.0.0.1', port: 6379, lazyConnect: true }) as any,
-    defaultJobOptions,
-  });
+    notificationsQueue = new Queue('notifications', {
+      connection: redisConnection,
+      defaultJobOptions,
+    });
 
-  const analyticsQueue = new Queue('analytics-aggregation', {
-    connection: (connectionOptions?.connection || { host: '127.0.0.1', port: 6379, lazyConnect: true }) as any,
-    defaultJobOptions,
-  });
+    analyticsQueue = new Queue('analytics-aggregation', {
+      connection: redisConnection,
+      defaultJobOptions,
+    });
+
+    for (const q of [youtubeImportQueue, exportQueue, notificationsQueue, analyticsQueue]) {
+      q.on('error', (err: any) => {
+        fastify.log.warn({ queue: q.name, err: err.message }, 'Queue error');
+      });
+    }
+  } else {
+    const createMockQueue = (name: string) => ({
+      name,
+      add: async (jobName: string, data: any) => {
+        fastify.log.info({ queue: name, jobName }, 'Standalone mock queue: job accepted');
+        return { id: `mock_${Date.now()}`, name: jobName, data };
+      },
+      getJob: async () => null,
+      close: async () => {},
+      on: () => {},
+    });
+
+    youtubeImportQueue = createMockQueue('youtube-imports');
+    exportQueue = createMockQueue('data-exports');
+    notificationsQueue = createMockQueue('notifications');
+    analyticsQueue = createMockQueue('analytics-aggregation');
+  }
 
   // Define BullMQ Workers if connected
   const workers: Worker[] = [];
@@ -307,7 +342,7 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
     await exportQueue.close();
     await notificationsQueue.close();
     await analyticsQueue.close();
-    if (redisConnection) {
+    if (redisConnection && isConnected) {
       redisConnection.disconnect();
     }
   });
