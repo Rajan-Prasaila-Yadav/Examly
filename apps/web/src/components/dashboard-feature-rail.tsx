@@ -16,26 +16,6 @@ interface FeatureRailProps {
   studentId?: string;
 }
 
-// Sparkle Component matching the Unstop reference (purple 4-point star + smaller light star)
-function ReferenceSparkle({ className = '' }: { className?: string }) {
-  return (
-    <div className={`absolute top-8 left-3 z-10 pointer-events-none select-none flex items-center ${className}`}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        {/* Main 4-point purple star */}
-        <path
-          d="M10 2 C10 6 6 10 2 10 C6 10 10 14 10 18 C10 14 14 10 18 10 C14 10 10 6 10 2 Z"
-          fill="#8B5CF6"
-        />
-        {/* Secondary small cyan star */}
-        <path
-          d="M17 14 C17 15.8 15.2 17 13.5 17 C15.2 17 17 18.2 17 20 C17 18.2 18.8 17 20.5 17 C18.8 17 17 15.8 17 14 Z"
-          fill="#38BDF8"
-        />
-      </svg>
-    </div>
-  );
-}
-
 export default function DashboardFeatureRail({
   batchesCount = 0,
   liveTestsCount = 0,
@@ -69,7 +49,7 @@ export default function DashboardFeatureRail({
 
   // 1. Mock Tests (3D Blue Clipboard, Ruled Paper, Pencil & Stickers)
   const MockTestsArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <defs>
         <linearGradient id="folderBlue" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#70A8FA" />
@@ -90,14 +70,12 @@ export default function DashboardFeatureRail({
       <line x1="36" y1="40" x2="58" y2="42" stroke="#E2E8F0" strokeWidth="2" strokeLinecap="round" />
       <line x1="36" y1="47" x2="55" y2="49" stroke="#E2E8F0" strokeWidth="2" strokeLinecap="round" />
       <path d="M46 62 Q50 58 54 62 Q58 66 62 63" stroke="#1E293B" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      {/* Brand Stickers */}
       <circle cx="58" cy="22" r="9" fill="#E50914" />
       <text x="58" y="26" fill="#FFFFFF" fontSize="11" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">N</text>
       <circle cx="68" cy="46" r="8" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.8" />
       <path d="M68 43 L71 43 C72 45 71 49 68 49 C65.5 49 64 47 64 45 C64 43 65.5 41 68 41 C69.5 41 70.5 41.8 71 42.5" stroke="#4285F4" strokeWidth="1.8" fill="none" strokeLinecap="round" />
       <circle cx="36" cy="56" r="6.5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.8" />
       <text x="36" y="59.5" fill="#1E293B" fontSize="8" fontWeight="800" textAnchor="middle" fontFamily="sans-serif">a</text>
-      {/* 3D Angled Pencil with Pink Eraser */}
       <g transform="translate(34, 38) rotate(32)">
         <rect x="0" y="0" width="8" height="28" rx="2" fill="url(#pencilWood)" />
         <polygon points="0,28 8,28 4,35" fill="#FDE68A" />
@@ -108,9 +86,9 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 2. Courses (3D Laptop with Graduation Mortarboard Cap)
+  // 2. Batches (3D Laptop with Graduation Mortarboard Cap)
   const CoursesArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <defs>
         <linearGradient id="laptopLid" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#4F46E5" />
@@ -132,7 +110,6 @@ export default function DashboardFeatureRail({
       <line x1="32" y1="42" x2="60" y2="42" stroke="#BAE6FD" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
       <path d="M12 62 L88 62 L82 72 L18 72 Z" fill="#1E1B4B" />
       <rect x="42" y="64" width="16" height="2" rx="1" fill="#93C5FD" opacity="0.8" />
-      {/* Mortarboard Cap */}
       <g transform="translate(48, 14) rotate(-6)">
         <polygon points="0,10 26,19 0,28 -26,19" fill="url(#capTop)" />
         <line x1="-26" y1="19" x2="0" y2="28" stroke="#4338CA" strokeWidth="1.8" />
@@ -145,9 +122,31 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 3. Video Lectures (3D Purple Display & Magenta Play Button)
+  // 3. Subjects (3D Open Textbook with Knowledge Orb)
+  const SubjectsArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+      <defs>
+        <linearGradient id="bookCover" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#B45309" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
+      <path d="M50 36 C42 30 24 32 18 36 L18 66 C24 62 42 60 50 66 C58 60 76 62 82 66 L82 36 C76 32 58 30 50 36 Z" fill="url(#bookCover)" />
+      <path d="M50 34 C42 28 25 30 20 34 L20 62 C25 58 42 56 50 62 C58 56 75 58 80 62 L80 34 C75 30 58 28 50 34 Z" fill="#FFFFFF" />
+      <line x1="50" y1="34" x2="50" y2="64" stroke="#D97706" strokeWidth="2" />
+      <line x1="28" y1="42" x2="42" y2="40" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+      <line x1="28" y1="48" x2="40" y2="46" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+      <line x1="58" y1="40" x2="72" y2="42" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+      <line x1="58" y1="46" x2="70" y2="48" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="50" cy="22" r="8" fill="#3B82F6" />
+      <ellipse cx="50" cy="22" rx="14" ry="5" fill="none" stroke="#60A5FA" strokeWidth="1.5" transform="rotate(-20 50 22)" />
+    </svg>
+  );
+
+  // 4. Video Lectures (3D Purple Display & Magenta Play Button)
   const VideosArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
       <rect x="20" y="18" width="60" height="48" rx="14" fill="#7C3AED" />
       <rect x="24" y="22" width="52" height="40" rx="10" fill="#2E1065" />
@@ -158,9 +157,9 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 4. Lecture Notes (3D Leather Briefcase, Documents & Gold Coin)
+  // 5. Lecture Notes / Audit (3D Leather Briefcase, Documents & Gold Coin)
   const NotesArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <defs>
         <linearGradient id="leatherCase" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#FB923C" />
@@ -184,31 +183,86 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 5. Subjects / Curriculum (3D Open Textbook with Knowledge Orb)
-  const SubjectsArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+  // 6. Discussions (3D Laptop with Video Call Avatars)
+  const DiscussionsArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <defs>
-        <linearGradient id="bookCover" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#B45309" />
+        <linearGradient id="screenNavy" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1E293B" />
+          <stop offset="100%" stopColor="#0F172A" />
         </linearGradient>
       </defs>
       <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
-      <path d="M50 36 C42 30 24 32 18 36 L18 66 C24 62 42 60 50 66 C58 60 76 62 82 66 L82 36 C76 32 58 30 50 36 Z" fill="url(#bookCover)" />
-      <path d="M50 34 C42 28 25 30 20 34 L20 62 C25 58 42 56 50 62 C58 56 75 58 80 62 L80 34 C75 30 58 28 50 34 Z" fill="#FFFFFF" />
-      <line x1="50" y1="34" x2="50" y2="64" stroke="#D97706" strokeWidth="2" />
-      <line x1="28" y1="42" x2="42" y2="40" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-      <line x1="28" y1="48" x2="40" y2="46" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-      <line x1="58" y1="40" x2="72" y2="42" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-      <line x1="58" y1="46" x2="70" y2="48" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="50" cy="22" r="8" fill="#3B82F6" />
-      <ellipse cx="50" cy="22" rx="14" ry="5" fill="none" stroke="#60A5FA" strokeWidth="1.5" transform="rotate(-20 50 22)" />
+      <rect x="22" y="32" width="56" height="34" rx="6" fill="#1E1B4B" />
+      <rect x="25" y="35" width="50" height="28" rx="4" fill="url(#screenNavy)" />
+      <path d="M14 66 L86 66 L80 74 L20 74 Z" fill="#0F172A" />
+      <rect x="42" y="67" width="16" height="2" rx="1" fill="#64748B" />
+      <g transform="translate(30, 24)">
+        <circle cx="8" cy="8" r="14" fill="#F43F5E" />
+        <circle cx="8" cy="8" r="12" fill="#FECDD3" />
+        <circle cx="8" cy="6" r="4.5" fill="#E11D48" />
+        <path d="M1 18 C1 13 15 13 15 18 Z" fill="#BE123C" />
+      </g>
+      <g transform="translate(56, 12)">
+        <circle cx="8" cy="8" r="15" fill="#3B82F6" />
+        <circle cx="8" cy="8" r="13" fill="#DBEAFE" />
+        <circle cx="8" cy="6" r="5" fill="#1D4ED8" />
+        <path d="M0 19 C0 14 16 14 16 19 Z" fill="#1E40AF" />
+      </g>
+      <polygon points="50,28 52,32 56,32 53,35 54,39 50,36 46,39 47,35 44,32 48,32" fill="#FDE047" />
     </svg>
   );
 
-  // 6. Performance (3D Shiny Golden Trophy)
+  // 7. Students & Faculty (Avatar Cluster with 5-Star Badge)
+  const RosterArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
+      <g transform="translate(50, 42)">
+        <circle cx="0" cy="-20" r="10" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2" />
+        <circle cx="0" cy="-22" r="4" fill="#FEF3C7" />
+        <path d="M-6 -12 C-6 -17 6 -17 6 -12 Z" fill="#D97706" />
+        <circle cx="16" cy="-10" r="9" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
+        <circle cx="16" cy="-12" r="3.5" fill="#DBEAFE" />
+        <circle cx="0" cy="-2" r="14" fill="#06B6D4" stroke="#FFFFFF" strokeWidth="2.5" />
+        <circle cx="0" cy="-4" r="5.5" fill="#CFFAFE" />
+        <path d="M-9 9 C-9 3 9 3 9 9 Z" fill="#0891B2" />
+        <circle cx="-16" cy="14" r="9" fill="#EC4899" stroke="#FFFFFF" strokeWidth="2" />
+        <circle cx="-16" cy="12" r="3.5" fill="#FCE7F3" />
+        <circle cx="0" cy="18" r="9.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
+        <circle cx="0" cy="16" r="3.5" fill="#FEE2E2" />
+        <circle cx="16" cy="16" r="9" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+        <circle cx="16" cy="14" r="3.5" fill="#D1FAE5" />
+      </g>
+      <g transform="translate(18, 42)">
+        <rect x="0" y="0" width="28" height="16" rx="8" fill="#FFFFFF" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.14))" />
+        <polygon points="7,4 8.5,8 13,8 9.5,10.5 11,14 7,11.5 3,14 4.5,10.5 1,8 5.5,8" fill="#FBBF24" />
+        <text x="19" y="12" fill="#1E293B" fontSize="10" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">5</text>
+      </g>
+    </svg>
+  );
+
+  // 8. Security (3D Metallic Shield with Keyhole)
+  const SecurityArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+      <defs>
+        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#EF4444" />
+          <stop offset="50%" stopColor="#DC2626" />
+          <stop offset="100%" stopColor="#991B1B" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="50" cy="78" rx="30" ry="5.5" fill="#1E293B" opacity="0.22" />
+      <path d="M50 14 L78 24 C78 50 50 68 50 68 C50 68 22 50 22 24 Z" fill="url(#shieldGrad)" />
+      <path d="M50 18 L74 26 C74 48 50 64 50 64 C50 64 26 48 26 26 Z" fill="#B91C1C" />
+      <path d="M50 18 L26 26 C26 48 50 64 50 64 Z" fill="#FFFFFF" opacity="0.15" />
+      <circle cx="50" cy="38" r="6" fill="#FFFFFF" />
+      <rect x="47.5" y="40" width="5" height="8" rx="1.5" fill="#FFFFFF" />
+    </svg>
+  );
+
+  // 9. Performance (3D Shiny Golden Trophy)
   const TrophyArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
       <defs>
         <linearGradient id="goldCup" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#FFF2A3" />
@@ -243,271 +297,173 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 7. Doubt Q&A (3D Laptop with Floating Video Call Avatar Bubbles)
-  const DoubtQAndAArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
-      <defs>
-        <linearGradient id="screenNavy" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1E293B" />
-          <stop offset="100%" stopColor="#0F172A" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
-      <rect x="22" y="32" width="56" height="34" rx="6" fill="#1E1B4B" />
-      <rect x="25" y="35" width="50" height="28" rx="4" fill="url(#screenNavy)" />
-      <path d="M14 66 L86 66 L80 74 L20 74 Z" fill="#0F172A" />
-      <rect x="42" y="67" width="16" height="2" rx="1" fill="#64748B" />
-      {/* Floating Avatars */}
-      <g transform="translate(30, 24)">
-        <circle cx="8" cy="8" r="14" fill="#F43F5E" />
-        <circle cx="8" cy="8" r="12" fill="#FECDD3" />
-        <circle cx="8" cy="6" r="4.5" fill="#E11D48" />
-        <path d="M1 18 C1 13 15 13 15 18 Z" fill="#BE123C" />
-      </g>
-      <g transform="translate(56, 12)">
-        <circle cx="8" cy="8" r="15" fill="#3B82F6" />
-        <circle cx="8" cy="8" r="13" fill="#DBEAFE" />
-        <circle cx="8" cy="6" r="5" fill="#1D4ED8" />
-        <path d="M0 19 C0 14 16 14 16 19 Z" fill="#1E40AF" />
-      </g>
-      <polygon points="50,28 52,32 56,32 53,35 54,39 50,36 46,39 47,35 44,32 48,32" fill="#FDE047" />
-    </svg>
-  );
-
-  // 8. Roster (Student / Faculty Avatar Cluster with 5-Star Badge)
-  const RosterArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
-      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
-      <g transform="translate(50, 42)">
-        <circle cx="0" cy="-20" r="10" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="0" cy="-22" r="4" fill="#FEF3C7" />
-        <path d="M-6 -12 C-6 -17 6 -17 6 -12 Z" fill="#D97706" />
-        <circle cx="16" cy="-10" r="9" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="16" cy="-12" r="3.5" fill="#DBEAFE" />
-        <circle cx="0" cy="-2" r="14" fill="#06B6D4" stroke="#FFFFFF" strokeWidth="2.5" />
-        <circle cx="0" cy="-4" r="5.5" fill="#CFFAFE" />
-        <path d="M-9 9 C-9 3 9 3 9 9 Z" fill="#0891B2" />
-        <circle cx="-16" cy="14" r="9" fill="#EC4899" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="-16" cy="12" r="3.5" fill="#FCE7F3" />
-        <circle cx="0" cy="18" r="9.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="0" cy="16" r="3.5" fill="#FEE2E2" />
-        <circle cx="16" cy="16" r="9" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="16" cy="14" r="3.5" fill="#D1FAE5" />
-      </g>
-      <g transform="translate(18, 42)">
-        <rect x="0" y="0" width="28" height="16" rx="8" fill="#FFFFFF" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.14))" />
-        <polygon points="7,4 8.5,8 13,8 9.5,10.5 11,14 7,11.5 3,14 4.5,10.5 1,8 5.5,8" fill="#FBBF24" />
-        <text x="19" y="12" fill="#1E293B" fontSize="10" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">5</text>
-      </g>
-    </svg>
-  );
-
-  // 9. Role Security (3D Metallic Shield with Keyhole)
-  const SecurityArt = (
-    <svg viewBox="0 0 100 85" className="w-[84px] h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
-      <defs>
-        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#EF4444" />
-          <stop offset="50%" stopColor="#DC2626" />
-          <stop offset="100%" stopColor="#991B1B" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="50" cy="78" rx="30" ry="5.5" fill="#1E293B" opacity="0.22" />
-      <path d="M50 14 L78 24 C78 50 50 68 50 68 C50 68 22 50 22 24 Z" fill="url(#shieldGrad)" />
-      <path d="M50 18 L74 26 C74 48 50 64 50 64 C50 64 26 48 26 26 Z" fill="#B91C1C" />
-      <path d="M50 18 L26 26 C26 48 50 64 50 64 Z" fill="#FFFFFF" opacity="0.15" />
-      <circle cx="50" cy="38" r="6" fill="#FFFFFF" />
-      <rect x="47.5" y="40" width="5" height="8" rx="1.5" fill="#FFFFFF" />
-    </svg>
-  );
-
-  // EXACT EXAMLY CAPABILITIES ONLY (NO fabricated items like Hackathons, Jobs, 100 Days to Code, etc.)
+  // EXACT REQUESTED ORDER:
+  // 1. Batches, 2. Subjects, 3. Mock Tests, 4. Students, 5. Faculty, 6. Discussions, 7. Audit Logs, 8. Security
   const items = isStudent
     ? [
+        {
+          id: 'batches',
+          title: 'Batches',
+          href: '/batches',
+          art: CoursesArt,
+        },
+        {
+          id: 'subjects',
+          title: 'Subjects',
+          href: '/curriculum',
+          art: SubjectsArt,
+        },
         {
           id: 'tests',
           title: 'Mock Tests',
           href: '/tests',
-          sparkle: true,
           art: MockTestsArt,
-        },
-        {
-          id: 'courses',
-          title: 'My Courses',
-          href: '/batches',
-          sparkle: true,
-          art: CoursesArt,
         },
         {
           id: 'videos',
           title: 'Video Lectures',
           href: '/videos',
-          sparkle: false,
           art: VideosArt,
         },
         {
           id: 'notes',
           title: 'Lecture Notes',
           href: '/notes',
-          sparkle: false,
           art: NotesArt,
         },
         {
-          id: 'curriculum',
-          title: 'Subjects',
-          href: '/curriculum',
-          sparkle: false,
-          art: SubjectsArt,
+          id: 'discussions',
+          title: 'Discussions',
+          href: '/community',
+          art: DiscussionsArt,
         },
         {
           id: 'performance',
           title: 'My Performance',
           href: studentId ? `/students/${studentId}` : '/students',
-          sparkle: false,
           art: TrophyArt,
-        },
-        {
-          id: 'community',
-          title: 'Doubt Q&A',
-          href: '/community',
-          sparkle: false,
-          art: DoubtQAndAArt,
         },
       ]
     : isTeacher
     ? [
         {
-          id: 'create-test',
-          title: 'Create Test',
-          href: '/tests/create',
-          sparkle: true,
-          art: MockTestsArt,
-        },
-        {
-          id: 'tests',
-          title: 'Mock Tests',
-          href: '/tests/builder',
-          sparkle: true,
-          art: MockTestsArt,
-        },
-        {
-          id: 'courses',
-          title: 'My Batches',
-          href: '/batches',
-          sparkle: false,
-          art: CoursesArt,
-        },
-        {
-          id: 'videos',
-          title: 'Video Lectures',
-          href: '/videos',
-          sparkle: false,
-          art: VideosArt,
-        },
-        {
-          id: 'notes',
-          title: 'Study Notes',
-          href: '/notes',
-          sparkle: false,
-          art: NotesArt,
-        },
-        {
-          id: 'students',
-          title: 'My Students',
-          href: '/students',
-          sparkle: false,
-          art: RosterArt,
-        },
-        {
-          id: 'community',
-          title: 'Q&A Forum',
-          href: '/community',
-          sparkle: false,
-          art: DoubtQAndAArt,
-        },
-      ]
-    : [
-        {
-          id: 'courses',
+          id: 'batches',
           title: 'Batches',
           href: '/batches',
-          sparkle: true,
           art: CoursesArt,
+        },
+        {
+          id: 'subjects',
+          title: 'Subjects',
+          href: '/curriculum',
+          art: SubjectsArt,
         },
         {
           id: 'tests',
           title: 'Mock Tests',
           href: '/tests/builder',
-          sparkle: true,
           art: MockTestsArt,
         },
         {
           id: 'students',
           title: 'Students',
           href: '/students',
-          sparkle: false,
           art: RosterArt,
         },
         {
-          id: 'teachers',
-          title: 'Faculty',
-          href: '/teachers',
-          sparkle: false,
-          art: RosterArt,
+          id: 'videos',
+          title: 'Video Lectures',
+          href: '/videos',
+          art: VideosArt,
         },
         {
-          id: 'curriculum',
-          title: 'Curriculum',
+          id: 'notes',
+          title: 'Study Notes',
+          href: '/notes',
+          art: NotesArt,
+        },
+        {
+          id: 'discussions',
+          title: 'Discussions',
+          href: '/community',
+          art: DiscussionsArt,
+        },
+      ]
+    : [
+        {
+          id: 'batches',
+          title: 'Batches',
+          href: '/batches',
+          art: CoursesArt,
+        },
+        {
+          id: 'subjects',
+          title: 'Subjects',
           href: '/curriculum',
-          sparkle: false,
           art: SubjectsArt,
         },
         {
-          id: 'roles',
-          title: 'Role Security',
-          href: '/settings/roles',
-          sparkle: false,
-          art: SecurityArt,
+          id: 'tests',
+          title: 'Mock Tests',
+          href: '/tests/builder',
+          art: MockTestsArt,
+        },
+        {
+          id: 'students',
+          title: 'Students',
+          href: '/students',
+          art: RosterArt,
+        },
+        {
+          id: 'faculty',
+          title: 'Faculty',
+          href: '/teachers',
+          art: RosterArt,
+        },
+        {
+          id: 'discussions',
+          title: 'Discussions',
+          href: '/community',
+          art: DiscussionsArt,
         },
         {
           id: 'audit',
           title: 'Audit Logs',
           href: '/settings/audit',
-          sparkle: false,
           art: NotesArt,
         },
         {
-          id: 'community',
-          title: 'Discussion',
-          href: '/community',
-          sparkle: false,
-          art: DoubtQAndAArt,
+          id: 'security',
+          title: 'Security',
+          href: '/settings/roles',
+          art: SecurityArt,
         },
       ];
 
   return (
     <section className="relative w-full pb-2 select-none" aria-label="Explore Capabilities">
-      {/* Scrollable Container with exact pill card proportions */}
+      {/* 
+        Responsive layout matching reference:
+        - Mobile: EXACT 3-Column Grid matching Image 2 (grid grid-cols-3)
+        - Desktop (sm and up): Smooth horizontal track with scroll snap and chevron arrows
+      */}
       <div
         ref={railRef}
-        className="flex items-center gap-3 sm:gap-3.5 overflow-x-auto pb-4 pt-1 px-1 scroll-smooth snap-x snap-mandatory scrollbar-none"
+        className="grid grid-cols-3 gap-2.5 sm:gap-3.5 sm:flex sm:items-center sm:overflow-x-auto pb-2 sm:pb-4 pt-1 px-0.5 sm:scroll-smooth sm:snap-x sm:snap-mandatory sm:scrollbar-none"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {items.map((item) => (
           <Link
             key={item.id}
             href={item.href}
-            className="group relative flex flex-col items-center justify-between p-2.5 sm:p-3 rounded-[28px] sm:rounded-[32px] w-[124px] sm:w-[130px] h-[148px] sm:h-[156px] shrink-0 snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#1D203C] dark:via-[#161830] dark:to-[#111224] border border-blue-100/70 dark:border-[#2A2E50] shadow-[0_2px_12px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_12px_24px_rgba(59,130,246,0.14)] dark:hover:shadow-[0_12px_24px_rgba(139,128,245,0.18)] hover:border-brand-400 dark:hover:border-brand-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
+            className="group relative flex flex-col items-center justify-between p-2 sm:p-3 rounded-[22px] sm:rounded-[30px] w-full sm:w-[130px] h-[130px] sm:h-[156px] sm:shrink-0 sm:snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#1D203C] dark:via-[#161830] dark:to-[#111224] border border-blue-100/70 dark:border-[#2A2E50] shadow-[0_2px_10px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_10px_22px_rgba(59,130,246,0.14)] dark:hover:shadow-[0_10px_22px_rgba(139,128,245,0.18)] hover:border-brand-400 dark:hover:border-brand-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
           >
             {/* Top-right subtle glossy shine curve */}
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/40 dark:bg-white/5 rounded-full blur-xs pointer-events-none" />
 
-            {/* Sparkle icon placed on top-left of designated cards */}
-            {item.sparkle && <ReferenceSparkle />}
-
-            {/* Top Title */}
+            {/* Top Title - NO Gemini/sparkle symbol */}
             <div className="w-full pt-1 px-1 z-10">
-              <h3 className="text-[13px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#F1F5F9] leading-tight text-center line-clamp-2">
+              <h3 className="text-[12px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#F1F5F9] leading-tight text-center line-clamp-2">
                 {item.title}
               </h3>
             </div>
