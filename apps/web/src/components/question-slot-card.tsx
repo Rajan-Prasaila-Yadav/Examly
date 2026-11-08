@@ -10,6 +10,7 @@ type Props = {
   question: QuestionSlot;
   expanded: boolean;
   sections: { id: string; name: string }[];
+  sectionName?: string;
   defaultPos: number;
   defaultNeg: number;
   onToggle: () => void;
@@ -22,6 +23,7 @@ export function QuestionSlotCard({
   question,
   expanded,
   sections,
+  sectionName,
   defaultPos,
   defaultNeg,
   onToggle,
@@ -39,13 +41,18 @@ export function QuestionSlotCard({
     setField({ contentHtml: question.contentHtml ? `${question.contentHtml} ${snip} ` : `${snip} ` });
 
   return (
-    <div className={`rounded-2xl border ${filled ? 'border-emerald-200 bg-white' : 'border-slate-200 bg-slate-50/80'}`}>
+    <div className={`rounded-2xl border transition-all ${filled ? 'border-emerald-200 dark:border-emerald-800/60 bg-white dark:bg-slate-900/90' : 'border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50'}`}>
       <button type="button" onClick={onToggle} className="w-full flex items-center justify-between p-3.5 text-left">
-        <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-900 text-white text-[11px] font-bold font-mono">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-bold font-mono">
             Q{index + 1}
           </span>
-          <span className="text-xs text-slate-700 truncate max-w-md">
+          {sectionName && (
+            <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold font-mono">
+              {sectionName}
+            </span>
+          )}
+          <span className="text-xs text-slate-700 dark:text-slate-300 truncate max-w-md">
             {filled ? question.contentHtml.slice(0, 80) : 'Empty template — paste, type, or fill with AI'}
           </span>
         </div>
@@ -53,23 +60,30 @@ export function QuestionSlotCard({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+        <div className="px-4 pb-4 space-y-3 border-t border-slate-100 dark:border-slate-800 pt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <select
-              value={question.questionType}
-              onChange={(e) => setField({ questionType: e.target.value })}
-              className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1.5"
-            >
-              <option value="SINGLE_CORRECT">Single Correct MCQ</option>
-              <option value="MULTIPLE_CORRECT">Multiple Correct MCQ</option>
-              <option value="NUMERICAL">Numerical</option>
-              <option value="ASSERTION_REASON">Assertion & Reason</option>
-              <option value="FILL_BLANK">Fill in the Blank</option>
-              <option value="MATRIX_MATCH">Matrix Match</option>
-              <option value="TRUE_FALSE">True / False</option>
-              <option value="DESCRIPTIVE">Descriptive</option>
-            </select>
-            <button type="button" onClick={onDelete} className="p-1.5 text-slate-400 hover:text-rose-600">
+            <div className="flex items-center gap-2">
+              {sectionName && (
+                <span className="text-xs font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800">
+                  📍 {sectionName}
+                </span>
+              )}
+              <select
+                value={question.questionType}
+                onChange={(e) => setField({ questionType: e.target.value })}
+                className="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
+              >
+                <option value="SINGLE_CORRECT">Single Correct MCQ</option>
+                <option value="MULTIPLE_CORRECT">Multiple Correct MCQ</option>
+                <option value="NUMERICAL">Numerical</option>
+                <option value="ASSERTION_REASON">Assertion & Reason</option>
+                <option value="FILL_BLANK">Fill in the Blank</option>
+                <option value="MATRIX_MATCH">Matrix Match</option>
+                <option value="TRUE_FALSE">True / False</option>
+                <option value="DESCRIPTIVE">Descriptive</option>
+              </select>
+            </div>
+            <button type="button" onClick={onDelete} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>

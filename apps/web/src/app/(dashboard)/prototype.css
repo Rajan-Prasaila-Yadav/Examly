@@ -13,8 +13,8 @@
 .ex-video-stage video{width:100%;height:100%;display:block}
 .ex-youtube-wrap{position:relative;width:100%;height:100%;overflow:hidden}
 .ex-youtube{width:100%;height:100%;display:block;overflow:hidden}
-.ex-youtube iframe{width:100% !important;height:100% !important;display:block;pointer-events:none !important;transform:scale(1.06);transform-origin:center center}
-.ex-video-click-shield{position:absolute;inset:0;z-index:15;cursor:pointer;background:transparent}.ex-video-controls{padding:8px 14px;background:#121524}.ex-video-controls>input{width:100%;accent-color:#8b80f5}.ex-video-controls .ex-icon{color:white}.ex-video-controls select{background:#25283b;color:white;border-radius:6px;padding:4px}.ex-video-controls input{accent-color:#8b80f5}.ex-volume{font-size:10px;display:flex;align-items:center;gap:5px}.ex-volume input{width:65px}.ex-player-card{margin-top:14px}.ex-course-videos{align-self:start;max-height:84vh;overflow:auto}.ex-course-videos summary{font-weight:700;padding:10px 0;cursor:pointer}.ex-current-video{background:var(--pr2);border-color:var(--pr);color:var(--pr)}.ex-comment{padding:14px 0;border-bottom:1px solid var(--ln)}.ex-comment small{display:block;color:var(--mu);font-size:11px}.ex-comment p{white-space:pre-wrap;margin:8px 0}.ex-watermark{position:absolute;right:20px;top:20px;font-size:12px;color:#fff9;pointer-events:none;text-shadow:0 1px 3px #000}.ex-document{background:var(--bg);border:1px solid var(--ln);border-radius:16px;overflow:hidden;min-height:65vh;margin-bottom:16px}.ex-document iframe{width:100%;height:75vh;border:0}.ex-document:fullscreen{border-radius:0;background:white;width:100%;height:100%}.ex-document:fullscreen iframe{height:100vh}.ex-video-frame:fullscreen{border-radius:0;width:100%;height:100%;display:flex;flex-direction:column}.ex-video-frame:fullscreen .ex-video-stage{flex:1;min-height:0;aspect-ratio:auto}.ex-video-frame:fullscreen video{object-fit:contain}.ex-video-frame:fullscreen .ex-video-controls{flex:none}
+.ex-youtube iframe{width:100% !important;height:100% !important;display:block;pointer-events:none !important;transform:scale(1.10);transform-origin:center center}
+.ex-video-click-shield{position:absolute;inset:0;z-index:20;cursor:pointer;background:transparent}.ex-video-controls{padding:8px 14px;background:#121524}.ex-video-controls>input{width:100%;accent-color:#8b80f5}.ex-video-controls .ex-icon{color:white}.ex-video-controls select{background:#25283b;color:white;border-radius:6px;padding:4px}.ex-video-controls input{accent-color:#8b80f5}.ex-volume{font-size:10px;display:flex;align-items:center;gap:5px}.ex-volume input{width:65px}.ex-player-card{margin-top:14px}.ex-course-videos{align-self:start;max-height:84vh;overflow:auto}.ex-course-videos summary{font-weight:700;padding:10px 0;cursor:pointer}.ex-current-video{background:var(--pr2);border-color:var(--pr);color:var(--pr)}.ex-comment{padding:14px 0;border-bottom:1px solid var(--ln)}.ex-comment small{display:block;color:var(--mu);font-size:11px}.ex-comment p{white-space:pre-wrap;margin:8px 0}.ex-watermark{position:absolute;right:20px;top:20px;font-size:12px;color:#fff9;pointer-events:none;text-shadow:0 1px 3px #000}.ex-document{background:var(--bg);border:1px solid var(--ln);border-radius:16px;overflow:hidden;min-height:65vh;margin-bottom:16px}.ex-document iframe{width:100%;height:75vh;border:0}.ex-document:fullscreen{border-radius:0;background:white;width:100%;height:100%}.ex-document:fullscreen iframe{height:100vh}.ex-video-frame:fullscreen{border-radius:0;width:100%;height:100%;display:flex;flex-direction:column}.ex-video-frame:fullscreen .ex-video-stage{flex:1;min-height:0;aspect-ratio:auto}.ex-video-frame:fullscreen video{object-fit:contain}.ex-video-frame:fullscreen .ex-video-controls{flex:none}
 @media(max-width:1050px){.ex-player-grid{grid-template-columns:minmax(0,1fr)}.ex-course-videos{max-height:500px}}@media(max-width:480px){.ex-volume{display:none}.ex-video-controls .ex-toolbar{gap:2px}.ex-video-controls .ex-icon{padding:6px}}
 /* Video browsing: real thumbnails, consistent media proportions and readable titles. */
 .batch-prototype .ex-video-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 0 12px}
@@ -201,6 +201,22 @@
 .ex-shell[data-theme=dark] .bg-red-50,
 .ex-shell[data-theme=dark] .bg-red-50\/20 {
   background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.ex-shell[data-theme=dark] .bg-purple-50,
+.ex-shell[data-theme=dark] .bg-purple-100 {
+  background-color: rgba(147, 51, 234, 0.18) !important;
+  color: #C084FC !important;
+}
+.ex-shell[data-theme=dark] .text-purple-700,
+.ex-shell[data-theme=dark] .text-purple-800,
+.ex-shell[data-theme=dark] .text-purple-900 {
+  color: #C084FC !important;
+}
+.ex-shell[data-theme=dark] .border-purple-200,
+.ex-shell[data-theme=dark] .border-purple-300,
+.ex-shell[data-theme=dark] .border-purple-400 {
+  border-color: #7E22CE !important;
 }
 
 /* Card view responsiveness on mobile */

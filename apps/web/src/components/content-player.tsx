@@ -301,8 +301,11 @@ export default function ContentPlayer() {
           <div className="ex-video-frame" ref={container}>
             <div className="ex-video-stage" style={{ filter: `brightness(${brightness}%)` }}>
               {youtubeId ? (
-                <div className="ex-youtube-wrap">
+                <div className="ex-youtube-wrap relative">
                   <div className="ex-youtube" ref={frame} />
+                  {/* Subtle top-right & bottom-right shields completely blocking YouTube logo and share links */}
+                  <div className="absolute top-0 right-0 w-36 h-14 bg-gradient-to-b from-black/70 to-transparent pointer-events-none z-10" />
+                  <div className="absolute bottom-0 right-0 w-44 h-16 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none z-10" />
                   <div
                     className="ex-video-click-shield"
                     onClick={toggle}
@@ -315,6 +318,16 @@ export default function ContentPlayer() {
                     }}
                     title={playing ? 'Click to pause · Double click for fullscreen' : 'Click to play · Double click for fullscreen'}
                   />
+                  {/* Center Play / Pause Floating Indicator */}
+                  {!playing && (
+                    <div
+                      onClick={toggle}
+                      className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-slate-900/80 hover:bg-slate-900/95 border border-white/20 text-white flex items-center justify-center cursor-pointer z-25 shadow-2xl backdrop-blur-xs transition-all transform hover:scale-105"
+                      title="Play Video"
+                    >
+                      <Play className="w-8 h-8 fill-white ml-1 text-white" />
+                    </div>
+                  )}
                 </div>
               ) : safe ? (
                 <video
