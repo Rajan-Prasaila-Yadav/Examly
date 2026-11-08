@@ -105,33 +105,30 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           select: { batchId: true },
         });
 
-        if (studentProfile?.batchId) {
-          const batches = await fastify.prisma.batch.findMany({
-            where: {
-              id: studentProfile.batchId,
-              status: RecordStatus.ACTIVE,
-              instituteId: user.instituteId,
-              ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
-            },
-            include: {
-              subjects: {
-                where: { status: RecordStatus.ACTIVE },
-                include: {
-                  _count: { select: { lessons: true } },
-                },
-                orderBy: { sortOrder: 'asc' },
+        const batches = await fastify.prisma.batch.findMany({
+          where: {
+            ...(studentProfile?.batchId ? { id: studentProfile.batchId } : {}),
+            status: RecordStatus.ACTIVE,
+            instituteId: user.instituteId,
+            ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
+          },
+          include: {
+            subjects: {
+              where: { status: RecordStatus.ACTIVE },
+              include: {
+                _count: { select: { lessons: true } },
               },
-              tests: {
-                where: { status: RecordStatus.ACTIVE, isPublished: true },
-                select: { id: true, isPublished: true, status: true },
-              },
-              _count: { select: { students: true, faculty: {where:{user:{status:{not:RecordStatus.DELETED}}}} } },
+              orderBy: { sortOrder: 'asc' },
             },
-            orderBy: { sortOrder: 'asc' },
-          });
-          return batches;
-        }
-        return [];
+            tests: {
+              where: { status: RecordStatus.ACTIVE, isPublished: true },
+              select: { id: true, isPublished: true, status: true },
+            },
+            _count: { select: { students: true, faculty: {where:{user:{status:{not:RecordStatus.DELETED}}}} } },
+          },
+          orderBy: { sortOrder: 'asc' },
+        });
+        return batches;
       }
 
       const where: any = {
@@ -141,7 +138,6 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
       if (user.roleCode !== RoleType.SUPER_ADMIN) where.instituteId = user.instituteId;
       else if (query.instituteId) where.instituteId = query.instituteId;
       if (user.roleCode === RoleType.TEACHER) {
-        where.faculty = {some:{userId:user.userId}};
         where.status = RecordStatus.ACTIVE;
       }
 

@@ -15,7 +15,7 @@ export const batchWorkspaceRoutes: FastifyPluginAsync = async app => {
   const u=request.user; const id=request.params.id;
   const b=await db.batch.findFirst({where:{id,status:{not:'DELETED'},...(u.roleCode==='SUPER_ADMIN'?{}:{instituteId:u.instituteId||'__none__'})}});
   if(!b) return fail('Batch not found',404);
-  if(u.roleCode==='TEACHER'&&!await db.batchFaculty.findUnique({where:{batchId_userId:{batchId:id,userId:u.userId}}}))return fail('Batch not assigned',404);
+  if(u.roleCode==='TEACHER'&&write&&!await db.batchFaculty.findUnique({where:{batchId_userId:{batchId:id,userId:u.userId}}}))return fail('Batch not assigned',404);
   if(u.roleCode==='STUDENT') {
    if(write) return fail('Read-only access',403);
    const s=await db.studentProfile.findUnique({where:{userId:u.userId}});

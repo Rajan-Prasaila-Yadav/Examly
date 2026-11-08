@@ -13,12 +13,16 @@ export function installTestAccess(app:FastifyInstance){
    if(!id)return reply.code(404).send({message:'Test not found'});
    let test=await app.prisma.test.findFirst({where:{id,status:{not:'DELETED'},...(u.roleCode==='SUPER_ADMIN'?{}:{instituteId:u.instituteId||'__none__'})},include:{config:true,_count:{select:{attempts:true}}}});
    if(!test)return reply.code(404).send({message:'Test not found'});
-   if(u.roleCode==='TEACHER'&&test.batchId&&!await app.prisma.batchFaculty.findUnique({where:{batchId_userId:{batchId:test.batchId,userId:u.userId}}}))return reply.code(404).send({message:'Test not available for this assignment'});
+   if(u.roleCode==='TEACHER'&&test.instituteId!==u.instituteId&&u.roleCode!=='SUPER_ADMIN')return reply.code(404).send({message:'Test not found'});
    if(test.testStatus==='SCHEDULED'&&test.publishAt&&+test.publishAt<=Date.now()){await app.prisma.test.update({where:{id},data:{testStatus:'LIVE',isPublished:true}});test={...test,testStatus:'LIVE',isPublished:true};}
    request.examlyTest=test;
    if(u.roleCode==='STUDENT'){
     const profile=await app.prisma.studentProfile.findUnique({where:{userId:u.userId},select:{batchId:true,batch:{select:{status:true}}}});
-    if(!test.batchId||test.batchId!==profile?.batchId||profile?.batch?.status!=='ACTIVE'||test.status!=='ACTIVE'||!test.isPublished)return reply.code(404).send({message:'Test not available for this enrollment'});
+    if(test.status!=='ACTIVE'||!test.isPublished)return reply.code(404).send({message:'Test not available for this enrollment'});
+    if(test.batchId&&profile?.batchId&&test.batchId!==profile.batchId){
+      const match=await app.prisma.subject.findFirst({where:{batchId:profile.batchId,OR:[{id:test.subjectId||'__none__'},{copiedFromId:test.subjectId||'__none__'}]}});
+      if(!match)return reply.code(404).send({message:'Test not available for this enrollment'});
+    }
     if((url.endsWith('/result')||url.endsWith('/leaderboard'))&&!resultVisible(test,!!attempt?.result?.publishedAt))return reply.code(403).send({message:'Results have not been released yet'});
     if(url==='/api/v1/tests/:id'&&Date.now()<+test.startDateTime)return reply.code(403).send({message:'Test has not started yet'});
    }else if(request.method!=='GET'&&test._count.attempts&&(/\/questions|\/sections/.test(url)||request.method==='PUT'&&url==='/api/v1/tests/:id'))return reply.code(409).send({message:'Questions and scoring settings are locked after attempts begin'});
