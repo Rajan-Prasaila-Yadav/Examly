@@ -98,6 +98,162 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
     return fastify.prisma.test.update({ where: { id }, data: { ...body.data, startDateTime: body.data.startDateTime ? start : undefined, endDateTime: body.data.endDateTime ? end : undefined } });
   });
 
+  // PUT /api/v1/tests/:id/full (Complete 4-Step Test Edit)
+  fastify.put(
+    '/api/v1/tests/:id/full',
+    {
+      preHandler: [fastify.authenticate, requirePermission('tests', 'update')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const user = request.user!;
+
+      const existing = await fastify.prisma.test.findFirst({
+        where: {
+          id,
+          status: { not: RecordStatus.DELETED },
+          ...(user.roleCode === RoleType.SUPER_ADMIN ? {} : { instituteId: user.instituteId || '__none__' }),
+        },
+        include: { _count: { select: { attempts: true } } },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ statusCode: 404, message: 'Test not found' });
+      }
+
+      const body = request.body as any;
+      const {
+        title,
+        description,
+        totalMarks,
+        passMarks,
+        durationMinutes,
+        negativeMarkRate,
+        startDateTime,
+        endDateTime,
+        batchId,
+        subjectId,
+        lessonId,
+        testType,
+        isPublished,
+        testStatus,
+        config,
+        sections = [],
+        questions = [],
+      } = body;
+
+      const start = startDateTime ? new Date(startDateTime) : existing.startDateTime;
+      const end = endDateTime ? new Date(endDateTime) : existing.endDateTime;
+
+      await fastify.prisma.$transaction(async (tx) => {
+        // 1. Update Test fields
+        await tx.test.update({
+          where: { id },
+          data: {
+            title: title || undefined,
+            description: description !== undefined ? description : undefined,
+            totalMarks: totalMarks !== undefined ? Number(totalMarks) : undefined,
+            passMarks: passMarks !== undefined ? Number(passMarks) : undefined,
+            durationMinutes: durationMinutes !== undefined ? Number(durationMinutes) : undefined,
+            negativeMarkRate: negativeMarkRate !== undefined ? Number(negativeMarkRate) : undefined,
+            startDateTime: start,
+            endDateTime: end,
+            batchId: batchId || null,
+            subjectId: subjectId || null,
+            lessonId: lessonId || null,
+            testType: testType || undefined,
+            isPublished: isPublished !== undefined ? Boolean(isPublished) : undefined,
+            testStatus: testStatus || undefined,
+          },
+        });
+
+        // 2. Upsert Config
+        if (config) {
+          const configData = {
+            shuffleQuestions: Boolean(config.shuffleQuestions),
+            shuffleOptions: Boolean(config.shuffleOptions),
+            allowLateJoin: Boolean(config.allowLateJoin),
+            lateJoinGraceMins: Number(config.lateJoinGraceMins) || 0,
+            antiCheatLevel: Number(config.antiCheatLevel) || 3,
+            submitUnlockDelayMins: Number(config.submitUnlockDelayMins) || 0,
+            questionsPerScreen: Number(config.questionsPerScreen) || 1,
+            oneQuestionAtATime: Boolean(config.oneQuestionAtATime),
+            publishMode: config.publishMode || 'IMMEDIATE',
+            publishDateTime: config.publishDateTime ? new Date(config.publishDateTime) : null,
+          };
+          await tx.testConfig.upsert({
+            where: { testId: id },
+            create: { ...configData, testId: id },
+            update: configData,
+          });
+        }
+
+        // 3. Sections & Questions (only replace if no student attempts have started, ensuring zero data loss)
+        if (existing._count.attempts === 0 && sections.length > 0) {
+          await tx.section.deleteMany({ where: { testId: id } });
+
+          const sectionIdMap = new Map<string, string>();
+          for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            const sec = sections[sIdx];
+            const createdSec = await tx.section.create({
+              data: {
+                testId: id,
+                name: sec.name || `Section ${sIdx + 1}`,
+                sortOrder: sec.sortOrder ?? sIdx + 1,
+              },
+            });
+            if (sec.id) sectionIdMap.set(sec.id, createdSec.id);
+            sectionIdMap.set(`idx_${sIdx}`, createdSec.id);
+          }
+
+          for (let qIdx = 0; qIdx < questions.length; qIdx++) {
+            const q = questions[qIdx];
+            const targetSectionId = (q.sectionId && sectionIdMap.get(q.sectionId)) || Array.from(sectionIdMap.values())[0];
+            if (!targetSectionId) continue;
+
+            await tx.question.create({
+              data: {
+                sectionId: targetSectionId,
+                questionType: q.questionType || 'SINGLE_CORRECT',
+                contentHtml: q.contentHtml || '',
+                diagramUrl: q.diagramUrl || null,
+                marksPositive: q.marksPositive != null ? Number(q.marksPositive) : 4,
+                marksNegative: q.marksNegative != null ? Number(q.marksNegative) : 1,
+                sortOrder: qIdx + 1,
+                options: {
+                  create: (q.options || []).map((o: any, oIdx: number) => ({
+                    optionLabel: o.optionLabel || String.fromCharCode(65 + oIdx),
+                    contentHtml: o.contentHtml || '',
+                    isCorrect: Boolean(o.isCorrect),
+                    sortOrder: oIdx,
+                  })),
+                },
+                ...(q.hint || q.shortExplanation || q.stepByStepSolution
+                  ? {
+                      solution: {
+                        create: {
+                          hintHtml: q.hint || null,
+                          shortExplanation: q.shortExplanation || null,
+                          stepByStepHtml: q.stepByStepSolution || null,
+                        },
+                      },
+                    }
+                  : {}),
+              },
+            });
+          }
+        }
+      });
+
+      fastify.cache.invalidateTag('tests');
+      fastify.cache.invalidate(`test:detail:${id}:true`);
+      fastify.cache.invalidate(`test:detail:${id}:false`);
+      fastify.cache.invalidate(`test:leaderboard:${id}`);
+
+      return { success: true, id };
+    },
+  );
+
   fastify.delete('/api/v1/tests/:id', { preHandler: [fastify.authenticate, requirePermission('tests', 'delete')] }, async (request, reply) => {
     const { id } = request.params as { id: string }; if (!await fastify.prisma.test.findUnique({ where: { id }, select: { id: true } })) return reply.status(404).send({ statusCode: 404, message: 'Test not found' }); await fastify.prisma.test.update({ where: { id }, data: { status: RecordStatus.DELETED, isPublished: false, testStatus: 'CLOSED' } }); return { success: true };
   });
@@ -236,6 +392,7 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
                       marksNegative: true,
                       diagramUrl: true,
                       sortOrder: true,
+                      solution: !isStudent ? { select: { hintHtml: true, shortExplanation: true, stepByStepHtml: true } } : false,
                       options: {
                         select: {
                           id: true,

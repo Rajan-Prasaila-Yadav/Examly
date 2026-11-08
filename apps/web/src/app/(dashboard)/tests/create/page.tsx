@@ -111,10 +111,13 @@ function formatPrettyDateTime(dateStr: string, timeStr: string): string {
 function CreateTestWizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const paramTestId = searchParams.get('testId') || '';
   const paramBatchId = searchParams.get('batchId') || '';
   const paramSubjectId = searchParams.get('subjectId') || '';
   const paramLessonId = searchParams.get('lessonId') || '';
   const paramScope = (searchParams.get('scope') as any) || '';
+  const isEditing = Boolean(paramTestId);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(Boolean(paramTestId));
 
   const { user } = useAuth();
   const isStudent =
@@ -209,7 +212,90 @@ function CreateTestWizardContent() {
         const bList = batchesRes.data || [];
         setBatches(bList);
 
-        if (paramLessonId) {
+        if (paramTestId) {
+          try {
+            const testRes = await api.get(`/tests/${paramTestId}`);
+            const t = testRes.data;
+            if (t) {
+              setTitle(t.title || '');
+              setDescription(t.description || '');
+              setDurationMinutes(t.durationMinutes || 60);
+              setPositiveMarkRate(t.positiveMarkRate || 4.0);
+              setNegativeMarkRate(t.negativeMarkRate !== undefined ? t.negativeMarkRate : 1.0);
+              setIsNegativeEnabled((t.negativeMarkRate || 0) > 0);
+              setPassMarks(t.passMarks || 40);
+              if (t.startDateTime) {
+                const sDate = new Date(t.startDateTime);
+                setStartDate(toLocalDateInput(sDate));
+                setStartTime(toLocalTimeInput(sDate));
+              }
+              if (t.endDateTime) {
+                const eDate = new Date(t.endDateTime);
+                setEndDate(toLocalDateInput(eDate));
+                setEndTime(toLocalTimeInput(eDate));
+              }
+              if (t.batchId) setBatchId(t.batchId);
+              if (t.subjectId) setSubjectId(t.subjectId);
+              if (t.lessonId) setLessonId(t.lessonId);
+              if (t.testType) setTestScope(t.testType);
+
+              if (t.config) {
+                setShuffleQuestions(t.config.shuffleQuestions ?? true);
+                setShuffleOptions(t.config.shuffleOptions ?? true);
+                setAntiCheatLevel(t.config.antiCheatLevel ?? 3);
+                setSubmitUnlockMinutes(t.config.submitUnlockDelayMins ?? 0);
+                setQuestionsPerScreen(t.config.oneQuestionAtATime ? '1 at a time' : String(t.config.questionsPerScreen || 1));
+                setResultPublishMode(t.config.publishMode || 'AFTER_TEST_END');
+              }
+
+              if (t.sections && t.sections.length > 0) {
+                const loadedSections = t.sections.map((s: any) => ({
+                  id: s.id,
+                  name: s.name,
+                  targetCount: s.questions?.length || 0,
+                }));
+                setSections(loadedSections);
+
+                const loadedSlots: QuestionSlot[] = [];
+                t.sections.forEach((sec: any) => {
+                  (sec.questions || []).forEach((q: any) => {
+                    loadedSlots.push({
+                      id: q.id,
+                      sectionId: sec.id,
+                      questionType: q.questionType || 'SINGLE_CORRECT',
+                      contentHtml: q.contentHtml || '',
+                      diagramUrl: q.diagramUrl || '',
+                      marksPositive: q.marksPositive ?? 4,
+                      marksNegative: q.marksNegative ?? 1,
+                      options: (q.options || []).map((o: any, idx: number) => ({
+                        id: o.id,
+                        optionLabel: o.optionLabel || String.fromCharCode(65 + idx),
+                        contentHtml: o.contentHtml || '',
+                        isCorrect: Boolean(o.isCorrect),
+                      })),
+                      hint: q.solution?.hintHtml || '',
+                      shortExplanation: q.solution?.shortExplanation || '',
+                      stepByStepSolution: q.solution?.stepByStepHtml || '',
+                      status: 'FILLED',
+                    });
+                  });
+                });
+                if (loadedSlots.length > 0) {
+                  setSlots(loadedSlots);
+                  setTotalQuestions(loadedSlots.length);
+                }
+              }
+
+              if (t.isPublished) setPublishAction('INSTANT');
+              else if (t.testStatus === 'SCHEDULED') setPublishAction('SCHEDULED');
+              else setPublishAction('DRAFT');
+            }
+          } catch (e) {
+            console.error('Failed to load test for editing', e);
+          } finally {
+            setIsLoadingExisting(false);
+          }
+        } else if (paramLessonId) {
           setLessonId(paramLessonId);
           setTestScope('LESSON_LEVEL');
           const lessonRes = await api.get(`/lessons/${paramLessonId}`);
@@ -590,26 +676,47 @@ function CreateTestWizardContent() {
         })),
       };
 
-      const res = await api.post('/tests', payload, { timeout: 60000 });
-      try {
-        localStorage.removeItem('examly_test_creation_wizard_draft');
-      } catch {}
-      invalidateApiCache('/batches');
-      invalidateApiCache('/tests');
-      invalidateApiCache('/content');
-      router.push(`/tests/${res.data.id}`);
+      if (isEditing && paramTestId) {
+        await api.put(`/tests/${paramTestId}/full`, payload, { timeout: 60000 });
+        try {
+          localStorage.removeItem('examly_test_creation_wizard_draft');
+        } catch {}
+        invalidateApiCache('/batches');
+        invalidateApiCache('/tests');
+        invalidateApiCache('/content');
+        router.push(`/tests/${paramTestId}`);
+      } else {
+        const res = await api.post('/tests', payload, { timeout: 60000 });
+        try {
+          localStorage.removeItem('examly_test_creation_wizard_draft');
+        } catch {}
+        invalidateApiCache('/batches');
+        invalidateApiCache('/tests');
+        invalidateApiCache('/content');
+        router.push(`/tests/${res.data.id}`);
+      }
     } catch (e: any) {
       const msg = e.response?.data?.message;
-      const errorText = Array.isArray(msg) ? msg.join('; ') : (msg || e.message || 'Failed to create test');
-      alert(`Test creation notice: ${errorText}`);
+      const errorText = Array.isArray(msg) ? msg.join('; ') : (msg || e.message || 'Failed to save test');
+      alert(`Test notice: ${errorText}`);
       setIsSubmitting(false);
     }
   };
 
+  if (isLoadingExisting) {
+    return (
+      <div className="max-w-5xl mx-auto py-24 text-center space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto" />
+        <h2 className="text-base font-bold text-slate-900">Loading Examination Settings…</h2>
+        <p className="text-xs text-slate-500">Preparing all sections, questions, and proctoring rules for editing.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Draft Recovery Banner */}
-      {draftBannerVisible && (
+      {!isEditing && draftBannerVisible && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-xs text-amber-900 shadow-sm animate-in fade-in">
           <div className="flex items-center gap-2 font-medium">
             <span className="text-base">📝</span>
@@ -627,21 +734,25 @@ function CreateTestWizardContent() {
       {/* Header */}
       <div>
         <Link
-          href="/tests/builder"
+          href={isEditing ? `/tests/${paramTestId}` : '/tests/builder'}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors mb-3"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Test Suite
+          <ArrowLeft className="w-3.5 h-3.5" /> {isEditing ? 'Back to Test Details' : 'Back to Test Suite'}
         </Link>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <span className="px-2.5 py-0.5 rounded-lg bg-brand-50 text-brand-700 text-[11px] font-bold border border-brand-200/60 inline-flex items-center gap-1">
-                🎓 Context Auto-Detection Active
+                {isEditing ? `✏️ Editing Test: ${title || 'Examination'}` : '🎓 Context Auto-Detection Active'}
               </span>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-1.5">Create Examination Wizard</h1>
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight mt-1.5">
+                {isEditing ? 'Edit Examination Wizard' : 'Create Examination Wizard'}
+              </h1>
               <p className="text-xs text-slate-500">
-                Configure test settings, anti-cheat proctoring rules, and author questions with live LaTeX math formula preview.
+                {isEditing
+                  ? 'Update test settings, anti-cheat proctoring rules, and author/edit questions across each tab until finalized.'
+                  : 'Configure test settings, anti-cheat proctoring rules, and author questions with live LaTeX math formula preview.'}
               </p>
             </div>
           </div>
@@ -1468,11 +1579,11 @@ function CreateTestWizardContent() {
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Creating & Launching Test... Please wait...</span>
+                  <span>{isEditing ? 'Updating Test Changes… Please wait…' : 'Creating & Launching Test... Please wait...'}</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" /> Launch Examination & Save Test
+                  <Sparkles className="w-4 h-4" /> {isEditing ? 'Update Examination & Save Changes' : 'Launch Examination & Save Test'}
                 </>
               )}
             </button>

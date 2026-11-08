@@ -580,12 +580,12 @@ export default function TestDetailPage() {
                     {test.isPublished ? 'Unpublish' : 'Publish Test Live'}
                   </button>
 
-                  <button
-                    onClick={() => setIsEditModalOpen(true)}
+                  <Link
+                    href={`/tests/create?testId=${test.id}`}
                     className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
                   >
-                    <Edit2 className="w-3.5 h-3.5" /> Edit
-                  </button>
+                    <Edit2 className="w-3.5 h-3.5" /> Edit Test
+                  </Link>
 
                   <button
                     onClick={() => setIsDeleteTestModalOpen(true)}
