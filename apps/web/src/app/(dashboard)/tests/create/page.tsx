@@ -4,7 +4,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, invalidateApiCache } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import {
   FileCheck2,
@@ -540,13 +540,19 @@ function CreateTestWizardContent() {
       const startDateTime = new Date(`${startDate}T${startTime}:00`);
       const endDateTime = new Date(`${endDate}T${endTime}:00`);
       const filled = authoredQuestions.filter(isSlotFilled);
+      const finalBatchId = batchId || (batches.length > 0 ? batches[0].id : undefined);
+      if (testScope === 'BATCH_LEVEL' && !finalBatchId) {
+        alert('Please select a batch to assign this test to.');
+        setIsSubmitting(false);
+        return;
+      }
 
       const payload = {
         title: title || 'Examination Mock Test',
         description,
-        batchId: batchId || undefined,
-        subjectId: testScope !== 'BATCH_LEVEL' ? subjectId : undefined,
-        lessonId: testScope === 'LESSON_LEVEL' ? lessonId : undefined,
+        batchId: finalBatchId,
+        subjectId: testScope !== 'BATCH_LEVEL' ? (subjectId || undefined) : undefined,
+        lessonId: testScope === 'LESSON_LEVEL' ? (lessonId || undefined) : undefined,
         testType: testScope,
         totalMarks: Number(totalCalculatedMarks),
         passMarks: Number(calculatedPassMarks),
@@ -588,6 +594,9 @@ function CreateTestWizardContent() {
       try {
         localStorage.removeItem('examly_test_creation_wizard_draft');
       } catch {}
+      invalidateApiCache('/batches');
+      invalidateApiCache('/tests');
+      invalidateApiCache('/content');
       router.push(`/tests/${res.data.id}`);
     } catch (e: any) {
       const msg = e.response?.data?.message;

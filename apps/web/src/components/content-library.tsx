@@ -15,12 +15,16 @@ const bytes=(n:number)=>n?`${(n/1024/1024).toFixed(1)} MB`:'—';
 const title=(r:R)=>r.name||r.title;
 export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson'|'videos'|'notes'}){
  const params=useParams();const id=params.id as string;const router=useRouter();const {user}=useAuth();const role=typeof user?.role==='object'?(user.role as any)?.code:user?.role;const manage=['ADMIN','SUPER_ADMIN','TEACHER'].includes(role||'');
- const [rows,setRows]=useState<R[]>([]),[data,setData]=useState<R|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState('Lessons');
+ const path=view==='subject'?`/content/subjects/${id}`:view==='lesson'?`/content/lessons/${id}`:`/content/${view}`;
+ const initialCached = typeof window !== 'undefined' ? api.getCached<any>(path) : null;
+ const [rows,setRows]=useState<R[]>(()=>Array.isArray(initialCached)?initialCached:[]);
+ const [data,setData]=useState<R|null>(()=>Array.isArray(initialCached)?null:initialCached);
+ const [loading,setLoading]=useState(!initialCached);
+ const [error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState('Lessons');
  const [modal,setModal]=useState<R|null>(null),[form,setForm]=useState<R>({}),[busy,setBusy]=useState(false),[formError,setFormError]=useState(''),[library,setLibrary]=useState<R[]>([]),[lessons,setLessons]=useState<R[]>([]),[institutes,setInstitutes]=useState<R[]>([]),[batches,setBatches]=useState<R[]>([]),[selectedBatches,setSelectedBatches]=useState<string[]>([]),[scope,setScope]=useState(user?.role==='STUDENT'?'batch':'main');
  const [file,setFile]=useState<File|null>(null),[subtitle,setSubtitle]=useState<File|null>(null),[progress,setProgress]=useState(0);const uploadRef=useRef<XMLHttpRequest|null>(null);const version=useRef(0);
- const path=view==='subject'?`/content/subjects/${id}`:view==='lesson'?`/content/lessons/${id}`:`/content/${view}`;
- const load=async()=>{const v=++version.current;setError('');try{const r=await api.get(path,config);if(v!==version.current)return;if(Array.isArray(r.data))setRows(r.data);else setData(r.data);}catch(e){if(v===version.current)setError(message(e));}finally{if(v===version.current)setLoading(false);}};
- useEffect(()=>{setLoading(true);setData(null);setTab(view==='lesson'?'Videos':'Lessons');if(user?.role==='STUDENT')setScope('batch');load();const changed=()=>{invalidateApiCache(path);void load();};window.addEventListener('examly-data-changed',changed);return()=>{version.current++;window.removeEventListener('examly-data-changed',changed);};},[id,view,user?.id]);
+ const load=async()=>{const v=++version.current;setError('');try{const r=await api.get(path,config);if(v!==version.current)return;if(Array.isArray(r.data))setRows(r.data);else setData(r.data);}catch(e){if(v===version.current&&!rows.length&&!data)setError(message(e));}finally{if(v===version.current)setLoading(false);}};
+ useEffect(()=>{const cached=api.getCached<any>(path);if(cached){if(Array.isArray(cached))setRows(cached);else setData(cached);setLoading(false);}else setLoading(true);setTab(view==='lesson'?'Videos':'Lessons');if(user?.role==='STUDENT')setScope('batch');load();const changed=()=>{invalidateApiCache(path);void load();};window.addEventListener('examly-data-changed',changed);return()=>{version.current++;window.removeEventListener('examly-data-changed',changed);};},[id,view,user?.id]);
  const close=()=>{if(!busy)setModal(null);};
  const open=async(kind:string,record:R={})=>{setFormError('');setFile(null);setSubtitle(null);setProgress(0);setModal({kind,record});setForm({name:'',code:'',description:'',iconUrl:'📚',title:'',videoUrl:'',fileUrl:'',provider:'YOUTUBE',allowDownload:false,watermark:true,status:'ACTIVE',subjectId:view==='subject'?id:view==='lesson'?data?.subjectId:'',lessonId:view==='lesson'?id:'',...record});
   if(kind==='subjects'&&!record.id){try{const r=await api.get('/batches/options',config);setInstitutes(r.data.institutes);if(r.data.institutes.length===1)setForm(f=>({...f,instituteId:r.data.institutes[0].id}));}catch(e){setFormError(message(e));}}

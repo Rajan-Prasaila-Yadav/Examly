@@ -20,7 +20,7 @@ interface CacheEntry {
 
 const memoryCache = new Map<string, CacheEntry>();
 const inflightRequests = new Map<string, Promise<AxiosResponse<any>>>();
-const CACHE_TTL_MS = 60 * 1000; // Bounded per-session navigation cache
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fast navigation cache
 let cacheGeneration=0;
 let refreshRequest:Promise<any>|null=null;
 const SNAPSHOT_KEY='examly.navigation.v1';
@@ -28,10 +28,44 @@ let verifiedScope='';
 let scopeResolved=false;
 let resolveScope:()=>void;
 const scopeReady=new Promise<void>(resolve=>{resolveScope=resolve;});
-const persistable=(url:string)=>/^\/(batches(?:\/[^/]+(?:\/workspace)?)?|content\/(subjects|lessons|notes|videos)(?:\/[^/]+)?)$/.test(url) && !url.includes('/picker/');
+const persistable=(url:string)=>{
+  if(!url || url.includes('/picker/') || url.includes('/storage/presigned')) return false;
+  return /^\/(batches|content|tests|users|dashboard|subjects|lessons|videos|notes|analytics|auth\/me)(\/|\?|$)/.test(url);
+};
 function persistSnapshots(){
  if(!verifiedScope||typeof window==='undefined')return;
- try{const entries=[...memoryCache.entries()].filter(([key])=>key.endsWith(':'+verifiedScope)&&persistable(key.split(':')[1])).slice(-40).map(([key,r])=>[key,{data:r.data,status:r.status,statusText:r.statusText,headers:{},config:{},timestamp:r.timestamp}]);const text=JSON.stringify({scope:verifiedScope,savedAt:Date.now(),entries});if(text.length<2000000)localStorage.setItem(SNAPSHOT_KEY,text);}catch{}
+ try{
+   const entries=[...memoryCache.entries()]
+     .filter(([key])=>key.endsWith(':'+verifiedScope)&&persistable(key.split(':')[1]))
+     .slice(-100)
+     .map(([key,r])=>[key,{data:r.data,status:r.status,statusText:r.statusText,headers:{},config:{},timestamp:r.timestamp}]);
+   const text=JSON.stringify({scope:verifiedScope,savedAt:Date.now(),entries});
+   if(text.length<4500000)localStorage.setItem(SNAPSHOT_KEY,text);
+ }catch{}
+}
+export function getCached<T = any>(url: string, params?: any): T | null {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('examly_access_token') || '';
+  const cacheKey = `GET:${url}:${JSON.stringify(params || {})}:${verifiedScope || token}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS * 2)) {
+    return cached.data as T;
+  }
+  return null;
+}
+export function setCached<T = any>(url: string, data: T, params?: any): void {
+  if (typeof window === 'undefined') return;
+  const token = localStorage.getItem('examly_access_token') || '';
+  const cacheKey = `GET:${url}:${JSON.stringify(params || {})}:${verifiedScope || token}`;
+  memoryCache.set(cacheKey, {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: {},
+    timestamp: Date.now()
+  });
+  if (persistable(url)) persistSnapshots();
 }
 export function setApiCacheScope(userId?:string,version?:string){
  const next=userId&&version?`${userId}@${version}`:'';
@@ -184,6 +218,8 @@ export const api = {
   },
 
   invalidateCache: invalidateApiCache,
+  getCached,
+  setCached,
 };
 
 export default api;

@@ -38,7 +38,16 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
     let subject = data.subjectId ? await fastify.prisma.subject.findFirst({where:{id:data.subjectId,status:{not:RecordStatus.DELETED}},include:{batch:true}}) : null;
     if(data.lessonId){const lesson=await fastify.prisma.lesson.findFirst({where:{id:data.lessonId,status:{not:RecordStatus.DELETED}},include:{subject:{include:{batch:true}}}});if(!lesson || (data.subjectId&&data.subjectId!==lesson.subjectId))return reply.code(400).send({message:'Lesson and subject do not match'});subject=lesson.subject;data.subjectId=subject.id;}
     const batch = data.batchId ? await fastify.prisma.batch.findFirst({where:{id:data.batchId,status:{not:RecordStatus.DELETED}}}) : subject?.batch;
-    if((data.subjectId&&!subject)||(data.batchId&&!batch)||(subject&&data.batchId&&subject.batchId!==data.batchId))return reply.code(400).send({message:'Test scope is inconsistent'});
+    if((data.subjectId&&!subject)||(data.batchId&&!batch))return reply.code(400).send({message:'Test scope is inconsistent'});
+    if(subject && data.batchId && subject.batchId && subject.batchId !== data.batchId) {
+      const batchSubject = await fastify.prisma.subject.findFirst({where:{batchId:data.batchId,OR:[{id:subject.id},{copiedFromId:subject.id}],status:{not:RecordStatus.DELETED}}});
+      if(batchSubject) {
+        data.subjectId = batchSubject.id;
+        subject = batchSubject;
+      } else {
+        return reply.code(400).send({message:'Selected subject does not belong to the selected batch'});
+      }
+    }
     const instituteId = batch?.instituteId || subject?.instituteId || user.instituteId;
     if(user.roleCode!==RoleType.SUPER_ADMIN&&instituteId!==user.instituteId)return reply.code(403).send({message:'Test scope is outside your institute'});
     if(data.testType==='LESSON_LEVEL'&&!data.lessonId||data.testType==='SUBJECT_LEVEL'&&!subject||data.testType==='BATCH_LEVEL'&&!batch)return reply.code(400).send({message:'Select the required test scope'});

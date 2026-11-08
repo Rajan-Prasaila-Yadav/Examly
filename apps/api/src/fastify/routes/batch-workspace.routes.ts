@@ -36,11 +36,13 @@ export const batchWorkspaceRoutes: FastifyPluginAsync = async app => {
  app.get('/api/v1/batches/:id/workspace',read,async request=>{
   const batch=await access(request); const student=request.user!.roleCode==='STUDENT'; const manager=hasPermission(request.user,'batches','update')&&!student;
   const visible:any=student?{status:'ACTIVE'}:{status:{not:'DELETED'}};
-  const [subjects,faculty,students,tests,classes]=await Promise.all([
-   db.subject.findMany({where:{batchId:batch.id,...visible},orderBy:{sortOrder:'asc'},include:{lessons:{where:visible,orderBy:{sortOrder:'asc'},include:{videos:{where:visible,orderBy:{sortOrder:'asc'}},notes:{where:visible,orderBy:{sortOrder:'asc'}},_count:{select:{tests:{where:{status:{not:'DELETED'}}}}}}}}}),
+  const subjects=await db.subject.findMany({where:{batchId:batch.id,...visible},orderBy:{sortOrder:'asc'},include:{lessons:{where:visible,orderBy:{sortOrder:'asc'},include:{videos:{where:visible,orderBy:{sortOrder:'asc'}},notes:{where:visible,orderBy:{sortOrder:'asc'}},_count:{select:{tests:{where:{status:{not:'DELETED'}}}}}}}}});
+  const allSubIds=[...new Set([...subjects.map(s=>s.id),...subjects.map(s=>s.copiedFromId).filter((x):x is string=>Boolean(x))])];
+  const allLesIds=[...new Set([...subjects.flatMap(s=>s.lessons.map(l=>l.id)),...subjects.flatMap(s=>s.lessons.map(l=>l.copiedFromId)).filter((x):x is string=>Boolean(x))])];
+  const [faculty,students,tests,classes]=await Promise.all([
    db.batchFaculty.findMany({where:{batchId:batch.id,user:{status:{not:'DELETED'}}},include:{user:{select:{...person,teacherProfile:true}}}}),
    student?Promise.resolve([]):db.studentProfile.findMany({where:{batchId:batch.id,user:{status:{not:'DELETED'}}},include:{user:{select:person}}}),
-   db.test.findMany({where:{batchId:batch.id,...visible,...(student?{isPublished:true}:{})},select:{id:true,title:true,testType:true,status:true,testStatus:true,isPublished:true,subjectId:true,lessonId:true,startDateTime:true,endDateTime:true,durationMinutes:true,totalMarks:true,_count:{select:{attempts:true,sections:true}}},orderBy:{createdAt:'desc'}}),
+   db.test.findMany({where:{OR:[{batchId:batch.id},...(allSubIds.length?[{subjectId:{in:allSubIds}}]:[]),...(allLesIds.length?[{lessonId:{in:allLesIds}}]:[])],...visible,...(student?{isPublished:true}:{})},select:{id:true,title:true,testType:true,status:true,testStatus:true,isPublished:true,subjectId:true,lessonId:true,startDateTime:true,endDateTime:true,durationMinutes:true,totalMarks:true,_count:{select:{attempts:true,sections:true}}},orderBy:{createdAt:'desc'}}),
    db.batchClass.findMany({where:{batchId:batch.id,...(!manager?{status:{not:'Created'}}:{})},include:{subject:{select:{id:true,name:true}},teacher:{select:{id:true,fullName:true}},attendance:{where:student?{userId:request.user!.userId}:{}}},orderBy:[{date:'asc'},{startTime:'asc'}]})
   ]);
   const studentCount=await db.studentProfile.count({where:{batchId:batch.id,user:{status:{not:'DELETED'}}}});
