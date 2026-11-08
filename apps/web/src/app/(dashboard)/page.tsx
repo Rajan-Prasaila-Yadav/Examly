@@ -45,77 +45,206 @@ export default function DashboardOverviewPage() {
     (typeof user?.role === 'object' &&
       ((user.role as any)?.name === 'TEACHER' || (user.role as any)?.code === 'TEACHER'));
 
-  // Data States
-  const [batches, setBatches] = useState<any[]>([]);
-  const [tests, setTests] = useState<any[]>([]);
-  const [studentsCount, setStudentsCount] = useState<number>(0);
-  const [teachersCount, setTeachersCount] = useState<number>(0);
-  const [student360, setStudent360] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // ── High-Speed Instant-Hydrated Data States (0ms Initial Render) ──
+  const [batches, setBatches] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).batches || [];
+    } catch {}
+    return [];
+  });
+
+  const [tests, setTests] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).tests || [];
+    } catch {}
+    return [];
+  });
+
+  const [studentsCount, setStudentsCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).studentsCount || 0;
+    } catch {}
+    return 0;
+  });
+
+  const [teachersCount, setTeachersCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).teachersCount || 0;
+    } catch {}
+    return 0;
+  });
+
+  const [student360, setStudent360] = useState<any>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).student360 || null;
+    } catch {}
+    return null;
+  });
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) {
+        const d = JSON.parse(c);
+        if (d && (d.batches?.length > 0 || d.tests?.length > 0 || d.studentsCount > 0 || d.teachersCount > 0)) {
+          return false;
+        }
+      }
+    } catch {}
+    return true;
+  });
+
   const [batchError, setBatchError] = useState('');
 
   // Interactive UI Filters & Search
   const [batchSearch, setBatchSearch] = useState('');
   const [testFilter, setTestFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
 
+  // Persistence helper to keep next render at 0ms
+  const persistCache = (patch: Record<string, any>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const current = JSON.parse(localStorage.getItem('examly.dashboard.cache') || '{}');
+      const updated = { ...current, ...patch, updatedAt: Date.now() };
+      localStorage.setItem('examly.dashboard.cache', JSON.stringify(updated));
+    } catch {}
+  };
+
   useEffect(() => {
     if (!user?.id) return;
     let active = true;
-    let version = 0;
-    setBatches([]);
-    setTests([]);
-    setStudentsCount(0);
-    setTeachersCount(0);
-    setStudent360(null);
 
+    // Fast, non-blocking background fetcher: updates metrics as soon as each returns!
     const fetchData = async (force = false) => {
-      const current = ++version;
-      setIsLoading(true);
       setBatchError('');
-      const config = { bypassCache: force, timeout: 30000 };
+      const config = { bypassCache: force, timeout: 8000 };
 
-      const results = await Promise.allSettled([
-        api.get('/batches', config),
-        api.get('/tests', config),
-        !isStudent ? api.get('/users/students', config) : Promise.resolve({ data: [] }),
-        !isStudent ? api.get('/users/teachers', config) : Promise.resolve({ data: [] }),
-        isStudent ? api.get(`/users/students/${user.id}/360`, config) : Promise.resolve({ data: null }),
-      ]);
+      // 1. Fetch Batches (Fast parallel thread)
+      api
+        .get('/batches', config)
+        .then((res) => {
+          if (!active) return;
+          const data = res.data || [];
+          setBatches(data);
+          persistCache({ batches: data });
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          if (!active) return;
+          if (err?.response?.status === 403) {
+            setBatchError(
+              'Your role does not have permission to view batches. Ask your administrator to enable Batches: Read.',
+            );
+          }
+          setIsLoading(false);
+        });
 
-      if (!active || current !== version) return;
+      // 2. Fetch Tests (Fast parallel thread)
+      api
+        .get('/tests', config)
+        .then((res) => {
+          if (!active) return;
+          const data = res.data || [];
+          setTests(data);
+          persistCache({ tests: data });
+          setIsLoading(false);
+        })
+        .catch(() => {
+          if (!active) return;
+          setIsLoading(false);
+        });
 
-      const value = (i: number) =>
-        results[i].status === 'fulfilled' ? (results[i] as PromiseFulfilledResult<any>).value.data : null;
-
-      if (results[0].status === 'rejected') {
-        setBatchError(
-          (results[0] as PromiseRejectedResult).reason?.response?.status === 403
-            ? 'Your role does not have permission to view batches. Ask your administrator to enable Batches: Read.'
-            : 'Could not load your batches. Please retry.',
-        );
+      // 3. Fetch Metrics Summary (Student vs Admin/Teacher)
+      if (isStudent) {
+        api
+          .get('/dashboard/student', config)
+          .then((res) => {
+            if (!active) return;
+            setStudent360(res.data);
+            persistCache({ student360: res.data });
+            setIsLoading(false);
+          })
+          .catch(() => {
+            // Fallback to 360
+            api
+              .get(`/users/students/${user.id}/360`, config)
+              .then((res) => {
+                if (!active) return;
+                setStudent360(res.data);
+                persistCache({ student360: res.data });
+                setIsLoading(false);
+              })
+              .catch(() => {});
+          });
+      } else {
+        // First try ultra-fast single aggregate query /dashboard/admin
+        api
+          .get('/dashboard/admin', config)
+          .then((res) => {
+            if (!active) return;
+            const stats = res.data?.stats;
+            if (stats) {
+              const sCount = stats.totalStudents ?? 0;
+              const tCount = stats.totalTeachers ?? 0;
+              setStudentsCount(sCount);
+              setTeachersCount(tCount);
+              persistCache({ studentsCount: sCount, teachersCount: tCount });
+              setIsLoading(false);
+            }
+          })
+          .catch(() => {
+            // Fallback for roles without analytics: fast count query with limit=1
+            Promise.allSettled([
+              api.get('/users/students?limit=1', config),
+              api.get('/users/teachers', config),
+            ]).then(([sRes, tRes]) => {
+              if (!active) return;
+              if (sRes.status === 'fulfilled') {
+                const s = sRes.value.data;
+                const count = s?.meta?.total ?? s?.data?.length ?? (Array.isArray(s) ? s.length : 0);
+                setStudentsCount(count);
+                persistCache({ studentsCount: count });
+              }
+              if (tRes.status === 'fulfilled') {
+                const t = tRes.value.data;
+                const count = t?.meta?.total ?? (Array.isArray(t) ? t.length : t?.data?.length ?? 0);
+                setTeachersCount(count);
+                persistCache({ teachersCount: count });
+              }
+              setIsLoading(false);
+            });
+          });
       }
-
-      setBatches(value(0) || []);
-      setTests(value(1) || []);
-      setStudentsCount(value(2)?.length || 0);
-      setTeachersCount(value(3)?.length || 0);
-      setStudent360(value(4));
-      setIsLoading(false);
     };
 
-    const refresh = () => {
-      void fetchData(true);
+    // Initial background sync
+    void fetchData(false);
+
+    // Smooth revalidation without wiping UI state or showing skeletons
+    const backgroundRefresh = () => {
+      void fetchData(false);
     };
 
-    void fetchData();
-    window.addEventListener('focus', refresh);
-    window.addEventListener('examly-permissions-changed', refresh);
-    window.addEventListener('examly-refresh-dashboard', refresh);
+    window.addEventListener('focus', backgroundRefresh);
+    window.addEventListener('examly-permissions-changed', backgroundRefresh);
+    window.addEventListener('examly-refresh-dashboard', backgroundRefresh);
+
     return () => {
       active = false;
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('examly-permissions-changed', refresh);
-      window.removeEventListener('examly-refresh-dashboard', refresh);
+      window.removeEventListener('focus', backgroundRefresh);
+      window.removeEventListener('examly-permissions-changed', backgroundRefresh);
+      window.removeEventListener('examly-refresh-dashboard', backgroundRefresh);
     };
   }, [isStudent, user?.id]);
 

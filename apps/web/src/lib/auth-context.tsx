@@ -67,7 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem('examly_user');
       if (saved) {
-        setUser(normalizeUserRole(JSON.parse(saved)));
+        const u = normalizeUserRole(JSON.parse(saved));
+        setUser(u);
+        setApiCacheScope(u.id, u.cacheVersion);
+        setPermissions(u.permissions || []);
         setIsLoading(false);
       }
     } catch (e) {}
