@@ -12,14 +12,14 @@ export function Skeleton({ className = '' }: { className?: string }) {
 
 export function StatCardSkeleton() {
   return (
-    <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4 animate-pulse">
+    <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 shadow-xs space-y-4 animate-pulse">
       <div className="flex items-center justify-between">
-        <div className="h-3.5 w-24 bg-slate-200 rounded-md" />
-        <div className="w-10 h-10 rounded-xl bg-slate-200" />
+        <div className="h-3.5 w-24 bg-slate-200 dark:bg-[#1E222F] rounded-md" />
+        <div className="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-[#1E222F]" />
       </div>
       <div className="space-y-2">
-        <div className="h-7 w-16 bg-slate-200 rounded-lg" />
-        <div className="h-3 w-28 bg-slate-100 rounded-md" />
+        <div className="h-8 w-16 bg-slate-200 dark:bg-[#1E222F] rounded-lg" />
+        <div className="h-4 w-28 bg-slate-100 dark:bg-[#181B26] rounded-full" />
       </div>
     </div>
   );

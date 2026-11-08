@@ -204,30 +204,90 @@ export default function DashboardFeatureRail({
     </svg>
   );
 
-  // 7. Students & Faculty (Avatar Cluster with 5-Star Badge)
-  const RosterArt = (
+  // 7. Students (3D Student Avatar with Backpack, Notebook & ID Badge)
+  const StudentsArt = (
     <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+      <defs>
+        <linearGradient id="studentHoodie" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="50%" stopColor="#0EA5E9" />
+          <stop offset="100%" stopColor="#0284C7" />
+        </linearGradient>
+        <linearGradient id="backpackTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="100%" stopColor="#0F766E" />
+        </linearGradient>
+      </defs>
+      {/* Ground Shadow */}
       <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
-      <g transform="translate(50, 42)">
-        <circle cx="0" cy="-20" r="10" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="0" cy="-22" r="4" fill="#FEF3C7" />
-        <path d="M-6 -12 C-6 -17 6 -17 6 -12 Z" fill="#D97706" />
-        <circle cx="16" cy="-10" r="9" fill="#3B82F6" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="16" cy="-12" r="3.5" fill="#DBEAFE" />
-        <circle cx="0" cy="-2" r="14" fill="#06B6D4" stroke="#FFFFFF" strokeWidth="2.5" />
-        <circle cx="0" cy="-4" r="5.5" fill="#CFFAFE" />
-        <path d="M-9 9 C-9 3 9 3 9 9 Z" fill="#0891B2" />
-        <circle cx="-16" cy="14" r="9" fill="#EC4899" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="-16" cy="12" r="3.5" fill="#FCE7F3" />
-        <circle cx="0" cy="18" r="9.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="0" cy="16" r="3.5" fill="#FEE2E2" />
-        <circle cx="16" cy="16" r="9" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-        <circle cx="16" cy="14" r="3.5" fill="#D1FAE5" />
-      </g>
-      <g transform="translate(18, 42)">
-        <rect x="0" y="0" width="28" height="16" rx="8" fill="#FFFFFF" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.14))" />
-        <polygon points="7,4 8.5,8 13,8 9.5,10.5 11,14 7,11.5 3,14 4.5,10.5 1,8 5.5,8" fill="#FBBF24" />
-        <text x="19" y="12" fill="#1E293B" fontSize="10" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">5</text>
+      {/* Backpack visible on side */}
+      <rect x="22" y="34" width="16" height="32" rx="7" fill="url(#backpackTeal)" transform="rotate(-8 30 50)" />
+      {/* Student Torso / Hoodie */}
+      <path d="M28 72 C28 48 36 44 50 44 C64 44 72 48 72 72 Z" fill="url(#studentHoodie)" />
+      {/* Hoodie Collar V-Neck */}
+      <polygon points="50,56 42,44 58,44" fill="#0369A1" />
+      {/* Student Head */}
+      <circle cx="50" cy="30" r="14" fill="#FBBF24" />
+      {/* Hair / Cap */}
+      <path d="M36 28 C36 18 44 14 50 14 C56 14 64 18 64 28 C61 24 55 23 50 24 C45 23 39 24 36 28 Z" fill="#1E293B" />
+      {/* Headphones */}
+      <path d="M34 26 C34 16 66 16 66 26" stroke="#475569" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <rect x="32" y="24" width="4.5" height="9" rx="2" fill="#3B82F6" />
+      <rect x="63.5" y="24" width="4.5" height="9" rx="2" fill="#3B82F6" />
+      {/* Student ID Card Lanyard & Badge */}
+      <line x1="44" y1="56" x2="48" y2="65" stroke="#F43F5E" strokeWidth="1.5" />
+      <line x1="56" y1="56" x2="52" y2="65" stroke="#F43F5E" strokeWidth="1.5" />
+      <rect x="44" y="63" width="12" height="15" rx="2" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="0.8" />
+      <rect x="45.5" y="64.5" width="9" height="3" fill="#3B82F6" rx="0.5" />
+      <circle cx="50" cy="70" r="2" fill="#64748B" />
+      <line x1="46" y1="74" x2="54" y2="74" stroke="#94A3B8" strokeWidth="1" strokeLinecap="round" />
+      {/* Floating Sparkle Dot */}
+      <circle cx="76" cy="24" r="3" fill="#38BDF8" />
+    </svg>
+  );
+
+  // 8. Faculty (3D Professor / Lecturer with Podium, Glasses & Verified Badge)
+  const FacultyArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[84px] sm:h-[72px] drop-shadow-sm group-hover:scale-105 transition-transform">
+      <defs>
+        <linearGradient id="boardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1E293B" />
+          <stop offset="100%" stopColor="#0F172A" />
+        </linearGradient>
+        <linearGradient id="suitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4F46E5" />
+          <stop offset="100%" stopColor="#312E81" />
+        </linearGradient>
+        <linearGradient id="badgeGold" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="100%" stopColor="#D97706" />
+        </linearGradient>
+      </defs>
+      {/* Ground Shadow */}
+      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.22" />
+      {/* Classroom Whiteboard / Screen in Background */}
+      <rect x="18" y="14" width="64" height="40" rx="8" fill="url(#boardGrad)" stroke="#475569" strokeWidth="1.5" />
+      <line x1="24" y1="22" x2="42" y2="22" stroke="#60A5FA" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M24 30 L32 26 L40 33 L48 24" stroke="#34D399" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <text x="68" y="27" fill="#F59E0B" fontSize="9" fontWeight="800" fontFamily="sans-serif">f(x)</text>
+      {/* Professor Figure in Foreground */}
+      <path d="M34 74 C34 52 40 48 50 48 C60 48 66 52 66 74 Z" fill="url(#suitGrad)" />
+      {/* White Shirt Collar & Red Faculty Tie */}
+      <polygon points="50,56 46,48 54,48" fill="#FFFFFF" />
+      <polygon points="50,50 52,58 50,68 48,58" fill="#EF4444" />
+      {/* Head */}
+      <circle cx="50" cy="36" r="11" fill="#FDE68A" />
+      {/* Dark Hair / Parting */}
+      <path d="M40 33 C40 25 45 22 50 22 C55 22 60 25 60 33 C58 29 53 28 50 29 C47 28 42 29 40 33 Z" fill="#334155" />
+      {/* Eyeglasses */}
+      <circle cx="46" cy="36" r="3.2" fill="none" stroke="#0F172A" strokeWidth="1.2" />
+      <circle cx="54" cy="36" r="3.2" fill="none" stroke="#0F172A" strokeWidth="1.2" />
+      <line x1="49.2" y1="36" x2="50.8" y2="36" stroke="#0F172A" strokeWidth="1.2" />
+      {/* Verified Faculty Ribbon / Medal */}
+      <g transform="translate(64, 46)">
+        <polygon points="12,18 16,28 12,25 8,28" fill="#EF4444" />
+        <circle cx="12" cy="16" r="9" fill="url(#badgeGold)" stroke="#FFFFFF" strokeWidth="1.5" />
+        <path d="M9 16 L11 18 L15 13" stroke="#78350F" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
     </svg>
   );
@@ -359,7 +419,7 @@ export default function DashboardFeatureRail({
           id: 'students',
           title: 'Students',
           href: '/students',
-          art: RosterArt,
+          art: StudentsArt,
         },
         {
           id: 'videos',
@@ -403,13 +463,13 @@ export default function DashboardFeatureRail({
           id: 'students',
           title: 'Students',
           href: '/students',
-          art: RosterArt,
+          art: StudentsArt,
         },
         {
           id: 'faculty',
           title: 'Faculty',
           href: '/teachers',
-          art: RosterArt,
+          art: FacultyArt,
         },
         {
           id: 'discussions',
@@ -446,14 +506,14 @@ export default function DashboardFeatureRail({
           <Link
             key={item.id}
             href={item.href}
-            className="group relative flex flex-col items-center justify-between p-2 sm:p-3 rounded-[22px] sm:rounded-[30px] w-full sm:w-[130px] h-[130px] sm:h-[156px] sm:shrink-0 sm:snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#1D203C] dark:via-[#161830] dark:to-[#111224] border border-blue-100/70 dark:border-[#2A2E50] shadow-[0_2px_10px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_10px_22px_rgba(59,130,246,0.14)] dark:hover:shadow-[0_10px_22px_rgba(139,128,245,0.18)] hover:border-brand-400 dark:hover:border-brand-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
+            className="group relative flex flex-col items-center justify-between p-2 sm:p-3 rounded-[22px] sm:rounded-[30px] w-full sm:w-[130px] h-[130px] sm:h-[156px] sm:shrink-0 sm:snap-start bg-gradient-to-b from-[#F0F6FE] via-[#E8F2FD] to-[#DFEDFC] dark:from-[#181A26] dark:via-[#13151F] dark:to-[#0C0D14] border border-blue-100/70 dark:border-[#1E222F] shadow-[0_2px_10px_rgba(59,130,246,0.05)] dark:shadow-none hover:shadow-[0_10px_22px_rgba(59,130,246,0.14)] dark:hover:shadow-[0_10px_22px_rgba(0,0,0,0.6)] hover:border-brand-400 dark:hover:border-brand-500/80 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden text-center"
           >
             {/* Top-right subtle glossy shine curve */}
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/40 dark:bg-white/5 rounded-full blur-xs pointer-events-none" />
 
             {/* Top Title - NO Gemini/sparkle symbol */}
             <div className="w-full pt-1 px-1 z-10">
-              <h3 className="text-[12px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#F1F5F9] leading-tight text-center line-clamp-2">
+              <h3 className="text-[12px] sm:text-[13.5px] font-bold text-[#19243C] dark:text-[#FFFFFF] leading-tight text-center line-clamp-2">
                 {item.title}
               </h3>
             </div>
