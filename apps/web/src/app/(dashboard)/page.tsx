@@ -26,7 +26,6 @@ import {
   Trophy,
   ArrowUpRight,
   Upload,
-  Search,
   Star,
   ShieldCheck,
   Layers,
@@ -554,70 +553,8 @@ export default function DashboardOverviewPage() {
         </div>
       )}
 
-      {/* ── 1. CLEAN HUMAN-DESIGNED WELCOME BANNER & SEARCH ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-900 via-brand-800 to-indigo-950 dark:from-[#111226] dark:via-[#151733] dark:to-[#1B1D3D] p-6 sm:p-8 text-white shadow-md border border-brand-800/40 dark:border-[#2A2C4A]">
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-lg bg-white/10 dark:bg-white/5 border border-white/15 dark:border-white/10 text-brand-200 dark:text-brand-300 text-[11px] font-bold uppercase tracking-wider">
-              {user?.role ? user.role.replace('_', ' ') : 'Dashboard'}
-            </span>
-            <span className="text-xs text-slate-300 dark:text-slate-400">• Examly Examination System</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Welcome back, {user?.fullName || (isStudent ? 'Student' : isTeacher ? 'Instructor' : 'Administrator')}
-          </h1>
-
-          <p className="text-slate-300 dark:text-slate-300 text-xs sm:text-sm leading-relaxed max-w-2xl">
-            {isStudent
-              ? 'Track enrolled curriculum, attend video lectures, download notes, and take live CBT mock tests with instant step-by-step scorecards.'
-              : isTeacher
-              ? 'Author exam papers with LaTeX formulas, manage batch curricula, upload video lectures & chapter notes, and track student masteries.'
-              : 'Oversee institute batches, monitor live examination submissions, manage student and faculty directories, and configure access permissions.'}
-          </p>
-
-          {/* Clean Integrated Search Bar */}
-          <div className="pt-2">
-            <div className="relative max-w-lg">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={
-                  isStudent
-                    ? 'Search courses, examinations, lectures, notes...'
-                    : 'Search examination papers, batches, student rosters...'
-                }
-                className="w-full pl-10 pr-4 py-2.5 bg-white/10 dark:bg-[#101222] border border-white/20 dark:border-[#2E3154] rounded-xl text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 transition-all shadow-inner"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Ambient Subtle Accent Glow */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-brand-600/15 to-transparent pointer-events-none" />
-      </div>
-
-      {/* ── 2. QUICK CAPABILITIES LAUNCHPAD (DARK MODE SLEEK TILES) ── */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-            <Compass className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
-            Quick Capabilities Launchpad
-          </span>
-          <span className="text-slate-400 dark:text-slate-500 font-mono text-[11px]">Direct shortcuts</span>
-        </div>
-
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
+      {/* ── QUICK CAPABILITIES LAUNCHPAD ── */}
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
           {quickCategories.map((cat) => {
             const Icon = cat.icon;
             return (
@@ -640,7 +577,6 @@ export default function DashboardOverviewPage() {
               </Link>
             );
           })}
-        </div>
       </div>
 
       {/* ── 3. STAT METRICS CARDS ── */}
