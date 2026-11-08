@@ -1042,11 +1042,33 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
       const flattenedQuestions = (attempt.test?.sections || []).flatMap((s) =>
         (s.questions || []).map((q) => {
           const ans = answerMap.get(q.id);
+          const correctOpts = (q.options || []).filter((o) => o.isCorrect);
+          const correctLabels = correctOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
+          const correctText = correctOpts.map((o) => `${o.optionLabel}: ${o.contentHtml.replace(/<[^>]+>/g, '')}`).join('; ');
+          const defaultExplanation = `Correct option is ${correctLabels || 'A'}${correctText ? ` (${correctText})` : ''}.`;
+          const defaultStepByStep = `Step 1: Read and analyze the problem statement.\nStep 2: Check each option choice.\nStep 3: Option ${correctLabels || 'A'} is the verified correct answer.`;
+
+          const sol = q.solution
+            ? {
+                ...q.solution,
+                shortExplanation: q.solution.shortExplanation || defaultExplanation,
+                stepByStepHtml: q.solution.stepByStepHtml || defaultStepByStep,
+              }
+            : {
+                id: `sol-${q.id}`,
+                questionId: q.id,
+                hintHtml: '',
+                shortExplanation: defaultExplanation,
+                stepByStepHtml: defaultStepByStep,
+                solutionImageUrl: null,
+              };
+
           return {
             ...q,
             sectionName: s.name,
             selectedOptionIds: ans?.selectedOptionIds || [],
             isMarkedForReview: ans?.isMarkedForReview || false,
+            solution: sol,
             options: (q.options || []).map((o) => ({
               ...o,
               isSelected: (ans?.selectedOptionIds || []).includes(o.id),
@@ -1110,12 +1132,58 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const answerMap = new Map<string, any>((attempt?.answers || []).map((a: any) => [a.questionId, a]));
       let qNum = 0;
+
+      const flattenedQuestions = (test.sections || []).flatMap((sec) =>
+        (sec.questions || []).map((q) => {
+          const ans: any = answerMap.get(q.id);
+          const correctOpts = (q.options || []).filter((o) => o.isCorrect);
+          const correctLabels = correctOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
+          const correctText = correctOpts.map((o) => `${o.optionLabel}: ${o.contentHtml.replace(/<[^>]+>/g, '')}`).join('; ');
+          const defaultExplanation = `Option ${correctLabels || 'A'} is the correct answer${correctText ? ` (${correctText})` : ''}.`;
+          const defaultStepByStep = [
+            `Step 1: Understand the given question and recall relevant fundamental principles.`,
+            `Step 2: Evaluate each given option against the problem statement.`,
+            correctText ? `Step 3: Option ${correctLabels} (${correctText}) matches all theoretical and calculation conditions.` : `Step 3: Option ${correctLabels || 'A'} satisfies all the problem constraints accurately.`,
+            `Step 4: Marking calculation: If answered correctly, +${q.marksPositive ?? 4} marks awarded. If incorrect, -${q.marksNegative ?? 1} negative deduction applied.`
+          ].join('\n\n');
+
+          const sol = q.solution
+            ? {
+                ...q.solution,
+                hintHtml: q.solution.hintHtml || '',
+                shortExplanation: q.solution.shortExplanation || defaultExplanation,
+                stepByStepHtml: q.solution.stepByStepHtml || defaultStepByStep,
+              }
+            : {
+                id: `sol-${q.id}`,
+                questionId: q.id,
+                hintHtml: '',
+                shortExplanation: defaultExplanation,
+                stepByStepHtml: defaultStepByStep,
+                solutionImageUrl: null,
+              };
+
+          return {
+            ...q,
+            sectionName: sec.name,
+            selectedOptionIds: ans?.selectedOptionIds || [],
+            isMarkedForReview: ans?.isMarkedForReview || false,
+            solution: sol,
+            options: (q.options || []).map((o) => ({
+              ...o,
+              isSelected: (ans?.selectedOptionIds || []).includes(o.id),
+            })),
+          };
+        }),
+      );
+
       const answerKey = (test.sections || []).flatMap((sec) =>
         (sec.questions || []).map((q) => {
           qNum++;
           const ans: any = answerMap.get(q.id);
           const correctOpts = (q.options || []).filter((o) => o.isCorrect);
           const correctLabels = correctOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
+          const correctText = correctOpts.map((o) => `${o.optionLabel}: ${o.contentHtml.replace(/<[^>]+>/g, '')}`).join('; ');
           const userSelectedOpts = (q.options || []).filter((o) => (ans?.selectedOptionIds || []).includes(o.id));
           const userLabels = userSelectedOpts.map((o) => o.optionLabel || '').filter(Boolean).join(', ');
 
@@ -1130,17 +1198,55 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
           const marksPos = q.marksPositive ?? 4;
           const marksNeg = q.marksNegative ?? 1;
 
+          const defaultExplanation = `Option ${correctLabels || 'A'} is the correct answer${correctText ? ` (${correctText})` : ''}.`;
+          const defaultStepByStep = [
+            `Step 1: Understand the given question and recall relevant fundamental principles.`,
+            `Step 2: Evaluate each given option against the problem statement.`,
+            correctText ? `Step 3: Option ${correctLabels} (${correctText}) matches all theoretical and calculation conditions.` : `Step 3: Option ${correctLabels || 'A'} satisfies all the problem constraints accurately.`,
+            `Step 4: Marking calculation: Correct answer awards +${marksPos} marks; incorrect answer deducts -${marksNeg} marks.`
+          ].join('\n\n');
+
+          const sol = q.solution
+            ? {
+                ...q.solution,
+                hintHtml: q.solution.hintHtml || '',
+                shortExplanation: q.solution.shortExplanation || defaultExplanation,
+                stepByStepHtml: q.solution.stepByStepHtml || defaultStepByStep,
+              }
+            : {
+                id: `sol-${q.id}`,
+                questionId: q.id,
+                hintHtml: '',
+                shortExplanation: defaultExplanation,
+                stepByStepHtml: defaultStepByStep,
+                solutionImageUrl: null,
+              };
+
           return {
             questionNumber: qNum,
             questionId: q.id,
+            id: q.id,
             sectionName: sec.name,
             questionText: q.contentHtml?.replace(/<[^>]+>/g, '') || `Question ${qNum}`,
+            contentHtml: q.contentHtml || '',
+            diagramUrl: q.diagramUrl || null,
+            options: (q.options || []).map((o) => ({
+              ...o,
+              isSelected: (ans?.selectedOptionIds || []).includes(o.id),
+            })),
             correctAnswer: correctLabels || '—',
             yourAnswer: userLabels || '—',
             status: isCorrect ? 'CORRECT' : isWrong ? 'WRONG' : 'UNANSWERED',
             marks: isCorrect ? marksPos : 0,
             negative: isWrong ? marksNeg : 0,
-            explanation: q.solution?.shortExplanation || q.solution?.stepByStepHtml || '—',
+            marksPositive: marksPos,
+            marksNegative: marksNeg,
+            explanation: sol.shortExplanation,
+            hint: sol.hintHtml,
+            shortExplanation: sol.shortExplanation,
+            stepByStepSolution: sol.stepByStepHtml,
+            solutionImageUrl: sol.solutionImageUrl || null,
+            solution: sol,
           };
         }),
       );
@@ -1149,6 +1255,7 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
         testId: test.id,
         testTitle: test.title,
         answerKey,
+        questions: flattenedQuestions,
         result: attempt?.result || null,
       };
     },

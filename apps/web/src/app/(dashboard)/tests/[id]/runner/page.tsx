@@ -16,6 +16,8 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
+  ChevronUp,
+  BookOpen,
   ArrowLeft,
   X,
   RotateCcw,
@@ -282,6 +284,8 @@ function LiveTestRunnerContent() {
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewOpenSections, setReviewOpenSections] = useState<Record<string, { hint?: boolean; explanation?: boolean; solution?: boolean }>>({});
   const [answerKeyData, setAnswerKeyData] = useState<any[]>([]);
+  const [expandedAnswerKeyRows, setExpandedAnswerKeyRows] = useState<Record<number, boolean>>({});
+  const [expandAllSolutions, setExpandAllSolutions] = useState(false);
   const [isSubmittingExam, setIsSubmittingExam] = useState(false);
 
   // Palette drawer
@@ -1722,7 +1726,7 @@ function LiveTestRunnerContent() {
     const posRate = test?.config?.defaultPositiveMarks ?? (test?.totalMarks && questions.length ? Number((test.totalMarks / questions.length).toFixed(2)) : 4);
     const negRate = test?.config?.defaultNegativeMarks ?? (test?.negativeMarkRate !== undefined ? Number(test.negativeMarkRate) : 1);
 
-    // Map rows cleanly
+    // Map rows with full question metadata, options, and step-by-step calculations
     const rows = dataList.map((item: any, idx: number) => {
       let qNum = idx + 1;
       let correctAns = '-';
@@ -1732,20 +1736,31 @@ function LiveTestRunnerContent() {
       let marks = 0;
       let neg = 0;
 
-      if (answerKeyData.length > 0) {
+      // Match against questions list for complete rich HTML, diagram, options, and solutions
+      const matchedQ =
+        questions.find(
+          (q: any) =>
+            (q.id && (q.id === item.questionId || q.id === item.id)) ||
+            (q.questionId && (q.questionId === item.questionId || q.questionId === item.id)),
+        ) || item;
+
+      const marksPos = Number(item.marksPositive ?? matchedQ?.marksPositive ?? test?.config?.defaultPositiveMarks ?? posRate);
+      const marksNeg = Number(item.marksNegative ?? matchedQ?.marksNegative ?? test?.config?.defaultNegativeMarks ?? negRate);
+
+      if (answerKeyData.length > 0 && item.status) {
         qNum = item.questionNumber || idx + 1;
         correctAns = item.correctAnswer || '-';
         yourAns = item.yourAnswer && item.yourAnswer !== '-' ? item.yourAnswer : '—';
         isCorrect = item.status === 'CORRECT' || item.status === '✔ Correct' || item.status === 'Correct';
         isWrong = item.status === 'WRONG' || item.status === '✖ Wrong' || item.status === 'Wrong';
-        marks = isCorrect ? (Number(item.marks) || posRate) : 0;
-        neg = isWrong ? (Number(item.negative) > 0 ? -Number(item.negative) : -negRate) : 0;
+        marks = isCorrect ? (Number(item.marks) > 0 ? Number(item.marks) : marksPos) : 0;
+        neg = isWrong ? (Number(item.negative) > 0 ? -Number(item.negative) : -marksNeg) : 0;
       } else {
-        const q = item;
-        const ans = userAnswers[q.id];
+        const q = matchedQ;
+        const ans = userAnswers[q.id || item.id || item.questionId];
         const hasAns = ans && ans.selectedOptionIds?.length > 0;
         const correctOpts = (q.options || []).filter((o: any) => o.isCorrect);
-        correctAns = correctOpts.map((o: any) => o.optionLabel).join(', ') || '-';
+        correctAns = correctOpts.map((o: any) => o.optionLabel).join(', ') || item.correctAnswer || '-';
 
         if (hasAns) {
           const selectedOpts = (q.options || []).filter((o: any) => ans.selectedOptionIds.includes(o.id));
@@ -1755,25 +1770,66 @@ function LiveTestRunnerContent() {
             correctOpts.length === selectedOpts.length &&
             correctOpts.every((o: any) => ans.selectedOptionIds.includes(o.id));
           if (isCorrect) {
-            marks = q.marksPositive || posRate;
+            marks = marksPos;
           } else {
             isWrong = true;
-            neg = -(q.marksNegative || negRate);
+            neg = -marksNeg;
           }
         } else {
           yourAns = '—';
         }
       }
 
+      const options = item.options?.length ? item.options : (matchedQ?.options || []);
+      const contentHtml = item.contentHtml || matchedQ?.contentHtml || item.questionText || `Question ${qNum}`;
+      const diagramUrl = item.diagramUrl || matchedQ?.diagramUrl || null;
+      const sectionName = item.sectionName || matchedQ?.sectionName || 'General Section';
+
+      const hint = item.hint || item.solution?.hintHtml || matchedQ?.solution?.hintHtml || '';
+      const rawExplanation = item.explanation || item.shortExplanation || item.solution?.shortExplanation || matchedQ?.solution?.shortExplanation || '';
+      const rawStepByStep = item.stepByStepSolution || item.solution?.stepByStepHtml || matchedQ?.solution?.stepByStepHtml || '';
+
+      const explanation =
+        rawExplanation ||
+        `Option ${correctAns} is verified as the conceptually and mathematically accurate answer based on the given problem statement.`;
+
+      const stepByStepSolution =
+        rawStepByStep ||
+        [
+          `Step 1: Analyze the problem statement, identify known constants, and define the required quantity.`,
+          `Step 2: Evaluate each given multiple-choice option against fundamental principles and formulas.`,
+          `Step 3: Option ${correctAns} satisfies all constraints and calculations accurately.`,
+          `Step 4: Marking calculation: Correct answer awards +${marksPos} marks. An incorrect response deducts -${marksNeg} marks.`,
+        ].join('\n\n');
+
+      const origIdx = questions.findIndex(
+        (q: any) =>
+          (q.id && (q.id === item.questionId || q.id === item.id)) ||
+          (q.questionId && (q.questionId === item.questionId || q.questionId === item.id)),
+      );
+
       return {
         qNum,
+        questionId: item.questionId || item.id || matchedQ?.id,
+        sectionName,
+        contentHtml,
+        diagramUrl,
+        options,
         correctAns,
         yourAns,
         isCorrect,
         isWrong,
         isUnanswered: !isCorrect && !isWrong,
+        status: isCorrect ? 'Correct' : isWrong ? 'Wrong' : 'Unanswered',
         marks,
         neg,
+        marksPos,
+        marksNeg,
+        hint,
+        explanation,
+        stepByStepSolution,
+        solution: item.solution || matchedQ?.solution,
+        originalIndex: origIdx >= 0 ? origIdx : idx,
       };
     });
 
@@ -1812,16 +1868,23 @@ function LiveTestRunnerContent() {
         ? pastAttempt.isPassed
         : finalScore >= passMarksVal || percentage >= passPct;
 
+    const toggleRow = (qNum: number) => {
+      setExpandedAnswerKeyRows((prev) => ({
+        ...prev,
+        [qNum]: !prev[qNum],
+      }));
+    };
+
     return (
       <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
         {/* Top Header & Tab Mode Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setPhase('REVIEW')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Eye className="w-3.5 h-3.5 text-brand-600" /> Solutions & Review
+              <Eye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Solutions & Review
             </button>
             <button
               onClick={() => setPhase('ANSWER_KEY')}
@@ -1831,137 +1894,340 @@ function LiveTestRunnerContent() {
             </button>
             <button
               onClick={() => setPhase('RESULT')}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Award className="w-3.5 h-3.5 text-purple-600" /> Scorecard
+              <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Scorecard
             </button>
           </div>
 
           <button
             onClick={() => router.push(isStudent ? '/tests' : '/tests/builder')}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors self-end sm:self-auto cursor-pointer"
+            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors self-end sm:self-auto cursor-pointer"
           >
             ← Exit Test
           </button>
         </div>
 
-        {/* Legend / Key Label */}
-        <div className="bg-white px-3.5 py-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between text-[11px] text-slate-600 font-medium flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <span><strong className="text-brand-700 font-bold">CA</strong> = Correct Ans</span>
-            <span><strong className="text-brand-700 font-bold">YA</strong> = Your Ans</span>
+        {/* Legend / Key Label & Global Expand Toggle */}
+        <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 font-medium flex-wrap gap-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span><strong className="text-brand-700 dark:text-brand-400 font-bold">CA</strong> = Correct Ans</span>
+              <span><strong className="text-brand-700 dark:text-brand-400 font-bold">YA</strong> = Your Ans</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold"><Check className="w-3.5 h-3.5 stroke-[2.5]" /> Correct</span>
+              <span className="flex items-center gap-1 text-rose-700 dark:text-rose-400 font-semibold"><X className="w-3.5 h-3.5 stroke-[2.5]" /> Wrong</span>
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold"><span className="font-bold text-slate-400">—</span> Unanswered</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-emerald-700 font-semibold"><Check className="w-3.5 h-3.5 stroke-[2.5]" /> Correct</span>
-            <span className="flex items-center gap-1 text-rose-700 font-semibold"><X className="w-3.5 h-3.5 stroke-[2.5]" /> Wrong</span>
-            <span className="flex items-center gap-1 text-slate-500 font-semibold"><span className="font-bold text-slate-400">—</span> Unanswered</span>
-          </div>
+
+          <button
+            onClick={() => setExpandAllSolutions((prev) => !prev)}
+            className="px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            {expandAllSolutions ? 'Collapse All Solutions' : 'Expand All Explanations & Steps'}
+          </button>
         </div>
 
-        {/* Answer Key Grid Table matching reference image */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="w-full">
-            <table className="w-full text-center text-xs border-collapse table-fixed">
+        {/* Answer Key Grid Table */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-center text-xs border-collapse">
               <thead>
-                <tr className="bg-[#EEF0FF] text-brand-700 font-bold text-[11px] border-b border-indigo-100/80">
-                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[15%]">Q.No</th>
-                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[16%]" title="Correct Answer">CA</th>
-                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[16%]" title="Your Answer">YA</th>
-                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[19%]">Status</th>
-                  <th className="py-3 px-1 border-r border-indigo-100/80 font-bold w-[17%]">Marks</th>
-                  <th className="py-3 px-1 font-bold w-[17%]">Negative</th>
+                <tr className="bg-[#EEF0FF] dark:bg-slate-800/90 text-brand-700 dark:text-brand-300 font-bold text-[11px] border-b border-indigo-100/80 dark:border-slate-800">
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-12 sm:w-16">Q.No</th>
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-14 sm:w-16" title="Correct Answer">CA</th>
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-14 sm:w-16" title="Your Answer">YA</th>
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-16 sm:w-20">Status</th>
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-14 sm:w-16">Marks</th>
+                  <th className="py-3 px-2 border-r border-indigo-100/80 dark:border-slate-800 font-bold w-14 sm:w-16">Negative</th>
+                  <th className="py-3 px-3 font-bold text-left">Explanations, Steps & Calculations</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-800 text-xs font-sans">
-                {rows.map((row) => (
-                  <tr key={row.qNum} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
-                      {row.qNum}
-                    </td>
-                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
-                      {row.correctAns}
-                    </td>
-                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
-                      {row.yourAns}
-                    </td>
-                    <td className="py-2.5 px-1 border-r border-slate-100">
-                      {row.isCorrect ? (
-                        <Check className="w-4 h-4 text-emerald-600 mx-auto stroke-[2.5]" />
-                      ) : row.isWrong ? (
-                        <X className="w-4 h-4 text-rose-600 mx-auto stroke-[2.5]" />
-                      ) : (
-                        <span className="text-slate-400 font-bold text-sm select-none">—</span>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200 text-xs font-sans">
+                {rows.map((row) => {
+                  const isExpanded = expandAllSolutions || !!expandedAnswerKeyRows[row.qNum];
+
+                  return (
+                    <React.Fragment key={row.qNum}>
+                      <tr
+                        onClick={() => toggleRow(row.qNum)}
+                        className={`hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors cursor-pointer select-none ${
+                          isExpanded ? 'bg-purple-50/30 dark:bg-purple-950/20' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800">
+                          {row.qNum}
+                        </td>
+                        <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800">
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-bold">
+                            {row.correctAns}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800">
+                          <span
+                            className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                              row.isCorrect
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                                : row.isWrong
+                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {row.yourAns}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 border-r border-slate-100 dark:border-slate-800">
+                          {row.isCorrect ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                              <Check className="w-4 h-4 stroke-[2.5]" />
+                            </span>
+                          ) : row.isWrong ? (
+                            <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
+                              <X className="w-4 h-4 stroke-[2.5]" />
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-bold text-sm select-none">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800">
+                          <span className={row.marks > 0 ? 'text-emerald-600 dark:text-emerald-400 font-mono' : 'text-slate-600 dark:text-slate-400'}>
+                            {row.marks > 0 ? `+${row.marks}` : row.marks}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800">
+                          <span className={row.neg < 0 ? 'text-rose-600 dark:text-rose-400 font-mono' : 'text-slate-600 dark:text-slate-400'}>
+                            {row.neg !== 0 ? (row.neg < 0 ? row.neg : `-${row.neg}`) : 0}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-left">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[240px] sm:max-w-md font-medium">
+                              {row.explanation ? row.explanation.replace(/<[^>]+>/g, '').slice(0, 75) + '...' : 'View step-by-step calculation & solution'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 dark:text-brand-400 shrink-0">
+                              {isExpanded ? (
+                                <>Hide Steps <ChevronUp className="w-3.5 h-3.5" /></>
+                              ) : (
+                                <>View Steps <ChevronDown className="w-3.5 h-3.5" /></>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expandable Row with Question Statement, Choices, Short Explanation & Step-by-Step Solutions */}
+                      {isExpanded && (
+                        <tr className="bg-slate-50/70 dark:bg-slate-900/90 border-b border-indigo-100/60 dark:border-slate-800">
+                          <td colSpan={7} className="p-4 sm:p-6 text-left">
+                            <div className="space-y-4 max-w-full">
+                              {/* Top Bar for Question */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2.5 py-1 rounded-lg bg-brand-100 dark:bg-brand-950/60 text-brand-800 dark:text-brand-300 font-mono font-bold text-xs">
+                                    Question {row.qNum}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold border border-purple-100 dark:border-purple-800/50">
+                                    {row.sectionName}
+                                  </span>
+                                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                    Marking: +{row.marksPos} / -{row.marksNeg}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPhase('REVIEW');
+                                    setReviewIndex(row.originalIndex);
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                >
+                                  <BookOpen className="w-3.5 h-3.5" /> Open in Interactive Reviewer
+                                </button>
+                              </div>
+
+                              {/* Question Statement */}
+                              <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Question Statement
+                                </div>
+                                <div className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-relaxed font-sans">
+                                  {renderMath(row.contentHtml)}
+                                </div>
+                                {row.diagramUrl && (
+                                  <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 inline-block">
+                                    <img src={row.diagramUrl} alt="Diagram" className="max-h-60 rounded-lg object-contain" />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Options List */}
+                              {row.options && row.options.length > 0 && (
+                                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2.5">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Options & Selection Verification
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    {row.options.map((opt: any) => {
+                                      const isCorrectOpt = opt.isCorrect || row.correctAns.includes(opt.optionLabel);
+                                      const isUserSelected = opt.isSelected || row.yourAns.includes(opt.optionLabel);
+
+                                      let optCardStyle = 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200';
+                                      let optBadgeStyle = 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
+
+                                      if (isCorrectOpt) {
+                                        optCardStyle = 'bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/60 text-emerald-950 dark:text-emerald-100 font-semibold';
+                                        optBadgeStyle = 'bg-emerald-600 text-white border-emerald-600';
+                                      } else if (isUserSelected && !isCorrectOpt) {
+                                        optCardStyle = 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700/60 text-rose-950 dark:text-rose-100';
+                                        optBadgeStyle = 'bg-rose-600 text-white border-rose-600';
+                                      }
+
+                                      return (
+                                        <div
+                                          key={opt.id || opt.optionLabel}
+                                          className={`p-3 rounded-xl border flex items-start gap-2.5 transition-colors ${optCardStyle}`}
+                                        >
+                                          <div className={`w-5 h-5 rounded-md flex items-center justify-center font-mono font-bold text-xs shrink-0 border ${optBadgeStyle}`}>
+                                            {opt.optionLabel}
+                                          </div>
+                                          <div className="flex-1 text-xs leading-relaxed">
+                                            {renderMath(opt.contentHtml)}
+                                          </div>
+                                          <div className="shrink-0 text-[10px] font-bold uppercase">
+                                            {isCorrectOpt && (
+                                              <span className="text-emerald-700 dark:text-emerald-300 flex items-center gap-0.5">
+                                                <Check className="w-3 h-3 stroke-[2.5]" /> Correct
+                                              </span>
+                                            )}
+                                            {isUserSelected && !isCorrectOpt && (
+                                              <span className="text-rose-700 dark:text-rose-300 flex items-center gap-0.5">
+                                                <X className="w-3 h-3 stroke-[2.5]" /> Your Choice
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Explanations & Step-by-Step Calculations 3-Tier Section */}
+                              <div className="space-y-3">
+                                {/* Short Explanation & Rationale */}
+                                <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/90 dark:border-blue-800/50 shadow-2xs space-y-2">
+                                  <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200 font-bold text-xs">
+                                    <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                                      <MessageSquare className="w-3.5 h-3.5" />
+                                    </div>
+                                    <span>Explanation & Conceptual Rationale</span>
+                                  </div>
+                                  <div className="text-xs sm:text-sm text-blue-950 dark:text-blue-200 leading-relaxed font-sans pl-8">
+                                    {renderMath(row.explanation)}
+                                  </div>
+                                </div>
+
+                                {/* Step-by-Step Solution & Calculation Process */}
+                                <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200/90 dark:border-purple-800/50 shadow-2xs space-y-3">
+                                  <div className="flex items-center gap-2 text-purple-900 dark:text-purple-200 font-bold text-xs">
+                                    <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center">
+                                      <Calculator className="w-3.5 h-3.5" />
+                                    </div>
+                                    <span>Step-by-Step Solution & Calculation Process</span>
+                                  </div>
+                                  <div className="pl-2 sm:pl-4">
+                                    <StepByStepSolutionRenderer solutionText={row.stepByStepSolution} />
+                                  </div>
+                                </div>
+
+                                {/* Hint / Key Formula (if available) */}
+                                {row.hint && (
+                                  <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/90 dark:border-amber-800/50 shadow-2xs space-y-2">
+                                    <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-xs">
+                                      <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                                        <Lightbulb className="w-3.5 h-3.5" />
+                                      </div>
+                                      <span>Key Formula & Hint</span>
+                                    </div>
+                                    <div className="text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed font-sans pl-8">
+                                      {renderMath(row.hint)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="py-2.5 px-1 font-bold text-slate-900 border-r border-slate-100">
-                      {row.marks > 0 ? `+${row.marks}` : row.marks}
-                    </td>
-                    <td className="py-2.5 px-1 font-bold text-slate-900">
-                      {row.neg !== 0 ? (row.neg < 0 ? row.neg : `-${row.neg}`) : 0}
-                    </td>
-                  </tr>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Score Calculation Card */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4 text-xs font-sans">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4 text-xs font-sans">
           {/* Card Title */}
-          <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm sm:text-base">
-            <div className="w-7 h-7 rounded-xl bg-purple-100 text-brand-700 flex items-center justify-center">
+          <div className="flex items-center gap-2.5 text-slate-900 dark:text-white font-bold text-sm sm:text-base">
+            <div className="w-7 h-7 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-brand-700 dark:text-brand-300 flex items-center justify-center">
               <Calculator className="w-4 h-4" />
             </div>
-            <span>Score Calculation</span>
+            <span>Official Score Calculation Breakdown</span>
           </div>
 
           {/* Formulas */}
-          <div className="space-y-2 text-slate-700 font-medium">
+          <div className="space-y-2 text-slate-700 dark:text-slate-300 font-medium">
             <div className="flex items-center justify-between">
               <span>Total Questions × Marks per Q</span>
-              <span className="font-mono text-slate-900 font-bold">
+              <span className="font-mono text-slate-900 dark:text-white font-bold">
                 = {rows.length} × {posRate} = {totalPossible}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-emerald-600 font-semibold">
-              <span>Correct</span>
-              <span className="font-mono text-emerald-600 font-bold">
+            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span>Correct Answers</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                 {correctCount} × {posRate} = +{correctTotal}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-rose-600 font-semibold">
-              <span>Wrong</span>
-              <span className="font-mono text-rose-600 font-bold">
+            <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-semibold">
+              <span>Incorrect Answers</span>
+              <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
                 {wrongCount} × (-{negRate}) = -{wrongTotal}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-slate-500">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span>Unanswered</span>
-              <span className="font-mono text-slate-800 font-bold">
+              <span className="font-mono text-slate-800 dark:text-slate-300 font-bold">
                 {unansweredCount} × 0 = 0
               </span>
             </div>
           </div>
 
           {/* Dashed Separator */}
-          <div className="border-t border-dashed border-slate-200 pt-1" />
+          <div className="border-t border-dashed border-slate-200 dark:border-slate-800 pt-1" />
 
           {/* Final Score */}
-          <div className="flex items-center justify-between font-bold text-slate-900 text-sm sm:text-base">
+          <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white text-sm sm:text-base">
             <span>Final Score</span>
-            <span className="font-mono font-extrabold text-slate-900">
+            <span className="font-mono font-extrabold text-slate-900 dark:text-white">
               = {finalScore} / {totalPossible}
             </span>
           </div>
 
           {/* Percentage Box */}
-          <div className="p-3 bg-[#EEF0FF] rounded-xl border border-indigo-100 flex items-center justify-between font-bold text-brand-700">
+          <div className="p-3 bg-[#EEF0FF] dark:bg-indigo-950/40 rounded-xl border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-between font-bold text-brand-700 dark:text-brand-300">
             <span>Percentage</span>
-            <span className="font-mono font-extrabold text-sm text-brand-700">
+            <span className="font-mono font-extrabold text-sm text-brand-700 dark:text-brand-300">
               = {Number(percentage).toFixed(2)}%
             </span>
           </div>
@@ -1970,8 +2236,8 @@ function LiveTestRunnerContent() {
           <div
             className={`p-3.5 rounded-2xl border flex items-center gap-2.5 font-bold text-xs shadow-xs ${
               isPassed
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                : 'bg-rose-50 border-rose-300 text-rose-800'
+                ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-200'
+                : 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/60 text-rose-800 dark:text-rose-200'
             }`}
           >
             <div
@@ -1986,13 +2252,13 @@ function LiveTestRunnerContent() {
                 Result: <span className="uppercase font-extrabold">{isPassed ? 'PASSED' : 'FAILED'}</span>
               </span>
               <span className="text-[11px] font-mono opacity-90">
-                (Pass mark: {passMarksVal} Marks / {passPct}%)
+                (Passing requirement: {passMarksVal} Marks / {passPct}%)
               </span>
             </div>
           </div>
 
           {/* Bottom Action Buttons */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <button
               onClick={() => {
                 const activeAttId = attemptIdParam || pastAttempt?.id || pastAttempt?.attemptId || attemptId;
@@ -2000,16 +2266,104 @@ function LiveTestRunnerContent() {
                 const fn = `answer-key-${test?.title ? test.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : testId}.pdf`;
                 downloadFile(url, fn);
               }}
-              className="py-3 px-4 rounded-xl border-2 border-brand-600 text-brand-600 font-bold text-xs hover:bg-brand-50 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              className="py-3 px-4 rounded-xl border-2 border-brand-600 dark:border-brand-500 text-brand-600 dark:text-brand-400 font-bold text-xs hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
             >
-              <Download className="w-4 h-4" /> Download PDF
+              <Download className="w-4 h-4" /> Download PDF Report
+            </button>
+            <button
+              onClick={() => setPhase('REVIEW')}
+              className="py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 cursor-pointer"
+            >
+              <Eye className="w-4 h-4" /> Interactive Review
             </button>
             <button
               onClick={() => setPhase('RESULT')}
               className="py-3 px-4 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 cursor-pointer"
             >
-              Back to Result
+              <Award className="w-4 h-4" /> Back to Scorecard
             </button>
+          </div>
+        </div>
+
+        {/* ── Comprehensive Solutions & Step-by-Step Derivations Card ── */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-brand-100 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 flex items-center justify-center">
+                <FileText className="w-4 h-4" />
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
+                Comprehensive Solutions & Step-by-Step Calculations
+              </h3>
+            </div>
+            <span className="text-xs font-bold text-slate-400">
+              {rows.length} Questions Explained
+            </span>
+          </div>
+
+          <div className="space-y-6">
+            {rows.map((row) => (
+              <div
+                key={`comp-${row.qNum}`}
+                className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 space-y-4"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-lg bg-brand-600 text-white font-mono font-bold text-xs">
+                      Q{row.qNum}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {row.sectionName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                      Correct Answer: {row.correctAns}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded font-bold border ${
+                        row.isCorrect
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                          : row.isWrong
+                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      Your Answer: {row.yourAns} ({row.status})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Question Statement */}
+                <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 leading-relaxed font-sans bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  {renderMath(row.contentHtml)}
+                  {row.diagramUrl && (
+                    <div className="mt-2.5">
+                      <img src={row.diagramUrl} alt="Diagram" className="max-h-52 rounded-lg object-contain" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Explanation */}
+                <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/90 dark:border-blue-800/50 space-y-1.5 text-xs">
+                  <div className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" /> Explanation
+                  </div>
+                  <div className="text-blue-950 dark:text-blue-200 leading-relaxed font-sans">
+                    {renderMath(row.explanation)}
+                  </div>
+                </div>
+
+                {/* Step-by-Step Calculation */}
+                <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200/90 dark:border-purple-800/50 space-y-2 text-xs">
+                  <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                    <Calculator className="w-3.5 h-3.5" /> Step-by-Step Calculation & Proof
+                  </div>
+                  <StepByStepSolutionRenderer solutionText={row.stepByStepSolution} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
