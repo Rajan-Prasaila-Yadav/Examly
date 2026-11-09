@@ -1,12 +1,12 @@
 'use client';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useRef,useState,useMemo} from 'react';
 import {useParams,useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {api,invalidateApiCache} from '@/lib/api';
 import {useAuth} from '@/lib/auth-context';
 import VideoCollection from './video-collection';
 import {DataTable,IconButton,Modal} from './batch-workspace';
-import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Download,Search} from 'lucide-react';
+import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Download,Search,Eye} from 'lucide-react';
 type R=Record<string,any>;
 const config={timeout:30000} as any;
 const message=(e:any)=>e.response?.data?.message||e.message||'Unable to save';
@@ -14,17 +14,50 @@ const status=(s:string)=>s==='ACTIVE'?'Published':s==='HIDDEN'?'Draft / hidden':
 const bytes=(n:number)=>n?`${(n/1024/1024).toFixed(1)} MB`:'—';
 const title=(r:R)=>r.name||r.title;
 export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson'|'videos'|'notes'}){
- const params=useParams();const id=params.id as string;const router=useRouter();const {user}=useAuth();const role=typeof user?.role==='object'?(user.role as any)?.code:user?.role;const manage=['ADMIN','SUPER_ADMIN','TEACHER'].includes(role||'');
+ const params=useParams();const id=params.id as string;const router=useRouter();const {user}=useAuth();
+ const roleCode = typeof user?.role === 'object' ? (user.role as any)?.code || (user.role as any)?.name : user?.role;
+ const isStudent = String(roleCode || '').toUpperCase() === 'STUDENT';
+ const manage = !isStudent && ['ADMIN','SUPER_ADMIN','TEACHER'].includes(String(roleCode || '').toUpperCase());
  const path=view==='subject'?`/content/subjects/${id}`:view==='lesson'?`/content/lessons/${id}`:`/content/${view}`;
  const initialCached = typeof window !== 'undefined' ? api.getCached<any>(path) : null;
  const [rows,setRows]=useState<R[]>(()=>Array.isArray(initialCached)?initialCached:[]);
  const [data,setData]=useState<R|null>(()=>Array.isArray(initialCached)?null:initialCached);
  const [loading,setLoading]=useState(!initialCached);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState('Lessons');
- const [modal,setModal]=useState<R|null>(null),[form,setForm]=useState<R>({}),[busy,setBusy]=useState(false),[formError,setFormError]=useState(''),[library,setLibrary]=useState<R[]>([]),[lessons,setLessons]=useState<R[]>([]),[institutes,setInstitutes]=useState<R[]>([]),[batches,setBatches]=useState<R[]>([]),[selectedBatches,setSelectedBatches]=useState<string[]>([]),[scope,setScope]=useState(user?.role==='STUDENT'?'batch':'main');
+ const [modal,setModal]=useState<R|null>(null),[form,setForm]=useState<R>({}),[busy,setBusy]=useState(false),[formError,setFormError]=useState(''),[library,setLibrary]=useState<R[]>([]),[lessons,setLessons]=useState<R[]>([]),[institutes,setInstitutes]=useState<R[]>([]),[batches,setBatches]=useState<R[]>([]),[selectedBatches,setSelectedBatches]=useState<string[]>([]),[scope,setScope]=useState(isStudent?'batch':'main');
+ const [studentBatches, setStudentBatches] = useState<{ id: string; name: string; code?: string }[]>([]);
+ const [selectedBatchId, setSelectedBatchId] = useState<string>('');
  const [file,setFile]=useState<File|null>(null),[subtitle,setSubtitle]=useState<File|null>(null),[progress,setProgress]=useState(0);const uploadRef=useRef<XMLHttpRequest|null>(null);const version=useRef(0);
- const load=async()=>{const v=++version.current;setError('');try{const r=await api.get(path,config);if(v!==version.current)return;if(Array.isArray(r.data))setRows(r.data);else setData(r.data);}catch(e){if(v===version.current&&!rows.length&&!data)setError(message(e));}finally{if(v===version.current)setLoading(false);}};
- useEffect(()=>{const cached=api.getCached<any>(path);if(cached){if(Array.isArray(cached))setRows(cached);else setData(cached);setLoading(false);}else setLoading(true);setTab(view==='lesson'?'Videos':'Lessons');if(user?.role==='STUDENT')setScope('batch');load();const changed=()=>{invalidateApiCache(path);void load();};window.addEventListener('examly-data-changed',changed);return()=>{version.current++;window.removeEventListener('examly-data-changed',changed);};},[id,view,user?.id]);
+ const load=async()=>{
+  const v=++version.current;setError('');
+  try{
+    const r=await api.get(path,config);
+    if(v!==version.current)return;
+    const list = Array.isArray(r.data) ? r.data : [];
+    if(Array.isArray(r.data)) setRows(list); else setData(r.data);
+
+    if (isStudent && view === 'subjects') {
+      try {
+        const bRes = await api.get('/batches', config);
+        const bList = Array.isArray(bRes.data) ? bRes.data : [];
+        if (bList.length > 0) {
+          setStudentBatches(bList);
+          setSelectedBatchId(prev => prev || bList[0].id);
+        } else if (list.length > 0) {
+          const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: x.batch.name, code: x.batch.code }])).values());
+          setStudentBatches(derived as any);
+          if (derived.length > 0) setSelectedBatchId(prev => prev || (derived[0] as any).id);
+        }
+      } catch {
+        if (list.length > 0) {
+          const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: x.batch.name, code: x.batch.code }])).values());
+          setStudentBatches(derived as any);
+          if (derived.length > 0) setSelectedBatchId(prev => prev || (derived[0] as any).id);
+        }
+      }
+    }
+  }catch(e){if(v===version.current&&!rows.length&&!data)setError(message(e));}finally{if(v===version.current)setLoading(false);}};
+ useEffect(()=>{const cached=api.getCached<any>(path);if(cached){if(Array.isArray(cached))setRows(cached);else setData(cached);setLoading(false);}else setLoading(true);setTab(view==='lesson'?'Videos':'Lessons');if(isStudent)setScope('batch');load();const changed=()=>{invalidateApiCache(path);void load();};window.addEventListener('examly-data-changed',changed);return()=>{version.current++;window.removeEventListener('examly-data-changed',changed);};},[id,view,user?.id]);
  const close=()=>{if(!busy)setModal(null);};
  const open=async(kind:string,record:R={})=>{setFormError('');setFile(null);setSubtitle(null);setProgress(0);setModal({kind,record});setForm({name:'',code:'',description:'',iconUrl:'📚',title:'',videoUrl:'',fileUrl:'',provider:'YOUTUBE',allowDownload:false,watermark:true,status:'ACTIVE',subjectId:view==='subject'?id:view==='lesson'?data?.subjectId:'',lessonId:view==='lesson'?id:'',...record});
   if(kind==='subjects'&&!record.id){try{const r=await api.get('/batches/options',config);setInstitutes(r.data.institutes);if(r.data.institutes.length===1)setForm(f=>({...f,instituteId:r.data.institutes[0].id}));}catch(e){setFormError(message(e));}}
@@ -141,11 +174,103 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
 
  const media=(kind:string,records:R[])=>kind==='videos'?<VideoCollection rows={records.map(r=>({...r,lessonName:r.lesson?.name||data?.name,subjectName:r.lesson?.subject?.name||data?.subject?.name}))} onOpen={r=>router.push(`/videos/${r.id}`)} actions={actions(kind)}/>:<NotesCollection items={records.map(r=>({...r,lessonName:r.lesson?.name||data?.name,subjectName:r.lesson?.subject?.name||data?.subject?.name}))} onOpen={r=>router.push(`/${kind}/${r.id}`)} act={actions(kind)}/>;
  const input=(name:string,key:string,type='text',required=false)=><label className="ex-field">{name}<input className="ex-input" type={type} required={required} value={form[key]||''} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>;
+ const activeBatchId = selectedBatchId || (studentBatches.length > 0 ? studentBatches[0].id : '');
+ const currentBatch = studentBatches.find(b => b.id === activeBatchId) || (studentBatches.length > 0 ? studentBatches[0] : null);
+
+ const displayedSubjects = useMemo(() => {
+   if (!isStudent) {
+     return rows.filter(r => scope === 'main' ? !r.batchId : !!r.batchId);
+   }
+   if (activeBatchId) {
+     const filtered = rows.filter(r => r.batchId === activeBatchId || r.batch?.id === activeBatchId);
+     return filtered.length > 0 ? filtered : rows;
+   }
+   return rows;
+ }, [rows, isStudent, scope, activeBatchId]);
+
  return <div className="batch-prototype ex-workspace">
- <header className="ex-workspace-head"><div>{(view==='subject'||view==='lesson')&&<Link className="ex-back" href={view==='lesson'?`/subjects/${data?.subjectId}`:'/subjects'}><ArrowLeft size={16}/>{view==='lesson'?data?.subject?.name||'Subject':'Main subjects'}</Link>}<h1>{view==='subjects'?<>Main <em>Subjects</em></>:view==='videos'?<>Video <em>Library</em></>:view==='notes'?<>Notes <em>Library</em></>:<em>{data?.name||'Loading…'}</em>}</h1><p className="sub">{view==='subjects'?'Build once, copy into any batch. Main stays untouched.':view==='videos'?'Search, filter and open any video.':view==='notes'?'PDF and document notes with open tracking.':data?.description|| (view==='subject'?`${data?.code||''} · ${data?.batchId?'Batch curriculum':'Main library'}`:'Videos, notes and lesson tests.')}</p></div>{manage&&['subjects','videos','notes'].includes(view)&&<button className="ex-btn" onClick={()=>open(view)}>{view==='subjects'?<Plus size={17}/>:<Upload size={17}/>} {view==='subjects'?'Add subject':view==='videos'?'Upload video':'Upload notes'}</button>}</header>
+ <header className="ex-workspace-head">
+   <div>
+     {(view==='subject'||view==='lesson')&&<Link className="ex-back" href={view==='lesson'?`/subjects/${data?.subjectId}`:'/curriculum'}><ArrowLeft size={16}/>{view==='lesson'?data?.subject?.name||'Subject':isStudent?'All Subjects':'Main subjects'}</Link>}
+     <h1>
+       {view==='subjects' ? (
+         isStudent ? (
+           currentBatch ? <>{currentBatch.name} <em>Subjects</em></> : <>My Course <em>Subjects</em></>
+         ) : (
+           <>Main <em>Subjects</em></>
+         )
+       ) : view==='videos' ? (
+         isStudent ? <>Course <em>Videos</em></> : <>Video <em>Library</em></>
+       ) : view==='notes' ? (
+         isStudent ? <>Lecture <em>Notes</em></> : <>Notes <em>Library</em></>
+       ) : (
+         <em>{data?.name||'Loading…'}</em>
+       )}
+     </h1>
+     <p className="sub">
+       {view==='subjects' ? (
+         isStudent ? (
+           currentBatch ? `Curriculum units, lessons, notes and mock tests for ${currentBatch.name}.` : 'Curriculum subjects and syllabus for your enrolled batch.'
+         ) : (
+           'Build once, copy into any batch. Main stays untouched.'
+         )
+       ) : view==='videos' ? (
+         isStudent ? 'Watch lecture videos for your enrolled subjects.' : 'Search, filter and open any video.'
+       ) : view==='notes' ? (
+         isStudent ? 'Read and download study notes for your enrolled subjects.' : 'PDF and document notes with open tracking.'
+       ) : (
+         data?.description || (view==='subject'?`${data?.code||''} · ${data?.batch?.name ? `${data.batch.name} Batch` : isStudent ? 'Course Subject' : 'Main library'}`:'Videos, notes and lesson tests.')
+       )}
+     </p>
+   </div>
+   {manage&&['subjects','videos','notes'].includes(view)&&<button className="ex-btn" onClick={()=>open(view)}>{view==='subjects'?<Plus size={17}/>:<Upload size={17}/>} {view==='subjects'?'Add subject':view==='videos'?'Upload video':'Upload notes'}</button>}
+ </header>
  {notice&&<p role="status" className="ex-notice">{notice}</p>}{error&&<p role="alert" className="ex-error">{error}<button className="ex-btn ghost" onClick={load}>Retry</button></p>}
  {loading?<div className="ex-card ex-empty" role="status">Loading content…</div>:<>
- {view==='subjects'&&<><nav className="ex-tabs" aria-label="Library scope"><button className={scope==='main'?'on':''} onClick={()=>setScope('main')}>Main library</button><button className={scope==='batch'?'on':''} onClick={()=>setScope('batch')}>Batch copies</button></nav><DataTable key={scope} rows={rows.filter(r=>scope==='main'?!r.batchId:!!r.batchId)} placeholder="Search subject name or code…" columns={[{label:'Subject',render:r=><b>{r.iconUrl&&!r.iconUrl.startsWith('http')?r.iconUrl:'📚'} {r.name}</b>},{label:'Code',render:r=>r.code||'—'},{label:'Lessons',render:r=>r._count.lessons},{label:'Location',render:r=><span className="ex-chip">{r.batch?.name||'Main library'}</span>},{label:'Status',render:r=><span className="ex-chip">{status(r.status)}</span>}]} onOpen={r=>router.push(`/subjects/${r.id}`)} actions={actions('subjects')}/></>}
+ {view==='subjects'&&<>
+   {isStudent ? (
+     studentBatches.length > 1 ? (
+       <nav className="ex-tabs" aria-label="Batch selection" style={{ marginBottom: 14 }}>
+         {studentBatches.map(b => (
+           <button
+             key={b.id}
+             className={activeBatchId === b.id ? 'on' : ''}
+             onClick={() => setSelectedBatchId(b.id)}
+           >
+             🎓 {b.name} {b.code ? `(${b.code})` : ''}
+           </button>
+         ))}
+       </nav>
+     ) : studentBatches.length === 1 ? (
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mu)' }}>Enrolled Batch:</span>
+         <span className="ex-chip ok" style={{ fontSize: 12, fontWeight: 800 }}>
+           🎓 {studentBatches[0].name} {studentBatches[0].code ? `(${studentBatches[0].code})` : ''}
+         </span>
+       </div>
+     ) : null
+   ) : (
+     <nav className="ex-tabs" aria-label="Library scope">
+       <button className={scope==='main'?'on':''} onClick={()=>setScope('main')}>Main library</button>
+       <button className={scope==='batch'?'on':''} onClick={()=>setScope('batch')}>Batch copies</button>
+     </nav>
+   )}
+   <DataTable
+     key={isStudent ? activeBatchId || 'student-subjects' : scope}
+     rows={displayedSubjects}
+     placeholder={isStudent ? 'Search course subject name or code…' : 'Search subject name or code…'}
+     columns={[
+       { label:'Subject', render:(r:R)=><b>{r.iconUrl&&!r.iconUrl.startsWith('http')?r.iconUrl:'📚'} {r.name}</b> },
+       { label:'Code', render:(r:R)=>r.code||'—' },
+       { label:'Lessons', render:(r:R)=>r._count?.lessons ?? (r.lessons?.length || 0) },
+       { label:'Batch', render:(r:R)=><span className="ex-chip">{r.batch?.name || currentBatch?.name || (isStudent ? 'Enrolled Batch' : 'Main library')}</span> },
+       { label:'Status', render:(r:R)=><span className="ex-chip ok">{status(r.status)}</span> },
+       ...(isStudent ? [{ label: 'Action', render: (r: R) => <Link href={`/subjects/${r.id}`} className="ex-btn" style={{ padding: '4px 10px', fontSize: 11 }}>View units →</Link> }] : []),
+     ]}
+     onOpen={(r:R)=>router.push(`/subjects/${r.id}`)}
+     actions={isStudent ? (r: R) => <div className="ex-actions"><IconButton title="View subject" onClick={() => router.push(`/subjects/${r.id}`)}><Eye size={18} /></IconButton></div> : actions('subjects')}
+   />
+ </>}
  {(view==='videos'||view==='notes')&&media(view,rows)}
  {view==='subject'&&data&&<><nav className="ex-tabs">{['Lessons','Subject Tests'].map(t=><button className={tab===t?'on':''} onClick={()=>setTab(t)} key={t}>{t}</button>)}</nav>{tab==='Lessons'?<>{manage&&<div className="ex-right ex-mb"><button className="ex-btn" onClick={()=>open('lessons')}><Plus size={17}/>Add lesson</button></div>}<DataTable rows={data.lessons} placeholder="Search lesson…" columns={[{label:'Lesson',render:r=><b>{r.name}</b>},{label:'Videos',render:r=>r._count.videos},{label:'Notes',render:r=>r._count.notes},{label:'Tests',render:r=>r._count.tests},{label:'Status',render:r=><span className="ex-chip">{status(r.status)}</span>}]} onOpen={r=>router.push(`/lessons/${r.id}`)} actions={actions('lessons')}/></>:<>{manage&&<div className="ex-right ex-mb"><Link className="ex-btn" href={`/tests/create?subjectId=${id}&scope=SUBJECT_LEVEL`}><Plus size={17}/>Create subject test</Link></div>}{tests(data.tests)}</>}</>}
  {view==='lesson'&&data&&<>{manage&&<div className="ex-toolbar ex-mb"><button className="ex-btn" onClick={()=>open('videos')}><Upload size={17}/>Video</button><button className="ex-btn ghost" onClick={()=>open('notes')}><Upload size={17}/>Notes</button><Link className="ex-btn outline" href={`/tests/create?lessonId=${id}&scope=LESSON_LEVEL`}><Plus size={17}/>Lesson test</Link></div>}<nav className="ex-tabs">{['Videos','Notes','Tests'].map(t=><button className={tab===t?'on':''} onClick={()=>setTab(t)} key={t}>{t}</button>)}</nav>{tab==='Tests'?tests(data.tests):media(tab.toLowerCase(),data[tab.toLowerCase()])}</>}
