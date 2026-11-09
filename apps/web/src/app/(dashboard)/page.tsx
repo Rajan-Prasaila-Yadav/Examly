@@ -16,12 +16,13 @@ import {
   BookOpen,
   Eye,
   Award,
-  BarChart3,
-  Edit2,
   Clock,
   Sparkles,
-  Activity,
   Calendar,
+  CheckCircle2,
+  ArrowRight,
+  UserCheck,
+  Video,
 } from 'lucide-react';
 
 function formatTimeAgo(dateString?: string) {
@@ -34,14 +35,49 @@ function formatTimeAgo(dateString?: string) {
   return new Date(dateString).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+type ScheduleFilter = 'PREV_DAY' | 'TODAY' | 'TOMORROW' | 'THIS_WEEK' | 'THIS_MONTH' | 'NEXT_MONTH';
+
+function matchesScheduleFilter(dateStr?: string, filter: ScheduleFilter = 'TODAY'): boolean {
+  if (!dateStr) return false;
+  const targetDate = new Date(dateStr);
+  if (isNaN(targetDate.getTime())) return false;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  if (filter === 'TODAY') {
+    return targetDate >= todayStart && targetDate <= todayEnd;
+  }
+  if (filter === 'PREV_DAY') {
+    const yestStart = new Date(todayStart.getTime() - 86400000);
+    const yestEnd = new Date(todayEnd.getTime() - 86400000);
+    return targetDate >= yestStart && targetDate <= yestEnd;
+  }
+  if (filter === 'TOMORROW') {
+    const tomStart = new Date(todayStart.getTime() + 86400000);
+    const tomEnd = new Date(todayEnd.getTime() + 86400000);
+    return targetDate >= tomStart && targetDate <= tomEnd;
+  }
+  if (filter === 'THIS_WEEK') {
+    const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const weekStart = new Date(todayStart.getTime() - dayOfWeek * 86400000);
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000 - 1);
+    return targetDate >= weekStart && targetDate <= weekEnd;
+  }
+  if (filter === 'THIS_MONTH') {
+    return targetDate.getFullYear() === now.getFullYear() && targetDate.getMonth() === now.getMonth();
+  }
+  if (filter === 'NEXT_MONTH') {
+    const nextMonth = (now.getMonth() + 1) % 12;
+    const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    return targetDate.getFullYear() === nextYear && targetDate.getMonth() === nextMonth;
+  }
+  return true;
+}
+
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
-
-  const isStudent =
-    user?.role === 'STUDENT' ||
-    user?.role === 'Student' ||
-    (typeof user?.role === 'object' &&
-      ((user.role as any)?.name === 'STUDENT' || (user.role as any)?.code === 'STUDENT'));
 
   // ── High-Speed Instant-Hydrated Data States (0ms Initial Render) ──
   const [batches, setBatches] = useState<any[]>(() => {
@@ -80,40 +116,35 @@ export default function DashboardOverviewPage() {
     return 0;
   });
 
-  const [student360, setStudent360] = useState<any>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const c = localStorage.getItem('examly.dashboard.cache');
-      if (c) return JSON.parse(c).student360 || null;
-    } catch {}
-    return null;
-  });
-
-  const [recentActivity, setRecentActivity] = useState<any[]>(() => {
+  const [recentStudents, setRecentStudents] = useState<any[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
       const c = localStorage.getItem('examly.dashboard.cache');
-      if (c) return JSON.parse(c).recentActivity || [];
+      if (c) return JSON.parse(c).recentStudents || [];
     } catch {}
     return [];
   });
 
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
+  const [recentTeachers, setRecentTeachers] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
     try {
       const c = localStorage.getItem('examly.dashboard.cache');
-      if (c) {
-        const d = JSON.parse(c);
-        if (d && (d.batches?.length > 0 || d.tests?.length > 0 || d.studentsCount > 0 || d.teachersCount > 0)) {
-          return false;
-        }
-      }
+      if (c) return JSON.parse(c).recentTeachers || [];
     } catch {}
-    return true;
+    return [];
   });
 
+  const [batchClasses, setBatchClasses] = useState<any[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const c = localStorage.getItem('examly.dashboard.cache');
+      if (c) return JSON.parse(c).batchClasses || [];
+    } catch {}
+    return [];
+  });
+
+  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('TODAY');
   const [batchError, setBatchError] = useState('');
-  const [testFilter, setTestFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
 
   // Persistence helper to keep next render at 0ms
   const persistCache = (patch: Record<string, any>) => {
@@ -129,7 +160,6 @@ export default function DashboardOverviewPage() {
     if (!user?.id) return;
     let active = true;
 
-    // Fast, non-blocking background fetcher: updates metrics as soon as each returns
     const fetchData = async (force = false) => {
       setBatchError('');
       const config = { bypassCache: force, timeout: 8000 };
@@ -142,7 +172,36 @@ export default function DashboardOverviewPage() {
           const data = res.data || [];
           setBatches(data);
           persistCache({ batches: data });
-          setIsLoading(false);
+
+          // Fetch workspace timetables for active batches
+          const activeBatchesList = data.filter((b: any) => b.status === 'ACTIVE').slice(0, 4);
+          if (activeBatchesList.length > 0) {
+            Promise.allSettled(
+              activeBatchesList.map((b: any) =>
+                api.get(`/batches/${b.id}/workspace`, config).then((r) => ({
+                  batchId: b.id,
+                  batchName: b.name,
+                  classes: r.data?.classes || [],
+                })),
+              ),
+            ).then((results) => {
+              if (!active) return;
+              const allClasses: any[] = [];
+              results.forEach((res) => {
+                if (res.status === 'fulfilled' && res.value?.classes) {
+                  res.value.classes.forEach((c: any) => {
+                    allClasses.push({
+                      ...c,
+                      batchId: res.value.batchId,
+                      batchName: res.value.batchName,
+                    });
+                  });
+                }
+              });
+              setBatchClasses(allClasses);
+              persistCache({ batchClasses: allClasses });
+            });
+          }
         })
         .catch((err) => {
           if (!active) return;
@@ -151,7 +210,6 @@ export default function DashboardOverviewPage() {
               'Your role does not have permission to view batches. Ask your administrator to enable Batches: Read.',
             );
           }
-          setIsLoading(false);
         });
 
       // 2. Fetch Tests
@@ -162,78 +220,33 @@ export default function DashboardOverviewPage() {
           const data = res.data || [];
           setTests(data);
           persistCache({ tests: data });
-          setIsLoading(false);
         })
-        .catch(() => {
-          if (!active) return;
-          setIsLoading(false);
-        });
+        .catch(() => {});
 
-      // 3. Fetch Metrics Summary & Recent Activity (Student vs Admin/Teacher)
-      if (isStudent) {
-        api
-          .get('/dashboard/student', config)
-          .then((res) => {
-            if (!active) return;
-            setStudent360(res.data);
-            if (res.data?.recentAttempts) {
-              setRecentActivity(res.data.recentAttempts);
-              persistCache({ student360: res.data, recentActivity: res.data.recentAttempts });
-            } else {
-              persistCache({ student360: res.data });
-            }
-            setIsLoading(false);
-          })
-          .catch(() => {
-            api
-              .get(`/users/students/${user.id}/360`, config)
-              .then((res) => {
-                if (!active) return;
-                setStudent360(res.data);
-                persistCache({ student360: res.data });
-                setIsLoading(false);
-              })
-              .catch(() => {});
-          });
-      } else {
-        api
-          .get('/dashboard/admin', config)
-          .then((res) => {
-            if (!active) return;
-            const stats = res.data?.stats;
-            if (stats) {
-              const sCount = stats.totalStudents ?? 0;
-              const tCount = stats.totalTeachers ?? 0;
-              setStudentsCount(sCount);
-              setTeachersCount(tCount);
-              const activity = res.data?.recentActivity || [];
-              setRecentActivity(activity);
-              persistCache({ studentsCount: sCount, teachersCount: tCount, recentActivity: activity });
-              setIsLoading(false);
-            }
-          })
-          .catch(() => {
-            Promise.allSettled([
-              api.get('/users/students?limit=1', config),
-              api.get('/users/teachers', config),
-            ]).then(([sRes, tRes]) => {
-              if (!active) return;
-              if (sRes.status === 'fulfilled') {
-                const s = sRes.value.data;
-                const count = s?.meta?.total ?? s?.data?.length ?? (Array.isArray(s) ? s.length : 0);
-                setStudentsCount(count);
-                persistCache({ studentsCount: count });
-              }
-              if (tRes.status === 'fulfilled') {
-                const t = tRes.value.data;
-                const count = t?.meta?.total ?? (Array.isArray(t) ? t.length : t?.data?.length ?? 0);
-                setTeachersCount(count);
-                persistCache({ teachersCount: count });
-              }
-              setIsLoading(false);
-            });
-          });
-      }
+      // 3. Fetch Recent Students (limit 3)
+      api
+        .get('/users/students?limit=3', config)
+        .then((res) => {
+          if (!active) return;
+          const stdList = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+          const total = res.data?.meta?.total ?? stdList.length;
+          setRecentStudents(stdList.slice(0, 3));
+          setStudentsCount(total);
+          persistCache({ recentStudents: stdList.slice(0, 3), studentsCount: total });
+        })
+        .catch(() => {});
+
+      // 4. Fetch Recent Faculty (limit 3)
+      api
+        .get('/users/teachers', config)
+        .then((res) => {
+          if (!active) return;
+          const facList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+          setRecentTeachers(facList.slice(0, 3));
+          setTeachersCount(facList.length);
+          persistCache({ recentTeachers: facList.slice(0, 3), teachersCount: facList.length });
+        })
+        .catch(() => {});
     };
 
     void fetchData(false);
@@ -252,7 +265,7 @@ export default function DashboardOverviewPage() {
       window.removeEventListener('examly-permissions-changed', backgroundRefresh);
       window.removeEventListener('examly-refresh-dashboard', backgroundRefresh);
     };
-  }, [isStudent, user?.id]);
+  }, [user?.id]);
 
   const isTestEnded = (t: any) => {
     if (t.testStatus === 'EXPIRED' || t.testStatus === 'ENDED' || t.testStatus === 'COMPLETED') {
@@ -269,49 +282,139 @@ export default function DashboardOverviewPage() {
     0,
   );
 
-  const liveTestsCount = tests.filter(
-    (t) => (t.testStatus === 'LIVE' || t.isPublished) && !isTestEnded(t),
-  ).length;
+  // Filter batches to active batches (Show only 3 as requested)
+  const activeBatches = useMemo(() => {
+    return batches.filter((b) => b.status === 'ACTIVE' || !b.status);
+  }, [batches]);
 
-  // Filtered tests with status tabs
-  const filteredTests = useMemo(() => {
-    return tests.filter((t) => {
-      const ended = isTestEnded(t);
-      const draft = t.testStatus === 'DRAFT' || !t.isPublished;
-      const isLive = !ended && !draft;
-      const hasAttempted = t.attempts && t.attempts.length > 0;
+  const displayBatches = useMemo(() => {
+    return (activeBatches.length > 0 ? activeBatches : batches).slice(0, 3);
+  }, [activeBatches, batches]);
 
-      if (testFilter === 'LIVE') return isLive;
-      if (testFilter === 'UPCOMING') return !ended && !isLive && !draft;
-      if (testFilter === 'COMPLETED') return ended || hasAttempted;
-      return true;
-    });
-  }, [tests, testFilter]);
-
-  // Spotlight Test for the CampX-style Hero Banner
-  const spotlightTest = useMemo(() => {
-    if (!tests || tests.length === 0) return null;
-    const live = tests.find((t) => (t.testStatus === 'LIVE' || t.isPublished) && !isTestEnded(t));
-    if (live) return { ...live, spotlightReason: 'LIVE' };
-
-    const upcoming = tests.find((t) => !isTestEnded(t) && t.testStatus !== 'DRAFT');
-    if (upcoming) return { ...upcoming, spotlightReason: 'UPCOMING' };
-
-    return { ...tests[0], spotlightReason: 'RECENT' };
+  // Live and Upcoming Tests
+  const liveTests = useMemo(() => {
+    return tests.filter((t) => (t.testStatus === 'LIVE' || t.isPublished) && !isTestEnded(t));
   }, [tests]);
 
+  const upcomingTests = useMemo(() => {
+    return tests.filter((t) => {
+      const ended = isTestEnded(t);
+      const isLive = (t.testStatus === 'LIVE' || t.isPublished) && !ended;
+      return !ended && !isLive && t.testStatus !== 'DRAFT';
+    });
+  }, [tests]);
+
+  // Combined Academic Schedule & Timetable Events
+  const filteredScheduleEvents = useMemo(() => {
+    const events: any[] = [];
+
+    // 1. Add batch classes
+    batchClasses.forEach((c) => {
+      if (matchesScheduleFilter(c.date, scheduleFilter)) {
+        events.push({
+          id: `class-${c.id}`,
+          type: 'CLASS',
+          title: c.topic || 'Class Session',
+          batchName: c.batchName || 'Academic Batch',
+          subjectName: c.subject?.name || 'Curriculum',
+          teacherName: c.teacher?.fullName || 'Faculty Instructor',
+          date: c.date,
+          startTime: c.startTime,
+          endTime: c.endTime,
+          status: c.status || 'Upcoming',
+          link: `/batches/${c.batchId}`,
+        });
+      }
+    });
+
+    // 2. Add scheduled/live tests
+    tests.forEach((t) => {
+      const testDate = t.startDateTime ? t.startDateTime.slice(0, 10) : null;
+      if (matchesScheduleFilter(testDate, scheduleFilter)) {
+        const ended = isTestEnded(t);
+        const isLive = (t.testStatus === 'LIVE' || t.isPublished) && !ended;
+        events.push({
+          id: `test-${t.id}`,
+          type: 'EXAM',
+          title: t.title,
+          batchName: t.batch?.name || 'All Batches',
+          subjectName: 'CBT Examination',
+          teacherName: 'Automated Proctor',
+          date: testDate,
+          startTime: t.startDateTime
+            ? new Date(t.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Scheduled',
+          endTime: `${t.durationMinutes || 120}m duration`,
+          status: isLive ? 'Live' : ended ? 'Completed' : 'Upcoming',
+          link: `/tests/${t.id}`,
+        });
+      }
+    });
+
+    return events;
+  }, [batchClasses, tests, scheduleFilter]);
+
+  // 3D Artwork 1: Live CBT Examination Terminal
+  const LiveTestArena3DArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[74px] sm:h-[64px] drop-shadow-md shrink-0">
+      <defs>
+        <linearGradient id="liveTerminal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2A1435" />
+          <stop offset="100%" stopColor="#140B1D" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.25" />
+      <rect x="18" y="16" width="64" height="46" rx="10" fill="url(#liveTerminal)" stroke="#F43F5E" strokeWidth="1.5" strokeOpacity="0.5" />
+      <rect x="22" y="20" width="56" height="38" rx="6" fill="#0F0816" />
+      <path d="M26 39 L36 39 L40 28 L45 48 L50 34 L54 42 L58 39 L74 39" fill="none" stroke="#FB7185" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="70" cy="26" r="3.5" fill="#E11D48" />
+      <circle cx="70" cy="26" r="6" fill="#FB7185" opacity="0.4" />
+      <path d="M42 62 L58 62 L64 74 L36 74 Z" fill="#2A1435" />
+      <rect x="34" y="73" width="32" height="3" rx="1.5" fill="#E11D48" opacity="0.8" />
+    </svg>
+  );
+
+  // 3D Artwork 2: Upcoming Test Schedule Pad & Clock
+  const UpcomingTestSchedule3DArt = (
+    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[74px] sm:h-[64px] drop-shadow-md shrink-0">
+      <defs>
+        <linearGradient id="schedCal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4F46E5" />
+          <stop offset="100%" stopColor="#1E1B4B" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.25" />
+      <rect x="20" y="20" width="54" height="48" rx="8" fill="url(#schedCal)" stroke="#818CF8" strokeWidth="1.5" strokeOpacity="0.4" />
+      <rect x="24" y="24" width="46" height="12" rx="4" fill="#1E1B4B" />
+      <rect x="28" y="15" width="4" height="9" rx="2" fill="#FBBF24" />
+      <rect x="42" y="15" width="4" height="9" rx="2" fill="#FBBF24" />
+      <rect x="56" y="15" width="4" height="9" rx="2" fill="#FBBF24" />
+      <circle cx="33" cy="44" r="2.5" fill="#C7D2FE" />
+      <circle cx="47" cy="44" r="2.5" fill="#C7D2FE" />
+      <circle cx="61" cy="44" r="2.5" fill="#C7D2FE" />
+      <circle cx="33" cy="54" r="2.5" fill="#C7D2FE" />
+      <circle cx="47" cy="54" r="3.5" fill="#F59E0B" />
+      <circle cx="61" cy="54" r="2.5" fill="#C7D2FE" />
+      <g transform="translate(68, 36) scale(0.85)">
+        <circle cx="12" cy="12" r="14" fill="#0F172A" stroke="#F59E0B" strokeWidth="2.5" />
+        <line x1="12" y1="12" x2="12" y2="4" stroke="#FBBF24" strokeWidth="2.2" strokeLinecap="round" />
+        <line x1="12" y1="12" x2="18" y2="15" stroke="#FBBF24" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="12" cy="12" r="2" fill="#FFFFFF" />
+      </g>
+    </svg>
+  );
+
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto pb-12 font-sans">
-      {/* ── 1. UNIFIED 3D CAPABILITIES & LIVE STATS RAIL ── */}
+    <div className="space-y-7 max-w-7xl mx-auto pb-14 font-sans">
+      {/* ── 1. UNIFIED 3D CAPABILITIES & LIVE STATS RAIL (SECTION 1 UNTOUCHED) ── */}
       <DashboardFeatureRail
         batchesCount={batches.length}
         activeBatchesCount={batches.filter((b) => b.status === 'ACTIVE').length}
-        liveTestsCount={liveTestsCount}
+        liveTestsCount={liveTests.length}
         totalTestsCount={tests.length}
         subjectsCount={totalCurriculumSubjects}
         studentsCount={studentsCount}
         teachersCount={teachersCount}
-        student360={student360}
         studentId={user?.id}
       />
 
@@ -330,136 +433,28 @@ export default function DashboardOverviewPage() {
         </div>
       )}
 
-      {/* ── 2. CAMPX-STYLE LIVE EXAM SPOTLIGHT BANNER ── */}
-      {spotlightTest && (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-800 dark:from-[#21163F] dark:via-[#191535] dark:to-[#16122C] p-6 sm:p-7 text-white shadow-xl border border-violet-400/20 dark:border-violet-500/20">
-          {/* Subtle geometric glowing rings */}
-          <div className="pointer-events-none absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-violet-400/15 dark:bg-purple-500/15 blur-2xl" />
-          <div className="pointer-events-none absolute right-24 top-0 w-36 h-36 rounded-full border border-white/10 dark:border-white/5" />
-          <div className="pointer-events-none absolute right-10 top-6 w-52 h-52 rounded-full border border-white/10 dark:border-white/5" />
-
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="space-y-2.5 max-w-xl">
-              <div className="flex items-center gap-2 flex-wrap">
-                {spotlightTest.spotlightReason === 'LIVE' ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-500 text-white shadow-md animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                    Live Examination
-                  </span>
-                ) : spotlightTest.spotlightReason === 'UPCOMING' ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md text-white border border-white/20">
-                    <Clock className="w-3 h-3" />
-                    Exam Coming Up
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md text-white border border-white/20">
-                    <Sparkles className="w-3 h-3 text-amber-300" />
-                    Active CBT Paper
-                  </span>
-                )}
-                {spotlightTest.batch?.name && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-black/30 text-violet-100 backdrop-blur-xs border border-white/10">
-                    {spotlightTest.batch.name}
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">
-                {spotlightTest.title}
-              </h3>
-
-              <div className="flex items-center gap-3 text-xs text-violet-100/90 flex-wrap font-mono">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-violet-200" />
-                  {spotlightTest.durationMinutes || 120} Mins
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5 text-amber-300" />
-                  {spotlightTest.totalMarks || 100} Points
-                </span>
-                {spotlightTest.startDateTime && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1 font-sans">
-                      <Calendar className="w-3.5 h-3.5 text-violet-200" />
-                      {new Date(spotlightTest.startDateTime).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 shrink-0">
-              {isStudent ? (
-                <Link
-                  href={
-                    isTestEnded(spotlightTest) ||
-                    (spotlightTest.attempts && spotlightTest.attempts.length > 0)
-                      ? `/tests/${spotlightTest.id}/runner?view=RESULT`
-                      : `/tests/${spotlightTest.id}/runner`
-                  }
-                  className="px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg transition-transform hover:scale-102 flex items-center gap-2 cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-current text-brand-600" />
-                  {isTestEnded(spotlightTest) ||
-                  (spotlightTest.attempts && spotlightTest.attempts.length > 0)
-                    ? 'View Scorecard & Proofs'
-                    : spotlightTest.spotlightReason === 'LIVE'
-                    ? 'Take Live Exam Now'
-                    : 'Start Examination'}
-                </Link>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/tests/${spotlightTest.id}`}
-                    className="px-4 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg transition-transform hover:scale-102 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Eye className="w-4 h-4 text-brand-600" />
-                    Proctor & Monitor
-                  </Link>
-                  <Link
-                    href={`/tests/create?testId=${spotlightTest.id}`}
-                    className="px-3.5 py-2.5 bg-white/15 hover:bg-white/25 text-white backdrop-blur-md border border-white/20 font-bold text-xs rounded-2xl transition-all cursor-pointer"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 3. ACTIVE BATCHES & COURSES (FULL WIDTH) ── */}
+      {/* ── 2. ACTIVE BATCHES (EXACTLY 3 CARDS) ── */}
       <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              {isStudent ? 'My Enrolled Courses & Batches' : 'Active Batches'}
+              Active Batches
               <span className="text-xs font-normal text-slate-500 dark:text-[#94A3B8] font-mono">
-                ({batches.length})
+                ({displayBatches.length} of {activeBatches.length})
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-              {isStudent
-                ? 'Courses and study batches you are currently enrolled in.'
-                : 'Manage course curriculum, lecture materials, and enrolled students.'}
+              Manage ongoing study batches, curriculum, and learner enrollments.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            {!isStudent && (
-              <Link
-                href="/batches"
-                className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> New Batch
-              </Link>
-            )}
+            <Link
+              href="/batches"
+              className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Batch
+            </Link>
             <Link
               href="/batches"
               className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
@@ -469,9 +464,9 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Batch Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {batches.slice(0, 4).map((b) => {
+        {/* 3 Active Batches Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {displayBatches.map((b) => {
             const subjectsCount = b.subjects?.length ?? b._count?.subjects ?? 0;
             const batchTestsCount = b.tests?.length ?? b._count?.tests ?? 0;
             const enrolledCount = b._count?.students ?? 0;
@@ -484,7 +479,7 @@ export default function DashboardOverviewPage() {
                 className="bg-slate-50/70 dark:bg-[#161824] border border-slate-200/80 dark:border-[#1E222F] rounded-2xl overflow-hidden hover:border-brand-500/50 dark:hover:border-brand-500/50 transition-all flex flex-col justify-between group shadow-2xs"
               >
                 {/* Header Strip */}
-                <div className="p-4 bg-slate-100/60 dark:bg-[#1A1D2B] border-b border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between gap-2">
+                <div className="p-3.5 bg-slate-100/60 dark:bg-[#1A1D2B] border-b border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-white dark:bg-[#12141C] border border-slate-200 dark:border-[#1E222F] text-[10px] font-mono font-bold text-brand-700 dark:text-brand-300">
                     {b.code || 'BATCH'}
                   </span>
@@ -492,17 +487,9 @@ export default function DashboardOverviewPage() {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-[#0B291B] text-emerald-700 dark:text-emerald-300">
                       {feeLabel}
                     </span>
-                    {b.status && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          b.status === 'ACTIVE'
-                            ? 'bg-blue-100 dark:bg-[#1C2548] text-blue-700 dark:text-blue-300'
-                            : 'bg-slate-200 dark:bg-[#1E222F] text-slate-700 dark:text-slate-300'
-                        }`}
-                      >
-                        {b.status}
-                      </span>
-                    )}
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-[#1C2548] text-blue-700 dark:text-blue-300">
+                      ACTIVE
+                    </span>
                   </div>
                 </div>
 
@@ -530,27 +517,25 @@ export default function DashboardOverviewPage() {
                   {/* Metrics Info */}
                   <div className="pt-3 border-t border-slate-200/50 dark:border-[#1E222F] flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3 text-slate-500 dark:text-[#94A3B8] text-[11px] font-mono">
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1" title="Subjects">
                         <BookOpen className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                         {subjectsCount}
                       </span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1" title="Tests">
                         <FileCheck2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                         {batchTestsCount}
                       </span>
-                      {!isStudent && enrolledCount > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          {enrolledCount}
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1" title="Learners">
+                        <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        {enrolledCount}
+                      </span>
                     </div>
 
                     <Link
                       href={`/batches/${b.id}`}
                       className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                     >
-                      {isStudent ? 'Open' : 'Manage'} →
+                      Manage →
                     </Link>
                   </div>
                 </div>
@@ -558,318 +543,419 @@ export default function DashboardOverviewPage() {
             );
           })}
 
-          {batches.length === 0 && !isLoading && (
+          {batches.length === 0 && (
             <div className="col-span-full py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
               <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="font-semibold">
-                {isStudent ? 'You are not enrolled in any batch yet.' : 'No active batches created yet.'}
-              </p>
+              <p className="font-semibold">No active batches created yet.</p>
               <p className="text-[11px] mt-1 text-slate-500 dark:text-[#94A3B8]">
-                {isStudent
-                  ? 'Contact your institution to enroll into course batches.'
-                  : 'Create your first batch to add subjects and assign tests.'}
+                Create your first batch to add subjects and schedule tests.
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── 4. CBT EXAMINATIONS (2/3) + RECENT ACTIVITY (1/3) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
-        {/* LEFT COLUMN: CBT MOCK EXAMINATIONS */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+      {/* ── 3. CBT EXAMINATION ARENA: LIVE TESTS & UPCOMING TESTS (WITH 3D ARTWORKS) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
+        {/* LEFT: LIVE TESTS ARENA (WITH 3D ART) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+            <div className="flex items-center gap-3">
+              {LiveTestArena3DArt}
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  {isStudent ? 'My CBT Examination Arena' : 'Examinations & Test Papers'}
-                </h2>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Live Examinations
+                  {liveTests.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      {liveTests.length} Live
+                    </span>
+                  )}
+                </h3>
                 <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-                  {isStudent
-                    ? 'Timed computer-based tests with step-by-step solutions and instant graded scorecards.'
-                    : 'Manage active test papers, author questions, monitor attempts, and publish results.'}
+                  Examinations currently ongoing and accepting submissions.
                 </p>
               </div>
+            </div>
 
-              <div className="flex items-center gap-2">
-                {!isStudent && (
-                  <Link
-                    href="/tests/create"
-                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Author Test
-                  </Link>
-                )}
+            <Link
+              href="/tests"
+              className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 shrink-0"
+            >
+              Monitor <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {liveTests.slice(0, 3).map((t) => (
+              <div
+                key={t.id}
+                className="p-4 rounded-2xl bg-rose-50/40 dark:bg-[#20121F] border border-rose-200/70 dark:border-rose-900/40 hover:border-rose-400 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={`/tests/${t.id}`}
+                      className="font-bold text-sm text-slate-900 dark:text-white hover:text-rose-600 dark:hover:text-rose-400 transition-colors truncate max-w-sm"
+                    >
+                      {t.title}
+                    </Link>
+                    {t.batch?.name && (
+                      <span className="px-2 py-0.5 rounded-md bg-rose-100/70 dark:bg-rose-950/70 text-rose-800 dark:text-rose-200 text-[10px] font-semibold">
+                        {t.batch.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-[#94A3B8] font-mono">
+                    <span>⏱ {t.durationMinutes || 120}m duration</span>
+                    <span>•</span>
+                    <span>{t.totalMarks || 100} points</span>
+                  </div>
+                </div>
+
                 <Link
-                  href="/tests"
-                  className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
+                  href={`/tests/${t.id}`}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
                 >
-                  All Exams ({tests.length}) <ChevronRight className="w-3.5 h-3.5" />
+                  <Eye className="w-3.5 h-3.5" /> Proctor Live →
                 </Link>
               </div>
-            </div>
+            ))}
 
-            {/* Test Filter Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-              {[
-                { id: 'ALL', label: `All (${tests.length})` },
-                { id: 'LIVE', label: `🔴 Live Now (${liveTestsCount})` },
-                { id: 'UPCOMING', label: '⏱ Upcoming' },
-                { id: 'COMPLETED', label: isStudent ? 'Graded Scorecards' : 'Ended Papers' },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setTestFilter(f.id as any)}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
-                    testFilter === f.id
-                      ? 'bg-brand-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-[#161824] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-200/80 dark:hover:bg-[#1F2333] border border-transparent dark:border-[#1E222F]'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tests List */}
-            <div className="space-y-3">
-              {filteredTests.slice(0, 6).map((t) => {
-                const ended = isTestEnded(t);
-                const draft = t.testStatus === 'DRAFT' || !t.isPublished;
-                const isLive = !ended && !draft;
-                const hasAttempt = t.attempts && t.attempts.length > 0;
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      isLive
-                        ? 'bg-rose-50/50 dark:bg-[#231426] border-rose-200/80 dark:border-rose-900/50 hover:border-rose-400'
-                        : 'bg-slate-50/70 dark:bg-[#161824] border-slate-200/80 dark:border-[#1E222F] hover:border-brand-500/50 dark:hover:border-brand-500/50'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/tests/${t.id}`}
-                          className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 transition-colors truncate max-w-sm"
-                        >
-                          {t.title}
-                        </Link>
-
-                        {isLive && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                            🔴 LIVE NOW
-                          </span>
-                        )}
-
-                        {ended && (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-200 dark:bg-[#1A1D2B] text-slate-700 dark:text-[#CBD5E1] border border-slate-300/50 dark:border-[#1E222F]">
-                            Closed
-                          </span>
-                        )}
-
-                        {draft && (
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                            Draft
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-[#94A3B8] font-mono flex-wrap">
-                        {t.batch?.name && (
-                          <span className="px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200/80 dark:border-brand-800/80 text-[10px] font-sans font-semibold">
-                            {t.batch.name}
-                          </span>
-                        )}
-                        <span>⏱ {t.durationMinutes || 120}m</span>
-                        <span className="text-slate-400 dark:text-slate-600">•</span>
-                        <span>{t.totalMarks || 100} pts</span>
-                        {t.startDateTime && (
-                          <>
-                            <span className="text-slate-400 dark:text-slate-600">•</span>
-                            <span className="text-slate-500 dark:text-[#94A3B8]">
-                              Start:{' '}
-                              {new Date(t.startDateTime).toLocaleDateString([], {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions Column */}
-                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                      {isStudent ? (
-                        ended || hasAttempt ? (
-                          <Link
-                            href={`/tests/${t.id}/runner?view=RESULT`}
-                            className="px-3.5 py-1.5 bg-indigo-50 dark:bg-[#1E1B4B] hover:bg-indigo-100 dark:hover:bg-[#2E2875] text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold rounded-xl text-xs inline-flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <BarChart3 className="w-3.5 h-3.5" /> Scorecard & Proofs
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/tests/${t.id}/runner`}
-                            className={`px-3.5 py-1.5 font-bold rounded-xl shadow-xs text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                              isLive
-                                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25'
-                                : 'bg-brand-600 hover:bg-brand-500 text-white'
-                            }`}
-                          >
-                            <Play className="w-3 h-3 fill-white" /> {isLive ? 'Take Live Exam' : 'Start Exam'}
-                          </Link>
-                        )
-                      ) : (
-                        <>
-                          <Link
-                            href={`/tests/create?testId=${t.id}`}
-                            className="px-3 py-1.5 bg-slate-100 dark:bg-[#1A1D2B] text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-[#1E222F] border border-slate-200 dark:border-[#1E222F] font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-slate-500 dark:text-[#94A3B8]" /> Edit
-                          </Link>
-                          <Link
-                            href={`/tests/${t.id}`}
-                            className="px-3 py-1.5 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800 font-semibold rounded-xl text-xs inline-flex items-center gap-1 transition-colors hover:bg-brand-100 dark:hover:bg-brand-900 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Details
-                          </Link>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {filteredTests.length === 0 && !isLoading && (
-                <div className="py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
-                  <FileCheck2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold">No examinations found under this filter.</p>
-                </div>
-              )}
-            </div>
+            {liveTests.length === 0 && (
+              <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
+                <Clock className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-rose-500" />
+                <p className="font-semibold text-slate-700 dark:text-slate-300">No tests currently live</p>
+                <p className="text-[11px] mt-0.5 text-slate-500">
+                  Tests will automatically appear here when their scheduled time begins.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: LIVE RECENT ACTIVITY (FACULTY/ADMIN) OR ACADEMIC SCORECARD (STUDENT) */}
-        <div className="lg:col-span-1">
-          {isStudent ? (
-            <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Academic Scorecard</h3>
-                {user?.id && (
-                  <Link
-                    href={`/students/${user.id}`}
-                    className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
-                  >
-                    360 View <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                )}
+        {/* RIGHT: UPCOMING TESTS (WITH 3D ART) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+            <div className="flex items-center gap-3">
+              {UpcomingTestSchedule3DArt}
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Upcoming Tests
+                  <span className="text-xs font-normal text-slate-500 dark:text-[#94A3B8] font-mono">
+                    ({upcomingTests.length} Scheduled)
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
+                  Scheduled mock test papers awaiting start date.
+                </p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#161824] border border-slate-200/60 dark:border-[#1E222F]">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tests Taken</p>
-                  <p className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">
-                    {student360?.summary?.completedTestsCount ?? 0}
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#161824] border border-slate-200/60 dark:border-[#1E222F]">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Accuracy</p>
-                  <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                    {student360?.summary?.averageAccuracy ?? 0}%
-                  </p>
-                </div>
-              </div>
-
-              {recentActivity.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-[#1E222F]">
-                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                    Recent Graded Test
-                  </p>
-                  {recentActivity.slice(0, 3).map((a) => (
-                    <Link
-                      key={a.id}
-                      href={`/tests/${a.testId || a.test?.id}/runner?view=RESULT`}
-                      className="p-3 rounded-2xl bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100 dark:hover:bg-[#1A1D2B] border border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between gap-2 text-xs transition-colors cursor-pointer group"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-white group-hover:text-brand-600 truncate">
-                          {a.test?.title || 'Exam Result'}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-mono">
-                          Score: {a.result?.score ?? 0} / {a.test?.totalMarks ?? 100}
-                        </p>
-                      </div>
-                      <span className="shrink-0 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300">
-                        {a.result?.percentage ?? 0}% →
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
             </div>
-          ) : (
-            <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Submissions</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200/60 dark:border-emerald-800">
-                  Live Feed
-                </span>
-              </div>
 
-              <div className="space-y-2.5">
-                {recentActivity.slice(0, 5).map((act, i) => {
-                  const studentName = act.student?.fullName || act.student?.identifier || 'Student';
-                  const testTitle = act.test?.title || 'Exam Paper';
-                  const percentage = act.result?.percentage ?? null;
-                  const isPassed = act.result?.isPassed ?? (percentage !== null ? percentage >= 40 : null);
+            <Link
+              href="/tests/create"
+              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+            >
+              Author Test <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
 
-                  return (
-                    <div
-                      key={act.id || i}
-                      className="p-3 rounded-2xl bg-slate-50/70 dark:bg-[#161824] border border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between gap-3 text-xs"
+          <div className="space-y-3">
+            {upcomingTests.slice(0, 3).map((t) => (
+              <div
+                key={t.id}
+                className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#161824] border border-slate-200/70 dark:border-[#1E222F] hover:border-brand-500/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={`/tests/${t.id}`}
+                      className="font-bold text-sm text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 transition-colors truncate max-w-sm"
                     >
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="font-bold text-slate-900 dark:text-white truncate">{studentName}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] truncate">{testTitle}</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-                          {formatTimeAgo(act.submittedAt)}
-                        </p>
-                      </div>
+                      {t.title}
+                    </Link>
+                    {t.batch?.name && (
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold">
+                        {t.batch.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-[#94A3B8] font-mono">
+                    {t.startDateTime && (
+                      <span>
+                        Starts: {new Date(t.startDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                    <span>•</span>
+                    <span>⏱ {t.durationMinutes || 120}m</span>
+                    <span>•</span>
+                    <span>{t.totalMarks || 100} pts</span>
+                  </div>
+                </div>
 
-                      <div className="shrink-0 text-right">
-                        {percentage !== null ? (
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold ${
-                              isPassed
-                                ? 'bg-emerald-100 dark:bg-[#0B291B] text-emerald-700 dark:text-emerald-300'
-                                : 'bg-rose-100 dark:bg-[#2A131B] text-rose-700 dark:text-rose-300'
-                            }`}
-                          >
-                            {percentage}% {isPassed ? 'Pass' : 'Fail'}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-mono text-slate-400">Graded</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                <Link
+                  href={`/tests/${t.id}`}
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-[#1E222F] hover:bg-brand-50 dark:hover:bg-brand-950/60 text-slate-700 dark:text-white hover:text-brand-600 font-bold text-xs rounded-xl border border-slate-200 dark:border-[#2A2F40] transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Inspect Paper →
+                </Link>
+              </div>
+            ))}
 
-                {recentActivity.length === 0 && !isLoading && (
-                  <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
-                    <Activity className="w-6 h-6 mx-auto mb-1 opacity-40 text-emerald-500" />
-                    <p className="font-semibold">No recent submissions</p>
-                    <p className="text-[11px] mt-0.5 text-slate-500">
-                      Student exam completions will be streamed here.
+            {upcomingTests.length === 0 && (
+              <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
+                <Calendar className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-indigo-500" />
+                <p className="font-semibold text-slate-700 dark:text-slate-300">No upcoming tests scheduled</p>
+                <p className="text-[11px] mt-0.5 text-slate-500">
+                  Use the test authoring tool to schedule mock examinations for your batches.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. RECENT MEMBERS JOINED: 3 STUDENTS & 3 FACULTY ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
+        {/* RECENT STUDENTS (JUST 3) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Recently Joined Students
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
+                Latest student admissions and batch enrollments.
+              </p>
+            </div>
+
+            <Link
+              href="/students"
+              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+            >
+              All Students ({studentsCount}) <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {recentStudents.slice(0, 3).map((s) => (
+              <Link
+                key={s.id}
+                href={`/students/${s.id}`}
+                className="group p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/80 dark:hover:bg-[#1A1D2B] border border-slate-200/70 dark:border-[#1E222F] transition-all flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                    {s.avatarUrl ? (
+                      <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      s.fullName?.[0] || 'S'
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
+                      {s.fullName}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
+                      {s.email || s.identifier}
                     </p>
                   </div>
-                )}
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 text-right">
+                  {s.studentProfile?.batch?.name && (
+                    <span className="px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/70 text-brand-700 dark:text-brand-300 text-[10px] font-semibold">
+                      {s.studentProfile.batch.name}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                    {formatTimeAgo(s.createdAt)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+
+            {recentStudents.length === 0 && (
+              <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
+                <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-blue-500" />
+                <p className="font-semibold">No student admissions recorded</p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* RECENT FACULTY (JUST 3) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Newly Joined Faculty
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
+                Assigned instructors, lecturers, and evaluators.
+              </p>
+            </div>
+
+            <Link
+              href="/teachers"
+              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+            >
+              All Faculty ({teachersCount}) <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {recentTeachers.slice(0, 3).map((t) => (
+              <Link
+                key={t.id}
+                href={`/teachers/${t.id}`}
+                className="group p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/80 dark:hover:bg-[#1A1D2B] border border-slate-200/70 dark:border-[#1E222F] transition-all flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                    {t.avatarUrl ? (
+                      <img src={t.avatarUrl} alt={t.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      t.fullName?.[0] || 'F'
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
+                      {t.fullName}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
+                      {t.email || t.identifier}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 text-right">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold inline-flex items-center gap-1">
+                    <UserCheck className="w-3 h-3" /> Faculty
+                  </span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                    {formatTimeAgo(t.createdAt)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+
+            {recentTeachers.length === 0 && (
+              <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
+                <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-amber-500" />
+                <p className="font-semibold">No faculty members registered</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 5. ACADEMIC SCHEDULE & TIMETABLE (WITH INTERACTIVE FILTERS) ── */}
+      <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              Academic Schedule & Timetable
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
+              Live timetable of classes, mock examinations, and batch sessions.
+            </p>
+          </div>
+
+          {/* Interactive Date Range Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            {[
+              { id: 'PREV_DAY', label: 'Previous Day' },
+              { id: 'TODAY', label: 'Today' },
+              { id: 'TOMORROW', label: 'Tomorrow' },
+              { id: 'THIS_WEEK', label: 'This Week' },
+              { id: 'THIS_MONTH', label: 'This Month' },
+              { id: 'NEXT_MONTH', label: 'Next Month' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setScheduleFilter(f.id as ScheduleFilter)}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer text-xs ${
+                  scheduleFilter === f.id
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-[#161824] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-200/80 dark:hover:bg-[#1F2333] border border-transparent dark:border-[#1E222F]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Schedule Items List */}
+        <div className="space-y-3">
+          {filteredScheduleEvents.map((ev) => (
+            <div
+              key={ev.id}
+              className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#161824] border border-slate-200/70 dark:border-[#1E222F] hover:border-brand-500/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+            >
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    ev.type === 'EXAM'
+                      ? 'bg-rose-100 dark:bg-[#2A1320] text-rose-600 dark:text-rose-400'
+                      : 'bg-brand-100 dark:bg-[#162345] text-brand-600 dark:text-brand-400'
+                  }`}
+                >
+                  {ev.type === 'EXAM' ? <FileCheck2 className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                </div>
+
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      href={ev.link}
+                      className="font-bold text-sm text-slate-900 dark:text-white hover:text-brand-600 transition-colors"
+                    >
+                      {ev.title}
+                    </Link>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-[#1E222F] text-slate-700 dark:text-slate-300 text-[10px] font-semibold">
+                      {ev.batchName}
+                    </span>
+                    {ev.status === 'Live' && (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-extrabold animate-pulse">
+                        🔴 LIVE NOW
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-slate-500 dark:text-[#94A3B8] font-mono text-[11px] flex-wrap">
+                    <span>
+                      🕒 {ev.startTime}
+                      {ev.endTime ? ` – ${ev.endTime}` : ''}
+                    </span>
+                    <span>•</span>
+                    <span>{ev.subjectName}</span>
+                    <span>•</span>
+                    <span className="font-sans text-slate-600 dark:text-slate-400">
+                      Instructor: {ev.teacherName}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href={ev.link}
+                className="px-3.5 py-1.5 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 hover:bg-brand-100 font-bold text-xs rounded-xl border border-brand-200/60 dark:border-brand-800 transition-colors flex items-center gap-1 shrink-0 self-start sm:self-center cursor-pointer"
+              >
+                View Details <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ))}
+
+          {filteredScheduleEvents.length === 0 && (
+            <div className="py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50/50 dark:bg-[#161824] rounded-2xl border border-dashed border-slate-200 dark:border-[#1E222F]">
+              <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40 text-brand-500" />
+              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                No sessions or exams scheduled for this date range
+              </p>
+              <p className="text-[11px] mt-0.5 text-slate-500">
+                Classes and mock examinations scheduled in batches will automatically populate this schedule.
+              </p>
             </div>
           )}
         </div>
