@@ -13,7 +13,8 @@ const CreateBatchSchema = z.object({
   code: z.string().trim().min(2).max(50),
   instituteId: z.string().min(1).optional(),
   description: z.string().trim().max(2000).optional(),
-  bannerUrl: z.union([z.string().url(), z.string().startsWith('data:image/'), z.string().startsWith('/')]).optional().or(z.literal('')),
+  bannerUrl: z.string().nullable().optional().or(z.literal('')),
+  imageUrl: z.string().nullable().optional().or(z.literal('')),
   price: z.number().int().min(0).max(2147483647).optional(),
   priceNpr: z.number().int().min(0).max(2147483647).optional(),
   startDate: z.string().refine(v => !v || !Number.isNaN(Date.parse(v)), 'Enter a valid date').nullable().optional(),
@@ -262,7 +263,7 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           name: data.name,
           code: data.code,
           description: data.description,
-          imageUrl: data.bannerUrl || null,
+          imageUrl: data.imageUrl || data.bannerUrl || null,
           priceNpr: data.priceNpr ?? data.price ?? 0,
           startDate: data.startDate ? new Date(data.startDate) : null,
           endDate: data.endDate ? new Date(data.endDate) : null,
@@ -314,13 +315,14 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
         const duplicate = await fastify.prisma.batch.findFirst({ where: { instituteId: existing.instituteId, id: { not: id }, code: { equals: data.code, mode: 'insensitive' }, status: { not: RecordStatus.DELETED } }, select: { id: true } });
         if (duplicate) return reply.code(409).send({ message: 'This batch code is already in use in this institute', field: 'code' });
       }
+      const imagePayload = data.imageUrl !== undefined ? data.imageUrl : data.bannerUrl;
       const updated = await fastify.prisma.batch.update({
         where: { id },
         data: {
           name: data.name,
           code: data.code,
           description: data.description,
-          imageUrl: data.bannerUrl !== undefined ? data.bannerUrl : undefined,
+          imageUrl: imagePayload !== undefined ? (imagePayload || null) : undefined,
           priceNpr: data.priceNpr ?? data.price,
           startDate,
           endDate,

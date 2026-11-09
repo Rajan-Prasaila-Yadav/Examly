@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import DashboardFeatureRail from '@/components/dashboard-feature-rail';
+import { optimizeBatchCover } from '@/lib/image-optimizer';
 import {
   GraduationCap,
   Users,
@@ -281,40 +282,27 @@ export default function DashboardOverviewPage() {
     } catch {}
   };
 
-  // Direct Batch Cover Upload handler
+  // Direct Batch Cover Upload handler (Auto 16:9 Optimization)
   const handleBatchCoverUpload = async (batchId: string, file?: File) => {
     if (!file) return;
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      alert('Please choose a PNG, JPEG, or WebP image.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be under 5 MB.');
-      return;
-    }
-
     setUploadingBatchId(batchId);
     try {
-      const toDataUrl = () =>
-        new Promise<string>((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = () => res(reader.result as string);
-          reader.onerror = rej;
-          reader.readAsDataURL(file);
-        });
+      // 1. Automatically center-crop to 16:9 and optimize/compress image (WebP/JPEG ~150KB)
+      const { dataUrl, blob, fileName, mimeType } = await optimizeBatchCover(file);
 
       let finalUrl = '';
       try {
         const { data } = await api.post('/storage/presigned-url', {
           folder: 'images',
-          fileName: file.name,
-          contentType: file.type,
+          fileName,
+          contentType: mimeType,
+          size: blob.size,
         });
         if (data?.uploadUrl && !data.uploadUrl.includes('mock-upload') && !data.publicUrl?.includes('pub-mock')) {
           const uploadRes = await fetch(data.uploadUrl, {
             method: 'PUT',
-            headers: { 'Content-Type': file.type },
-            body: file,
+            headers: { 'Content-Type': mimeType },
+            body: blob,
           });
           if (uploadRes.ok && data.publicUrl) {
             finalUrl = data.publicUrl;
@@ -323,21 +311,31 @@ export default function DashboardOverviewPage() {
       } catch {}
 
       if (!finalUrl) {
-        finalUrl = await toDataUrl();
+        finalUrl = dataUrl;
       }
 
-      await api.put(`/batches/${batchId}`, { bannerUrl: finalUrl });
+      // 2. Persist to database (send both bannerUrl and imageUrl)
+      await api.put(`/batches/${batchId}`, { bannerUrl: finalUrl, imageUrl: finalUrl });
 
+      // 3. Invalidate API navigation cache so re-fetch never restores stale data
+      api.invalidateCache('/batches');
+
+      // 4. Update React state & persistence cache immediately
       setBatches((prev) => {
         const next = prev.map((b) => (b.id === batchId ? { ...b, imageUrl: finalUrl } : b));
         persistCache({ batches: next });
         return next;
       });
 
-      setUploadToast('Batch cover updated successfully!');
+      // 5. Broadcast event across windows and components
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('examly-batches-changed'));
+      }
+
+      setUploadToast('Batch cover updated in 16:9 ratio!');
       setTimeout(() => setUploadToast(null), 3500);
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to update batch cover image.');
+      alert(err?.message || err?.response?.data?.message || 'Failed to update batch cover image.');
     } finally {
       setUploadingBatchId(null);
     }
@@ -348,12 +346,16 @@ export default function DashboardOverviewPage() {
     e.stopPropagation();
     setUploadingBatchId(batchId);
     try {
-      await api.put(`/batches/${batchId}`, { bannerUrl: '' });
+      await api.put(`/batches/${batchId}`, { bannerUrl: '', imageUrl: '' });
+      api.invalidateCache('/batches');
       setBatches((prev) => {
         const next = prev.map((b) => (b.id === batchId ? { ...b, imageUrl: null } : b));
         persistCache({ batches: next });
         return next;
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('examly-batches-changed'));
+      }
       setUploadToast('Batch cover reset to 3D artwork.');
       setTimeout(() => setUploadToast(null), 3500);
     } catch {
@@ -435,12 +437,14 @@ export default function DashboardOverviewPage() {
     window.addEventListener('focus', backgroundRefresh);
     window.addEventListener('examly-permissions-changed', backgroundRefresh);
     window.addEventListener('examly-refresh-dashboard', backgroundRefresh);
+    window.addEventListener('examly-batches-changed', backgroundRefresh);
 
     return () => {
       active = false;
       window.removeEventListener('focus', backgroundRefresh);
       window.removeEventListener('examly-permissions-changed', backgroundRefresh);
       window.removeEventListener('examly-refresh-dashboard', backgroundRefresh);
+      window.removeEventListener('examly-batches-changed', backgroundRefresh);
     };
   }, [user?.id]);
 
@@ -630,13 +634,14 @@ export default function DashboardOverviewPage() {
                     {/* Direct Image Upload / Change System (On Card) */}
                     <label
                       htmlFor={`batch-cover-upload-${b.id}`}
-                      title="Upload custom batch cover image (16:9 recommended)"
+                      title="Upload custom batch cover image (16:9 auto-optimized)"
+                      onClick={(e) => e.stopPropagation()}
                       className="absolute bottom-2.5 right-2.5 z-20 px-2.5 py-1 rounded-lg backdrop-blur-md bg-black/75 hover:bg-black/90 border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer opacity-90 group-hover:opacity-100 hover:scale-105"
                     >
                       {uploadingBatchId === b.id ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
-                          <span>Saving…</span>
+                          <span>Optimizing 16:9…</span>
                         </>
                       ) : (
                         <>
@@ -644,19 +649,19 @@ export default function DashboardOverviewPage() {
                           <span>{b.imageUrl ? 'Change Cover' : 'Upload Cover'}</span>
                         </>
                       )}
-                      <input
-                        id={`batch-cover-upload-${b.id}`}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
-                        disabled={uploadingBatchId === b.id}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleBatchCoverUpload(b.id, file);
-                          e.target.value = '';
-                        }}
-                      />
                     </label>
+                    <input
+                      id={`batch-cover-upload-${b.id}`}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingBatchId === b.id}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBatchCoverUpload(b.id, file);
+                        e.target.value = '';
+                      }}
+                    />
 
                     {/* Remove custom cover option */}
                     {b.imageUrl && (
