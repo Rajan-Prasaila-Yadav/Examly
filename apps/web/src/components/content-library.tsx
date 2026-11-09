@@ -237,7 +237,7 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
              className={activeBatchId === b.id ? 'on' : ''}
              onClick={() => setSelectedBatchId(b.id)}
            >
-             🎓 {b.name} {b.code ? `(${b.code})` : ''}
+             {b.name} {b.code ? `(${b.code})` : ''}
            </button>
          ))}
        </nav>
@@ -245,7 +245,7 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mu)' }}>Enrolled Batch:</span>
          <span className="ex-chip ok" style={{ fontSize: 12, fontWeight: 800 }}>
-           🎓 {studentBatches[0].name} {studentBatches[0].code ? `(${studentBatches[0].code})` : ''}
+           {studentBatches[0].name} {studentBatches[0].code ? `(${studentBatches[0].code})` : ''}
          </span>
        </div>
      ) : null
