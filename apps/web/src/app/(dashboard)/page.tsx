@@ -18,6 +18,10 @@ import {
   Calendar,
   UserCheck,
   Edit2,
+  Camera,
+  Trash2,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 
 function formatTimeAgo(dateString?: string) {
@@ -33,6 +37,80 @@ function formatTimeAgo(dateString?: string) {
 // ── 3D Isometric Artworks for Batches in Fixed 16:9 Ratio ──
 function Batch3DArt({ index = 0 }: { index: number }) {
   if (index % 3 === 0) {
+    // Medical & Clinical Study Visual (Stethoscope, Anatomy Chart, Medical Book)
+    return (
+      <svg viewBox="0 0 320 180" className="w-full h-full object-cover">
+        <defs>
+          <linearGradient id="medGrad0" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#0B1A28" />
+            <stop offset="60%" stopColor="#07111D" />
+            <stop offset="100%" stopColor="#03070D" />
+          </linearGradient>
+          <linearGradient id="medCyanGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#0891B2" stopOpacity="0.05" />
+          </linearGradient>
+          <linearGradient id="medBookGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#0284C7" />
+            <stop offset="100%" stopColor="#0369A1" />
+          </linearGradient>
+          <linearGradient id="medTubeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38BDF8" />
+            <stop offset="100%" stopColor="#0284C7" />
+          </linearGradient>
+        </defs>
+        <rect width="320" height="180" fill="url(#medGrad0)" />
+        <ellipse cx="160" cy="144" rx="100" ry="24" fill="#000000" opacity="0.65" />
+        <ellipse cx="160" cy="85" rx="88" ry="85" fill="url(#medCyanGlow)" />
+
+        {/* Isometric Lab Desk Surface */}
+        <polygon points="160,105 236,140 160,168 84,140" fill="#0E2236" />
+        <polygon points="84,140 160,168 160,176 84,148" fill="#091522" />
+        <polygon points="236,140 160,168 160,176 236,148" fill="#050C14" />
+
+        {/* 3D Open Medical Textbook */}
+        <g transform="translate(160, 118) scale(1.1)">
+          <path d="M0,-8 C-18,-18 -48,-16 -58,-6 L-58,24 C-48,16 -18,14 0,22 C18,14 48,16 58,24 L58,-6 C48,-16 18,-18 0,-8 Z" fill="url(#medBookGrad)" />
+          <path d="M0,-10 C-18,-20 -46,-18 -56,-8 L-56,22 C-46,14 -18,12 0,20 C18,12 46,14 56,22 L56,-8 C46,-18 18,-20 0,-10 Z" fill="#F0F9FF" opacity="0.95" />
+          <line x1="0" y1="-10" x2="0" y2="20" stroke="#0284C7" strokeWidth="2.5" />
+          {/* Anatomical sketch lines on pages */}
+          <line x1="-42" y1="-1" x2="-12" y2="-5" stroke="#38BDF8" strokeWidth="2" strokeLinecap="round" />
+          <line x1="-42" y1="7" x2="-16" y2="3" stroke="#94A3B8" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="-42" y1="14" x2="-22" y2="10" stroke="#94A3B8" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="12" y1="-5" x2="42" y2="-1" stroke="#38BDF8" strokeWidth="2" strokeLinecap="round" />
+          <line x1="16" y1="3" x2="42" y2="7" stroke="#94A3B8" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="22" y1="10" x2="42" y2="14" stroke="#94A3B8" strokeWidth="1.8" strokeLinecap="round" />
+        </g>
+
+        {/* 3D Metallic Medical Stethoscope */}
+        <g transform="translate(160, 52)">
+          {/* Earpieces */}
+          <path d="M-22,0 C-22,18 -6,28 0,38 C6,28 22,18 22,0" fill="none" stroke="#CBD5E1" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="-22" cy="0" r="3" fill="#38BDF8" />
+          <circle cx="22" cy="0" r="3" fill="#38BDF8" />
+          {/* Y-junction & Flexible tube */}
+          <circle cx="0" cy="38" r="3" fill="#94A3B8" />
+          <path d="M0,38 C-4,50 -26,62 -18,78 C-12,90 8,92 18,84" fill="none" stroke="url(#medTubeGrad)" strokeWidth="3.5" strokeLinecap="round" />
+          {/* Chestpiece / Diaphragm Bell */}
+          <circle cx="22" cy="82" r="9" fill="#0F172A" stroke="#38BDF8" strokeWidth="2.5" />
+          <circle cx="22" cy="82" r="5" fill="#E2E8F0" />
+        </g>
+
+        {/* Floating Medical Cross Badge & Pulse Line */}
+        <g transform="translate(85, 48)">
+          <rect x="-12" y="-12" width="24" height="24" rx="6" fill="#0369A1" stroke="#38BDF8" strokeWidth="1.5" />
+          <rect x="-2" y="-7" width="4" height="14" rx="1.5" fill="#FFFFFF" />
+          <rect x="-7" y="-2" width="14" height="4" rx="1.5" fill="#FFFFFF" />
+        </g>
+
+        {/* EKG Heartbeat waveform */}
+        <path d="M210,48 L225,48 L230,36 L235,56 L240,42 L245,52 L248,48 L265,48" fill="none" stroke="#06B6D4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="265" cy="48" r="2.5" fill="#67E8F9" />
+      </svg>
+    );
+  }
+  if (index % 3 === 1) {
+    // Digital Classroom & Engineering Terminal Visual
     return (
       <svg viewBox="0 0 320 180" className="w-full h-full object-cover">
         <defs>
@@ -86,56 +164,7 @@ function Batch3DArt({ index = 0 }: { index: number }) {
       </svg>
     );
   }
-  if (index % 3 === 1) {
-    return (
-      <svg viewBox="0 0 320 180" className="w-full h-full object-cover">
-        <defs>
-          <linearGradient id="bArtGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#062E22" />
-            <stop offset="60%" stopColor="#081816" />
-            <stop offset="100%" stopColor="#040608" />
-          </linearGradient>
-          <linearGradient id="bArtGlow1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34D399" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#059669" stopOpacity="0.05" />
-          </linearGradient>
-          <linearGradient id="bArtBook1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#10B981" />
-            <stop offset="100%" stopColor="#047857" />
-          </linearGradient>
-        </defs>
-        <rect width="320" height="180" fill="url(#bArtGrad1)" />
-        <ellipse cx="160" cy="142" rx="95" ry="24" fill="#000000" opacity="0.6" />
-        <ellipse cx="160" cy="85" rx="85" ry="85" fill="url(#bArtGlow1)" />
-
-        {/* Isometric Stage */}
-        <polygon points="160,105 230,138 160,166 90,138" fill="#12241F" />
-        <polygon points="90,138 160,166 160,174 90,146" fill="#0C1714" />
-        <polygon points="230,138 160,166 160,174 230,146" fill="#060E0B" />
-
-        {/* 3D Open Knowledge Book */}
-        <g transform="translate(160, 96) scale(1.15)">
-          <path d="M0,0 C-18,-10 -50,-8 -60,2 L-60,34 C-50,26 -18,24 0,32 C18,24 50,26 60,34 L60,2 C50,-8 18,-10 0,0 Z" fill="url(#bArtBook1)" />
-          <path d="M0,-2 C-18,-12 -48,-10 -58,-2 L-58,30 C-48,22 -18,20 0,28 C18,20 48,22 58,30 L58,-2 C48,-10 18,-12 0,-2 Z" fill="#FFFFFF" opacity="0.95" />
-          <line x1="0" y1="-2" x2="0" y2="28" stroke="#047857" strokeWidth="2.5" />
-          <line x1="-42" y1="8" x2="-12" y2="4" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-          <line x1="-42" y1="16" x2="-16" y2="12" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-          <line x1="12" y1="4" x2="42" y2="8" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-          <line x1="16" y1="12" x2="42" y2="16" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" />
-        </g>
-
-        {/* Floating Glowing Science Atom Orb */}
-        <circle cx="160" cy="48" r="14" fill="#06B6D4" />
-        <ellipse cx="160" cy="48" rx="26" ry="9" fill="none" stroke="#67E8F9" strokeWidth="2.5" transform="rotate(-30 160 48)" />
-        <ellipse cx="160" cy="48" rx="26" ry="9" fill="none" stroke="#A7F3D0" strokeWidth="2.5" transform="rotate(30 160 48)" />
-        <circle cx="178" cy="38" r="3" fill="#FFFFFF" />
-
-        {/* Orbitals */}
-        <circle cx="85" cy="62" r="3.5" fill="#34D399" opacity="0.85" />
-        <circle cx="235" cy="52" r="4" fill="#38BDF8" opacity="0.85" />
-      </svg>
-    );
-  }
+  // Academic Mastery & Golden Trophy Visual
   return (
     <svg viewBox="0 0 320 180" className="w-full h-full object-cover">
       <defs>
@@ -239,6 +268,8 @@ export default function DashboardOverviewPage() {
   });
 
   const [batchError, setBatchError] = useState('');
+  const [uploadingBatchId, setUploadingBatchId] = useState<string | null>(null);
+  const [uploadToast, setUploadToast] = useState<string | null>(null);
 
   // Persistence helper to keep next render at 0ms
   const persistCache = (patch: Record<string, any>) => {
@@ -248,6 +279,88 @@ export default function DashboardOverviewPage() {
       const updated = { ...current, ...patch, updatedAt: Date.now() };
       localStorage.setItem('examly.dashboard.cache', JSON.stringify(updated));
     } catch {}
+  };
+
+  // Direct Batch Cover Upload handler
+  const handleBatchCoverUpload = async (batchId: string, file?: File) => {
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      alert('Please choose a PNG, JPEG, or WebP image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be under 5 MB.');
+      return;
+    }
+
+    setUploadingBatchId(batchId);
+    try {
+      const toDataUrl = () =>
+        new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+
+      let finalUrl = '';
+      try {
+        const { data } = await api.post('/storage/presigned-url', {
+          folder: 'images',
+          fileName: file.name,
+          contentType: file.type,
+        });
+        if (data?.uploadUrl && !data.uploadUrl.includes('mock-upload') && !data.publicUrl?.includes('pub-mock')) {
+          const uploadRes = await fetch(data.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type },
+            body: file,
+          });
+          if (uploadRes.ok && data.publicUrl) {
+            finalUrl = data.publicUrl;
+          }
+        }
+      } catch {}
+
+      if (!finalUrl) {
+        finalUrl = await toDataUrl();
+      }
+
+      await api.put(`/batches/${batchId}`, { bannerUrl: finalUrl });
+
+      setBatches((prev) => {
+        const next = prev.map((b) => (b.id === batchId ? { ...b, imageUrl: finalUrl } : b));
+        persistCache({ batches: next });
+        return next;
+      });
+
+      setUploadToast('Batch cover updated successfully!');
+      setTimeout(() => setUploadToast(null), 3500);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to update batch cover image.');
+    } finally {
+      setUploadingBatchId(null);
+    }
+  };
+
+  const handleRemoveBatchCover = async (batchId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setUploadingBatchId(batchId);
+    try {
+      await api.put(`/batches/${batchId}`, { bannerUrl: '' });
+      setBatches((prev) => {
+        const next = prev.map((b) => (b.id === batchId ? { ...b, imageUrl: null } : b));
+        persistCache({ batches: next });
+        return next;
+      });
+      setUploadToast('Batch cover reset to 3D artwork.');
+      setTimeout(() => setUploadToast(null), 3500);
+    } catch {
+      alert('Failed to reset cover image.');
+    } finally {
+      setUploadingBatchId(null);
+    }
   };
 
   useEffect(() => {
@@ -483,13 +596,13 @@ export default function DashboardOverviewPage() {
             return (
               <div
                 key={b.id}
-                className="group relative rounded-2xl p-4 sm:p-4.5 flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1 bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#0E1017] dark:via-[#0B0D13] dark:to-[#07080D] border border-slate-200/90 dark:border-white/[0.07] hover:border-brand-500/50 dark:hover:border-indigo-500/50 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_16px_32px_-8px_rgba(99,102,241,0.18)]"
+                className="group relative rounded-2xl p-4 sm:p-4.5 flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1 bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#0B0D14] dark:via-[#080A0F] dark:to-[#05060A] border border-slate-200/90 dark:border-white/[0.08] hover:border-brand-500/50 dark:hover:border-indigo-500/50 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_16px_32px_-8px_rgba(99,102,241,0.18)]"
               >
                 {/* 3D Sheen Highlight line */}
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 dark:via-white/10 to-transparent rounded-t-2xl" />
 
                 <div>
-                  {/* Fixed 16:9 Aspect Ratio Cover / 3D Art System */}
+                  {/* Fixed 16:9 Aspect Ratio Cover / 3D Art System - NO CODE BADGE INSIDE IMAGE */}
                   <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden mb-3.5 bg-slate-900 border border-slate-200/80 dark:border-[#181C2A] shadow-inner group-hover:shadow-md transition-shadow">
                     {b.imageUrl ? (
                       <img
@@ -501,35 +614,79 @@ export default function DashboardOverviewPage() {
                       <Batch3DArt index={idx} />
                     )}
 
-                    {/* Dark gradient overlay for contrast */}
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/35" />
-
-                    {/* Floating Top Left: Code Badge */}
-                    <div className="absolute top-2.5 left-2.5 z-10">
-                      <span className="px-2.5 py-1 rounded-lg backdrop-blur-md bg-black/60 border border-white/20 text-white font-mono font-black text-[10px] tracking-wider shadow-sm">
-                        {b.code || 'BATCH'}
-                      </span>
-                    </div>
+                    {/* Subtle contrast gradient */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25" />
 
                     {/* Floating Top Right: Fee & Status Pills */}
                     <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md bg-emerald-500/80 text-white border border-emerald-400/30 shadow-xs">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md bg-emerald-500/85 text-white border border-emerald-400/30 shadow-xs">
                         {feeLabel}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md bg-blue-500/80 text-white border border-blue-400/30 shadow-xs">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md bg-blue-500/85 text-white border border-blue-400/30 shadow-xs">
                         ACTIVE
                       </span>
                     </div>
+
+                    {/* Direct Image Upload / Change System (On Card) */}
+                    <label
+                      htmlFor={`batch-cover-upload-${b.id}`}
+                      title="Upload custom batch cover image (16:9 recommended)"
+                      className="absolute bottom-2.5 right-2.5 z-20 px-2.5 py-1 rounded-lg backdrop-blur-md bg-black/75 hover:bg-black/90 border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer opacity-90 group-hover:opacity-100 hover:scale-105"
+                    >
+                      {uploadingBatchId === b.id ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+                          <span>Saving…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-3.5 h-3.5 text-white/90" />
+                          <span>{b.imageUrl ? 'Change Cover' : 'Upload Cover'}</span>
+                        </>
+                      )}
+                      <input
+                        id={`batch-cover-upload-${b.id}`}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        disabled={uploadingBatchId === b.id}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleBatchCoverUpload(b.id, file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+
+                    {/* Remove custom cover option */}
+                    {b.imageUrl && (
+                      <button
+                        type="button"
+                        title="Reset to 3D artwork"
+                        onClick={(e) => handleRemoveBatchCover(b.id, e)}
+                        disabled={uploadingBatchId === b.id}
+                        className="absolute bottom-2.5 left-2.5 z-20 p-1.5 rounded-lg backdrop-blur-md bg-black/75 hover:bg-rose-900/90 border border-white/20 text-white/80 hover:text-white text-[11px] transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-105"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
-                  {/* Title & Institute */}
+                  {/* Title, Institute & Clean Batch Code (Outside the image) */}
                   <div className="space-y-1">
-                    <Link
-                      href={`/batches/${b.id}`}
-                      className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1"
-                    >
-                      {b.name}
-                    </Link>
+                    <div className="flex items-center justify-between gap-2">
+                      <Link
+                        href={`/batches/${b.id}`}
+                        className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1"
+                      >
+                        {b.name}
+                      </Link>
+                      {b.code && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#151926] text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold border border-slate-200/80 dark:border-[#22283C] shrink-0">
+                          {b.code}
+                        </span>
+                      )}
+                    </div>
                     {b.institute?.name && (
                       <p className="text-[11px] font-medium text-slate-500 dark:text-[#94A3B8] line-clamp-1">
                         {b.institute.name}
@@ -849,6 +1006,14 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating Status Notification Pill */}
+      {uploadToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-slate-900/95 dark:bg-[#10131F]/95 backdrop-blur-md border border-emerald-500/40 text-white text-xs font-bold shadow-[0_12px_36px_rgba(0,0,0,0.6)] flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{uploadToast}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,7 +13,7 @@ const CreateBatchSchema = z.object({
   code: z.string().trim().min(2).max(50),
   instituteId: z.string().min(1).optional(),
   description: z.string().trim().max(2000).optional(),
-  bannerUrl: z.string().url().optional().or(z.literal('')),
+  bannerUrl: z.union([z.string().url(), z.string().startsWith('data:image/'), z.string().startsWith('/')]).optional().or(z.literal('')),
   price: z.number().int().min(0).max(2147483647).optional(),
   priceNpr: z.number().int().min(0).max(2147483647).optional(),
   startDate: z.string().refine(v => !v || !Number.isNaN(Date.parse(v)), 'Enter a valid date').nullable().optional(),
