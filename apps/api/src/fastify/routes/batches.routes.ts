@@ -106,11 +106,16 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           select: { batchId: true },
         });
 
+        // Unassigned students have no enrolled batches
+        if (!studentProfile?.batchId) {
+          return [];
+        }
+
         const batches = await fastify.prisma.batch.findMany({
           where: {
-            ...(studentProfile?.batchId ? { id: studentProfile.batchId } : {}),
+            id: studentProfile.batchId,
             status: RecordStatus.ACTIVE,
-            instituteId: user.instituteId,
+            ...(user.instituteId ? { instituteId: user.instituteId } : {}),
             ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
           },
           include: {
@@ -188,7 +193,7 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
       if (user.roleCode !== RoleType.SUPER_ADMIN && !user.instituteId) return reply.code(404).send({ message: 'Batch not found' });
       if (user.roleCode === RoleType.STUDENT) {
         const profile = await fastify.prisma.studentProfile.findUnique({ where: { userId: user.userId }, select: { batchId: true } });
-        if (profile?.batchId !== id) return reply.code(404).send({ message: 'Batch not found' });
+        if (profile?.batchId !== id) return reply.code(403).send({ message: 'You are not enrolled in this batch', error: 'Forbidden' });
         where.status = RecordStatus.ACTIVE;
       }
       if (user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN) {
@@ -199,11 +204,13 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
         where,
         include: {
           subjects: {
-            where: { status: { not: RecordStatus.DELETED } },
+            where: { status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } },
             include: {
               lessons: {
-                where: { status: { not: RecordStatus.DELETED } },
+                where: { status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } },
                 include: {
+                  videos: { where: { status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } }, orderBy: { sortOrder: 'asc' } },
+                  notes: { where: { status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } }, orderBy: { sortOrder: 'asc' } },
                   _count: { select: { videos: true, notes: true, resources: true, tests: true } },
                 },
                 orderBy: { sortOrder: 'asc' },
@@ -212,7 +219,10 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
             orderBy: { sortOrder: 'asc' },
           },
           tests: {
-            where: { status: { not: RecordStatus.DELETED } },
+            where: {
+              status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
+              ...(user.roleCode === RoleType.STUDENT ? { isPublished: true } : {}),
+            },
             select: { id: true, title: true, isPublished: true, testStatus: true },
           },
           _count: { select: { students: true, tests: true } },

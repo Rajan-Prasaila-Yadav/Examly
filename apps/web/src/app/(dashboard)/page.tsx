@@ -23,6 +23,7 @@ import {
   Trash2,
   Loader2,
   CheckCircle2,
+  Play,
 } from 'lucide-react';
 
 function formatTimeAgo(dateString?: string) {
@@ -213,6 +214,16 @@ function Batch3DArt({ index = 0 }: { index: number }) {
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
 
+  const isStudent = useMemo(() => {
+    const role = user?.role;
+    if (typeof role === 'string') return role.toUpperCase() === 'STUDENT';
+    if (role && typeof role === 'object') {
+      const name = (role as any).name || (role as any).code || '';
+      return String(name).toUpperCase() === 'STUDENT';
+    }
+    return false;
+  }, [user]);
+
   // ── High-Speed Instant-Hydrated Data States (0ms Initial Render) ──
   const [batches, setBatches] = useState<any[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -266,6 +277,15 @@ export default function DashboardOverviewPage() {
       if (c) return JSON.parse(c).recentTeachers || [];
     } catch {}
     return [];
+  });
+
+  const [studentData, setStudentData] = useState<any>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const c = localStorage.getItem('examly.student.dashboard.cache');
+      if (c) return JSON.parse(c);
+    } catch {}
+    return null;
   });
 
   const [batchError, setBatchError] = useState('');
@@ -402,30 +422,47 @@ export default function DashboardOverviewPage() {
         })
         .catch(() => {});
 
-      // 3. Fetch Recent Students (limit 3)
-      api
-        .get('/users/students?limit=3', config)
-        .then((res) => {
-          if (!active) return;
-          const stdList = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-          const total = res.data?.meta?.total ?? stdList.length;
-          setRecentStudents(stdList.slice(0, 3));
-          setStudentsCount(total);
-          persistCache({ recentStudents: stdList.slice(0, 3), studentsCount: total });
-        })
-        .catch(() => {});
+      // 3. Conditional Data Fetching based on Role
+      if (isStudent) {
+        api
+          .get('/dashboard/student', config)
+          .then((res) => {
+            if (!active) return;
+            const data = res.data;
+            setStudentData(data);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('examly.student.dashboard.cache', JSON.stringify(data));
+              } catch {}
+            }
+          })
+          .catch(() => {});
+      } else {
+        // 3. Fetch Recent Students (limit 3)
+        api
+          .get('/users/students?limit=3', config)
+          .then((res) => {
+            if (!active) return;
+            const stdList = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            const total = res.data?.meta?.total ?? stdList.length;
+            setRecentStudents(stdList.slice(0, 3));
+            setStudentsCount(total);
+            persistCache({ recentStudents: stdList.slice(0, 3), studentsCount: total });
+          })
+          .catch(() => {});
 
-      // 4. Fetch Recent Faculty (limit 3)
-      api
-        .get('/users/teachers', config)
-        .then((res) => {
-          if (!active) return;
-          const facList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-          setRecentTeachers(facList.slice(0, 3));
-          setTeachersCount(facList.length);
-          persistCache({ recentTeachers: facList.slice(0, 3), teachersCount: facList.length });
-        })
-        .catch(() => {});
+        // 4. Fetch Recent Faculty (limit 3)
+        api
+          .get('/users/teachers', config)
+          .then((res) => {
+            if (!active) return;
+            const facList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+            setRecentTeachers(facList.slice(0, 3));
+            setTeachersCount(facList.length);
+            persistCache({ recentTeachers: facList.slice(0, 3), teachersCount: facList.length });
+          })
+          .catch(() => {});
+      }
     };
 
     void fetchData(false);
@@ -569,7 +606,7 @@ export default function DashboardOverviewPage() {
         {/* Header with zero secondary text */}
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
           <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-            Active Batches
+            {isStudent ? 'My Enrolled Batch' : 'Active Batches'}
           </h2>
 
           <div className="flex items-center gap-2">
@@ -577,14 +614,16 @@ export default function DashboardOverviewPage() {
               href="/batches"
               className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#121520] dark:hover:bg-[#1A1E2E] text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-slate-200 dark:border-[#1E2336] transition-all cursor-pointer flex items-center gap-1"
             >
-              Manage All <ChevronRight className="w-3.5 h-3.5" />
+              {isStudent ? 'All Batches' : 'Manage All'} <ChevronRight className="w-3.5 h-3.5" />
             </Link>
-            <Link
-              href="/batches"
-              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> New Batch
-            </Link>
+            {!isStudent && (
+              <Link
+                href="/batches"
+                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> New Batch
+              </Link>
+            )}
           </div>
         </div>
 
@@ -631,49 +670,53 @@ export default function DashboardOverviewPage() {
                       </span>
                     </div>
 
-                    {/* Direct Image Upload / Change System (On Card) */}
-                    <label
-                      htmlFor={`batch-cover-upload-${b.id}`}
-                      title="Upload custom batch cover image (16:9 auto-optimized)"
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute bottom-2.5 right-2.5 z-20 px-2.5 py-1 rounded-lg backdrop-blur-md bg-black/75 hover:bg-black/90 border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer opacity-90 group-hover:opacity-100 hover:scale-105"
-                    >
-                      {uploadingBatchId === b.id ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
-                          <span>Optimizing 16:9…</span>
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-3.5 h-3.5 text-white/90" />
-                          <span>{b.imageUrl ? 'Change Cover' : 'Upload Cover'}</span>
-                        </>
-                      )}
-                    </label>
-                    <input
-                      id={`batch-cover-upload-${b.id}`}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={uploadingBatchId === b.id}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleBatchCoverUpload(b.id, file);
-                        e.target.value = '';
-                      }}
-                    />
+                    {/* Direct Image Upload / Change System (On Card) - Admin/Faculty Only */}
+                    {!isStudent && (
+                      <>
+                        <label
+                          htmlFor={`batch-cover-upload-${b.id}`}
+                          title="Upload custom batch cover image (16:9 auto-optimized)"
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute bottom-2.5 right-2.5 z-20 px-2.5 py-1 rounded-lg backdrop-blur-md bg-black/75 hover:bg-black/90 border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer opacity-90 group-hover:opacity-100 hover:scale-105"
+                        >
+                          {uploadingBatchId === b.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+                              <span>Optimizing 16:9…</span>
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-3.5 h-3.5 text-white/90" />
+                              <span>{b.imageUrl ? 'Change Cover' : 'Upload Cover'}</span>
+                            </>
+                          )}
+                        </label>
+                        <input
+                          id={`batch-cover-upload-${b.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingBatchId === b.id}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleBatchCoverUpload(b.id, file);
+                            e.target.value = '';
+                          }}
+                        />
 
-                    {/* Remove custom cover option */}
-                    {b.imageUrl && (
-                      <button
-                        type="button"
-                        title="Reset to 3D artwork"
-                        onClick={(e) => handleRemoveBatchCover(b.id, e)}
-                        disabled={uploadingBatchId === b.id}
-                        className="absolute bottom-2.5 left-2.5 z-20 p-1.5 rounded-lg backdrop-blur-md bg-black/75 hover:bg-rose-900/90 border border-white/20 text-white/80 hover:text-white text-[11px] transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-105"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        {/* Remove custom cover option */}
+                        {b.imageUrl && (
+                          <button
+                            type="button"
+                            title="Reset to 3D artwork"
+                            onClick={(e) => handleRemoveBatchCover(b.id, e)}
+                            disabled={uploadingBatchId === b.id}
+                            className="absolute bottom-2.5 left-2.5 z-20 p-1.5 rounded-lg backdrop-blur-md bg-black/75 hover:bg-rose-900/90 border border-white/20 text-white/80 hover:text-white text-[11px] transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-105"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -707,7 +750,7 @@ export default function DashboardOverviewPage() {
                   )}
                 </div>
 
-                {/* Footer Metrics & 3D Manage Button */}
+                {/* Footer Metrics & Action Button */}
                 <div className="pt-3.5 mt-3 border-t border-slate-200/60 dark:border-[#161824] flex items-center justify-between text-xs gap-2">
                   <div className="flex items-center gap-2.5 text-slate-500 dark:text-[#94A3B8] text-[11px] font-mono">
                     <span className="flex items-center gap-1" title="Curriculum Subjects">
@@ -728,7 +771,7 @@ export default function DashboardOverviewPage() {
                     href={`/batches/${b.id}`}
                     className="px-3.5 py-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(79,70,229,0.25)] hover:shadow-[0_6px_16px_rgba(79,70,229,0.35)] active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
                   >
-                    Manage →
+                    {isStudent ? 'Start Learning →' : 'Manage →'}
                   </Link>
                 </div>
               </div>
@@ -736,9 +779,16 @@ export default function DashboardOverviewPage() {
           })}
 
           {batches.length === 0 && (
-            <div className="col-span-full py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#0E1017] rounded-2xl border border-slate-200/70 dark:border-[#161824]">
-              <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="font-semibold">No active batches created yet.</p>
+            <div className="col-span-full py-12 px-6 text-center text-slate-500 dark:text-[#94A3B8] bg-slate-50/70 dark:bg-[#0E1017] rounded-2xl border border-slate-200/70 dark:border-[#161824] space-y-2">
+              <GraduationCap className="w-12 h-12 mx-auto mb-2 text-brand-500 opacity-80" />
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                {isStudent ? 'Not Enrolled in Any Batch' : 'No active batches created yet.'}
+              </h3>
+              <p className="text-xs max-w-md mx-auto text-slate-500 dark:text-[#94A3B8] leading-relaxed">
+                {isStudent
+                  ? 'You are not currently assigned to an active batch. Contact your institute administrator or coordinator to enroll you into your course batch.'
+                  : 'Get started by creating a batch to organize subjects, faculty, mock tests, and student enrollments.'}
+              </p>
             </div>
           )}
         </div>
@@ -748,7 +798,6 @@ export default function DashboardOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
         {/* LEFT: LIVE EXAMINATIONS */}
         <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
-          {/* Header with zero secondary text, Manage All button */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
             <div className="flex items-center gap-3">
               {LiveTestArena3DArt}
@@ -761,7 +810,7 @@ export default function DashboardOverviewPage() {
               href="/tests"
               className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs rounded-xl border border-rose-200/80 dark:border-rose-900/60 transition-all flex items-center gap-1 cursor-pointer shrink-0"
             >
-              Manage All <ChevronRight className="w-3.5 h-3.5" />
+              {isStudent ? 'View All' : 'Manage All'} <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -774,7 +823,7 @@ export default function DashboardOverviewPage() {
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link
-                      href={`/tests/${t.id}`}
+                      href={isStudent ? `/tests/${t.id}/runner` : `/tests/${t.id}`}
                       className="font-bold text-sm text-slate-900 dark:text-white hover:text-rose-600 dark:hover:text-rose-400 transition-colors truncate max-w-sm"
                     >
                       {t.title}
@@ -797,10 +846,18 @@ export default function DashboardOverviewPage() {
                 </div>
 
                 <Link
-                  href={`/tests/${t.id}`}
+                  href={isStudent ? `/tests/${t.id}/runner` : `/tests/${t.id}`}
                   className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(225,29,72,0.25)] hover:shadow-[0_6px_16px_rgba(225,29,72,0.35)] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Manage →
+                  {isStudent ? (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" /> Take Exam →
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" /> Manage →
+                    </>
+                  )}
                 </Link>
               </div>
             ))}
@@ -816,7 +873,6 @@ export default function DashboardOverviewPage() {
 
         {/* RIGHT: UPCOMING TESTS */}
         <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
-          {/* Header with zero secondary text, Author Test button */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
             <div className="flex items-center gap-3">
               {UpcomingTestSchedule3DArt}
@@ -825,12 +881,21 @@ export default function DashboardOverviewPage() {
               </h3>
             </div>
 
-            <Link
-              href="/tests/create"
-              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" /> Author Test
-            </Link>
+            {isStudent ? (
+              <Link
+                href="/tests"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#121520] dark:hover:bg-[#1A1E2E] text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-slate-200 dark:border-[#1E2336] transition-all cursor-pointer flex items-center gap-1"
+              >
+                View All <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <Link
+                href="/tests/create"
+                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Author Test
+              </Link>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -867,10 +932,18 @@ export default function DashboardOverviewPage() {
                 </div>
 
                 <Link
-                  href={`/tests/create?testId=${t.id}`}
+                  href={isStudent ? `/tests/${t.id}` : `/tests/create?testId=${t.id}`}
                   className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#151824] dark:hover:bg-[#1D2132] text-slate-800 dark:text-white font-extrabold text-xs rounded-xl border border-slate-200 dark:border-[#22283A] shadow-2xs active:scale-95 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
                 >
-                  <Edit2 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Author Test
+                  {isStudent ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> View Details →
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Author Test
+                    </>
+                  )}
                 </Link>
               </div>
             ))}
@@ -885,132 +958,254 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* ── 4. RECENT MEMBERS JOINED: RECENT STUDENTS & RECENT FACULTY ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
-        {/* RECENT STUDENTS (EXACTLY 3) */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
-          {/* Header with zero secondary text */}
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-              Recent Students
-            </h3>
+      {/* ── 4. CONDITIONAL SECTION: STUDENT TODAY'S CLASSES & RESULTS vs ADMIN RECENT MEMBERS ── */}
+      {isStudent ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
+          {/* TODAY'S SCHEDULE & CLASSES */}
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
+              <div className="flex items-center gap-2.5">
+                <Calendar className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                  Today’s Schedule & Classes
+                </h3>
+              </div>
+              {studentData?.batch?.id && (
+                <Link
+                  href={`/batches/${studentData.batch.id}`}
+                  className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+                >
+                  Timetable <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
 
-            <Link
-              href="/students"
-              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
-            >
-              View All <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {recentStudents.slice(0, 3).map((s) => (
-              <Link
-                key={s.id}
-                href={`/students/${s.id}`}
-                className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#0D0F16] hover:bg-slate-100/90 dark:hover:bg-[#121520] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-                    {s.avatarUrl ? (
-                      <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
-                    ) : (
-                      s.fullName?.[0] || 'S'
+            <div className="space-y-3">
+              {(studentData?.todayClasses || []).map((c: any) => (
+                <div
+                  key={c.id}
+                  className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 shadow-2xs"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        {c.subject?.name || 'Subject'}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 dark:bg-brand-950/70 text-brand-700 dark:text-brand-300">
+                        {c.status || 'Scheduled'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                      {c.topic || 'Class session'}
+                    </p>
+                    {c.teacher?.fullName && (
+                      <p className="text-[11px] text-slate-500 font-mono">
+                        Instructor: {c.teacher.fullName}
+                      </p>
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
-                      {s.fullName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
-                      {s.email || s.identifier}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0 text-right">
-                  {s.studentProfile?.batch?.name && (
-                    <span className="px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/70 text-brand-700 dark:text-brand-300 text-[10px] font-semibold">
-                      {s.studentProfile.batch.name}
+                  <div className="text-right shrink-0">
+                    <span className="inline-block px-2.5 py-1 rounded-lg bg-white dark:bg-[#151926] border border-slate-200 dark:border-[#22283C] text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {c.startTime}–{c.endTime}
                     </span>
-                  )}
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                    {formatTimeAgo(s.createdAt)}
-                  </span>
+                  </div>
                 </div>
-              </Link>
-            ))}
+              ))}
 
-            {recentStudents.length === 0 && (
-              <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
-                <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-blue-500" />
-                <p className="font-semibold">No students recorded</p>
+              {(!studentData?.todayClasses || studentData.todayClasses.length === 0) && (
+                <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#0E1017] rounded-2xl border border-slate-200/70 dark:border-[#161824]">
+                  <Calendar className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-brand-500" />
+                  <p className="font-semibold text-slate-700 dark:text-slate-300">No classes scheduled for today</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Review your batch timetable for upcoming sessions</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* MY RECENT TEST RESULTS */}
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
+              <div className="flex items-center gap-2.5">
+                <FileCheck2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                  My Recent Test Results
+                </h3>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* RECENT FACULTY (EXACTLY 3) */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
-          {/* Header with zero secondary text */}
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-              Recent Faculty
-            </h3>
-
-            <Link
-              href="/teachers"
-              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
-            >
-              View All <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {recentTeachers.slice(0, 3).map((t) => (
               <Link
-                key={t.id}
-                href={`/teachers/${t.id}`}
-                className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#0D0F16] hover:bg-slate-100/90 dark:hover:bg-[#121520] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
+                href="/tests"
+                className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-                    {t.avatarUrl ? (
-                      <img src={t.avatarUrl} alt={t.fullName} className="w-full h-full object-cover" />
-                    ) : (
-                      t.fullName?.[0] || 'F'
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
-                      {t.fullName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
-                      {t.email || t.identifier}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0 text-right">
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold inline-flex items-center gap-1">
-                    <UserCheck className="w-3 h-3" /> Faculty
-                  </span>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                    {formatTimeAgo(t.createdAt)}
-                  </span>
-                </div>
+                All Tests <ChevronRight className="w-3.5 h-3.5" />
               </Link>
-            ))}
+            </div>
 
-            {recentTeachers.length === 0 && (
-              <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
-                <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-amber-500" />
-                <p className="font-semibold">No faculty registered</p>
-              </div>
-            )}
+            <div className="space-y-3">
+              {(studentData?.recentAttempts || []).slice(0, 4).map((att: any) => {
+                const percentage = att.result?.percentage ?? Math.round(((att.score || 0) / (att.test?.totalMarks || 100)) * 100);
+                const isPassed = percentage >= (att.test?.passMarks ?? 40);
+
+                return (
+                  <div
+                    key={att.id}
+                    className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        {att.test?.title || 'Examination'}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                        <span>Score: {att.result?.totalMarksObtained ?? att.score ?? 0} / {att.test?.totalMarks ?? 100}</span>
+                        <span>•</span>
+                        <span>{formatTimeAgo(att.submittedAt)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold ${isPassed ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300'}`}>
+                        {percentage}% {isPassed ? 'Passed' : 'Failed'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {(!studentData?.recentAttempts || studentData.recentAttempts.length === 0) && (
+                <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#0E1017] rounded-2xl border border-slate-200/70 dark:border-[#161824]">
+                  <FileCheck2 className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-emerald-500" />
+                  <p className="font-semibold text-slate-700 dark:text-slate-300">No test attempts completed yet</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Take mock tests in your batch to track your score progression</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
+          {/* RECENT STUDENTS (EXACTLY 3) */}
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+            {/* Header with zero secondary text */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Recent Students
+              </h3>
+
+              <Link
+                href="/students"
+                className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+              >
+                View All <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {recentStudents.slice(0, 3).map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/students/${s.id}`}
+                  className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#0D0F16] hover:bg-slate-100/90 dark:hover:bg-[#121520] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                      {s.avatarUrl ? (
+                        <img src={s.avatarUrl} alt={s.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        s.fullName?.[0] || 'S'
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
+                        {s.fullName}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
+                        {s.email || s.identifier}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0 text-right">
+                    {s.studentProfile?.batch?.name && (
+                      <span className="px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/70 text-brand-700 dark:text-brand-300 text-[10px] font-semibold">
+                        {s.studentProfile.batch.name}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                      {formatTimeAgo(s.createdAt)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+
+              {recentStudents.length === 0 && (
+                <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
+                  <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-blue-500" />
+                  <p className="font-semibold">No students recorded</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RECENT FACULTY (EXACTLY 3) */}
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+            {/* Header with zero secondary text */}
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#161824]">
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Recent Faculty
+              </h3>
+
+              <Link
+                href="/teachers"
+                className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+              >
+                View All <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {recentTeachers.slice(0, 3).map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/teachers/${t.id}`}
+                  className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#0D0F16] hover:bg-slate-100/90 dark:hover:bg-[#121520] border border-slate-200/80 dark:border-[#171A27] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                      {t.avatarUrl ? (
+                        <img src={t.avatarUrl} alt={t.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        t.fullName?.[0] || 'F'
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
+                        {t.fullName}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] font-mono truncate">
+                        {t.email || t.identifier}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0 text-right">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold inline-flex items-center gap-1">
+                      <UserCheck className="w-3 h-3" /> Faculty
+                    </span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                      {formatTimeAgo(t.createdAt)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+
+              {recentTeachers.length === 0 && (
+                <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
+                  <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-amber-500" />
+                  <p className="font-semibold">No faculty registered</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Status Notification Pill */}
       {uploadToast && (

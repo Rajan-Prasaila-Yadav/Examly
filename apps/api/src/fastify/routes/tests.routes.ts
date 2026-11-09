@@ -302,25 +302,29 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if(user.roleCode!==RoleType.SUPER_ADMIN&&!user.instituteId)return [];
-      if(isStudent){
-        const profile=await fastify.prisma.studentProfile.findUnique({where:{userId:user.userId},select:{batchId:true,batch:{select:{status:true}}}});
-        if(profile?.batchId){
-          const batchSubjects = await fastify.prisma.subject.findMany({
-            where: { batchId: profile.batchId, status: { not: RecordStatus.DELETED } },
-            select: { id: true, copiedFromId: true, lessons: { select: { id: true, copiedFromId: true } } }
-          });
-          const allSubIds = [...new Set([...batchSubjects.map(s => s.id), ...batchSubjects.map(s => s.copiedFromId).filter((x): x is string => Boolean(x))])];
-          const allLesIds = [...new Set([...batchSubjects.flatMap(s => s.lessons.map(l => l.id)), ...batchSubjects.flatMap(s => s.lessons.map(l => l.copiedFromId)).filter((x): x is string => Boolean(x))])];
+      if (isStudent) {
+        const profile = await fastify.prisma.studentProfile.findUnique({
+          where: { userId: user.userId },
+          select: { batchId: true, batch: { select: { status: true } } },
+        });
 
-          where.OR = [
-            { batchId: profile.batchId },
-            { batchId: null },
-            ...(allSubIds.length ? [{ subjectId: { in: allSubIds } }] : []),
-            ...(allLesIds.length ? [{ lessonId: { in: allLesIds } }] : []),
-          ];
-        } else {
-          where.batchId = null;
+        // If student is not enrolled or the batch is archived/deleted, return no tests
+        if (!profile?.batchId || profile.batch?.status !== RecordStatus.ACTIVE) {
+          return [];
         }
+
+        const batchSubjects = await fastify.prisma.subject.findMany({
+          where: { batchId: profile.batchId, status: RecordStatus.ACTIVE },
+          select: { id: true, copiedFromId: true, lessons: { where: { status: RecordStatus.ACTIVE }, select: { id: true, copiedFromId: true } } },
+        });
+        const allSubIds = [...new Set([...batchSubjects.map((s) => s.id), ...batchSubjects.map((s) => s.copiedFromId).filter((x): x is string => Boolean(x))])];
+        const allLesIds = [...new Set([...batchSubjects.flatMap((s) => s.lessons.map((l) => l.id)), ...batchSubjects.flatMap((s) => s.lessons.map((l) => l.copiedFromId)).filter((x): x is string => Boolean(x))])];
+
+        where.OR = [
+          { batchId: profile.batchId },
+          ...(allSubIds.length ? [{ subjectId: { in: allSubIds } }] : []),
+          ...(allLesIds.length ? [{ lessonId: { in: allLesIds } }] : []),
+        ];
       }
       if(user.roleCode===RoleType.TEACHER){
         if(query.batchId) where.batchId = query.batchId;

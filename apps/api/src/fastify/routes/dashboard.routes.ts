@@ -17,23 +17,32 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
       return fastify.cache.getOrSet(
         cacheKey,
         async () => {
-          const [studentProfile, recentAttempts, upcomingTests, completedTestsCount] =
-            await Promise.all([
-              fastify.prisma.studentProfile.findUnique({
-                where: { userId: user.userId },
-                include: {
-                  batch: {
-                    select: {
-                      id: true,
-                      name: true,
-                      code: true,
-                      startDate: true,
-                      endDate: true,
-                      _count: { select: { subjects: true, tests: true } },
-                    },
-                  },
+          const studentProfile = await fastify.prisma.studentProfile.findUnique({
+            where: { userId: user.userId },
+            include: {
+              batch: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  status: true,
+                  startDate: true,
+                  endDate: true,
+                  _count: { select: { subjects: true, tests: true } },
                 },
-              }),
+              },
+            },
+          });
+
+          // Check if enrolled batch is active
+          const isBatchActive = studentProfile?.batch && studentProfile.batch.status === RecordStatus.ACTIVE;
+          const activeBatchId = isBatchActive ? studentProfile!.batchId : null;
+          const activeBatch = isBatchActive ? studentProfile!.batch : null;
+
+          const today = new Date().toISOString().slice(0, 10);
+
+          const [recentAttempts, upcomingTests, completedTestsCount, todayClasses] =
+            await Promise.all([
               fastify.prisma.testAttempt.findMany({
                 where: { studentId: user.userId, submittedAt: { not: null } },
                 include: {
@@ -43,27 +52,44 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
                 orderBy: { submittedAt: 'desc' },
                 take: 5,
               }),
-              fastify.prisma.test.findMany({
-                where: {
-                  status: RecordStatus.ACTIVE,
-                  isPublished: true,
-                  testStatus: { in: ['LIVE', 'SCHEDULED'] },
-                },
-                select: {
-                  id: true,
-                  title: true,
-                  durationMinutes: true,
-                  totalMarks: true,
-                  startDateTime: true,
-                  endDateTime: true,
-                  testStatus: true,
-                },
-                orderBy: { startDateTime: 'asc' },
-                take: 5,
-              }),
+              activeBatchId
+                ? fastify.prisma.test.findMany({
+                    where: {
+                      batchId: activeBatchId,
+                      status: RecordStatus.ACTIVE,
+                      isPublished: true,
+                      testStatus: { in: ['LIVE', 'SCHEDULED'] },
+                    },
+                    select: {
+                      id: true,
+                      title: true,
+                      durationMinutes: true,
+                      totalMarks: true,
+                      startDateTime: true,
+                      endDateTime: true,
+                      testStatus: true,
+                    },
+                    orderBy: { startDateTime: 'asc' },
+                    take: 5,
+                  })
+                : Promise.resolve([]),
               fastify.prisma.testAttempt.count({
                 where: { studentId: user.userId, submittedAt: { not: null } },
               }),
+              activeBatchId
+                ? fastify.prisma.batchClass.findMany({
+                    where: {
+                      batchId: activeBatchId,
+                      date: today,
+                      status: { not: 'Cancelled' },
+                    },
+                    include: {
+                      subject: { select: { id: true, name: true } },
+                      teacher: { select: { id: true, fullName: true } },
+                    },
+                    orderBy: { startTime: 'asc' },
+                  })
+                : Promise.resolve([]),
             ]);
 
           const scores = recentAttempts
@@ -75,15 +101,20 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
               : 0;
 
           return {
-            studentProfile,
+            studentProfile: {
+              ...studentProfile,
+              batch: activeBatch,
+            },
+            isEnrolled: !!activeBatchId,
             summary: {
               completedTestsCount,
               averageAccuracy,
-              totalEnrolledSubjects: studentProfile?.batch?._count?.subjects || 0,
-              totalBatchTests: studentProfile?.batch?._count?.tests || 0,
+              totalEnrolledSubjects: activeBatch?._count?.subjects || 0,
+              totalBatchTests: activeBatch?._count?.tests || 0,
             },
             recentAttempts,
             upcomingTests,
+            todayClasses,
           };
         },
         30, // 30s TTL
