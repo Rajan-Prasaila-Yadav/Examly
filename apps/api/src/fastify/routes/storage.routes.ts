@@ -55,12 +55,24 @@ export const storageRoutes: FastifyPluginAsync = async (fastify) => {
         await requirePermission(folder, 'create')(request,reply);
         if (reply.sent) return;
       }
-      const allowed:Record<string,string[]>={videos:['video/mp4','video/webm'],notes:['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.presentationml.presentation'],images:['image/jpeg','image/png','image/webp'],avatars:['image/jpeg','image/png','image/webp'],general:['text/vtt','application/pdf','image/jpeg','image/png','image/webp']};
+      const fileExtension = fileName.split('.').pop()?.toLowerCase() || 'bin';
+      if (folder === 'notes') {
+        if (fileExtension !== 'pdf') {
+          return reply.code(400).send({ message: 'Only PDF documents (.pdf) are supported for notes.' });
+        }
+      }
+      const allowed:Record<string,string[]>={
+        videos:['video/mp4','video/webm'],
+        notes:['application/pdf','application/x-pdf','application/octet-stream'],
+        images:['image/jpeg','image/png','image/webp'],
+        avatars:['image/jpeg','image/png','image/webp'],
+        general:['text/vtt','application/pdf','image/jpeg','image/png','image/webp']
+      };
       if(!allowed[folder].includes(contentType))return reply.code(400).send({message:'Unsupported file type'});
       const limit=folder==='videos'?2*1024*1024*1024:folder==='notes'?20*1024*1024:5*1024*1024;
-      if(size && size>limit)return reply.code(400).send({message:'File exceeds the upload limit'});
-      const fileExtension = fileName.split('.').pop() || 'bin';
+      if(size && size>limit)return reply.code(400).send({message:`File exceeds the limit (${folder === 'notes' ? '20 MB' : 'allowed size'})`});
       const uniqueFileKey = `${folder}/${uuidv4()}.${fileExtension}`;
+      const effectiveContentType = folder === 'notes' ? 'application/pdf' : contentType;
 
       // 1. Cloudflare R2 S3 Upload URL
       if (s3Client) {
@@ -68,7 +80,7 @@ export const storageRoutes: FastifyPluginAsync = async (fastify) => {
         const command = new PutObjectCommand({
           Bucket: bucketName,
           Key: uniqueFileKey,
-          ContentType: contentType,
+          ContentType: effectiveContentType,
           ...(size ? {ContentLength:size} : {}),
         });
 
@@ -85,8 +97,31 @@ export const storageRoutes: FastifyPluginAsync = async (fastify) => {
       // 2. Supabase Storage REST Upload URL
       if (supabaseUrl && supabaseServiceKey) {
         const bucket = 'examly-media';
-        const signed = await fetch(`${supabaseUrl}/storage/v1/object/upload/sign/${bucket}/${uniqueFileKey}`,{method:'POST',headers:{Authorization:`Bearer ${supabaseServiceKey}`,apikey:supabaseServiceKey,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(15000)});
-        if(!signed.ok)return reply.code(503).send({message:'Storage could not authorize the upload'});
+        let signed = await fetch(`${supabaseUrl}/storage/v1/object/upload/sign/${bucket}/${uniqueFileKey}`,{
+          method:'POST',
+          headers:{Authorization:`Bearer ${supabaseServiceKey}`,apikey:supabaseServiceKey,'Content-Type':'application/json'},
+          body:'{}',
+          signal:AbortSignal.timeout(15000)
+        });
+
+        // Auto-heal: If bucket was not found, create it and retry
+        if (!signed.ok && (signed.status === 404 || signed.status === 400)) {
+          try {
+            await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${supabaseServiceKey}`, apikey: supabaseServiceKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: bucket, name: bucket, public: true }),
+            });
+            signed = await fetch(`${supabaseUrl}/storage/v1/object/upload/sign/${bucket}/${uniqueFileKey}`,{
+              method:'POST',
+              headers:{Authorization:`Bearer ${supabaseServiceKey}`,apikey:supabaseServiceKey,'Content-Type':'application/json'},
+              body:'{}',
+              signal:AbortSignal.timeout(15000)
+            });
+          } catch {}
+        }
+
+        if(!signed.ok)return reply.code(503).send({message:'Storage could not authorize the upload. Please verify bucket permissions.'});
         const result = await signed.json() as {url?:string};
         if(!result.url)return reply.code(503).send({message:'Storage did not return a signed upload URL'});
         const uploadUrl = `${supabaseUrl}/storage/v1${result.url}`;

@@ -6,7 +6,7 @@ import {api,invalidateApiCache} from '@/lib/api';
 import {useAuth} from '@/lib/auth-context';
 import VideoCollection from './video-collection';
 import {DataTable,IconButton,Modal} from './batch-workspace';
-import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Download,Search,Eye} from 'lucide-react';
+import {Plus,Pencil,Archive,Trash2,Upload,ArrowLeft,FileText,BookOpen,Copy,Maximize,Minimize,Download,Search,Eye,ExternalLink,Smartphone,Monitor} from 'lucide-react';
 type R=Record<string,any>;
 const config={timeout:30000} as any;
 const message=(e:any)=>e.response?.data?.message||e.message||'Unable to save';
@@ -65,10 +65,24 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
  };
  const chooseSubject=async(subjectId:string)=>{setForm(f=>({...f,subjectId,lessonId:''}));setLessons([]);try{const r=await api.get(`/content/subjects/${subjectId}`,config);setLessons(r.data.lessons);}catch(e){setFormError(message(e));}};
  const upload=async(file:File,folder:string)=>{
-  const mime=file.type||(file.name.endsWith('.vtt')?'text/vtt':'application/octet-stream');const allowed=folder==='videos'?['video/mp4','video/webm']:folder==='notes'?['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.presentationml.presentation']:['text/vtt'];const limit=folder==='videos'?2*1024**3:folder==='notes'?20*1024**2:2*1024**2;
-  if(!allowed.includes(mime)||file.size>limit||file.size===0)throw new Error('Choose a supported, non-empty file within the displayed size limit.');
+  let mime = file.type || '';
+  if (folder === 'notes') {
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) throw new Error('Only PDF documents (.pdf) are allowed for notes.');
+    if (file.size > 20 * 1024 * 1024) throw new Error('PDF file exceeds the 20 MB limit.');
+    if (file.size === 0) throw new Error('Selected PDF file is empty.');
+    mime = 'application/pdf';
+  } else if (folder === 'videos') {
+    const isVideo = file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.webm');
+    if (!isVideo && !file.type.startsWith('video/')) throw new Error('Only MP4 or WebM video files are supported.');
+    if (file.size > 2 * 1024 * 1024 * 1024) throw new Error('Video exceeds 2 GB limit.');
+    if (file.size === 0) throw new Error('Selected video file is empty.');
+    mime = file.type || (file.name.toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4');
+  } else {
+    mime = file.type || (file.name.endsWith('.vtt') ? 'text/vtt' : 'application/octet-stream');
+  }
   const signed=await api.post('/storage/presigned-url',{folder,fileName:file.name,contentType:mime,size:file.size},{timeout:30000});
-  await new Promise<void>((resolve,reject)=>{const x=new XMLHttpRequest();uploadRef.current=x;x.open('PUT',signed.data.uploadUrl);x.setRequestHeader('Content-Type',mime);x.upload.onprogress=e=>{if(e.lengthComputable)setProgress(Math.round(e.loaded/e.total*100));};x.onload=()=>x.status>=200&&x.status<300?resolve():reject(new Error(`Upload failed (${x.status}). Check the storage bucket and CORS settings.`));x.onerror=()=>reject(new Error('Upload failed. Check your connection and storage CORS settings.'));x.onabort=()=>reject(new Error('Upload cancelled'));x.send(file);});return signed.data.publicUrl;
+  await new Promise<void>((resolve,reject)=>{const x=new XMLHttpRequest();uploadRef.current=x;x.open('PUT',signed.data.uploadUrl);x.setRequestHeader('Content-Type',mime);x.upload.onprogress=e=>{if(e.lengthComputable)setProgress(Math.round(e.loaded/e.total*100));};x.onload=()=>x.status>=200&&x.status<300?resolve():reject(new Error(`Upload failed (${x.status}). Check storage permissions.`));x.onerror=()=>reject(new Error('Upload failed. Check your connection and storage settings.'));x.onabort=()=>reject(new Error('Upload cancelled'));x.send(file);});return signed.data.publicUrl;
  };
  const save=async(e:React.FormEvent)=>{e.preventDefault();if(!modal)return;setBusy(true);setFormError('');try{
   const kind=modal.kind,record=modal.record;let payload:R;
@@ -265,10 +279,9 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
        { label:'Lessons', render:(r:R)=>r._count?.lessons ?? (r.lessons?.length || 0) },
        { label:'Batch', render:(r:R)=><span className="ex-chip">{r.batch?.name || currentBatch?.name || (isStudent ? 'Enrolled Batch' : 'Main library')}</span> },
        { label:'Status', render:(r:R)=><span className="ex-chip ok">{status(r.status)}</span> },
-       ...(isStudent ? [{ label: 'Action', render: (r: R) => <Link href={`/subjects/${r.id}`} className="ex-btn" style={{ padding: '4px 10px', fontSize: 11 }}>View units →</Link> }] : []),
      ]}
      onOpen={(r:R)=>router.push(`/subjects/${r.id}`)}
-     actions={isStudent ? (r: R) => <div className="ex-actions"><IconButton title="View subject" onClick={() => router.push(`/subjects/${r.id}`)}><Eye size={18} /></IconButton></div> : actions('subjects')}
+     actions={isStudent ? undefined : actions('subjects')}
    />
  </>}
  {(view==='videos'||view==='notes')&&media(view,rows)}
@@ -278,15 +291,289 @@ export default function ContentLibrary({view}:{view:'subjects'|'subject'|'lesson
  {modal&&<Modal title={modal.kind==='confirm'?(modal.next==='DELETED'?'Delete record?':'Change visibility?'):modal.kind==='assign'?'Copy subject to batches':`${modal.record.id?'Edit':modal.kind==='subjects'||modal.kind==='lessons'?'Add':'Upload'} ${modal.kind==='subjects'?'subject':modal.kind==='lessons'?'lesson':modal.kind==='videos'?'video':'notes'}`} onClose={close}>
  {formError&&<p role="alert" className="ex-error">{formError}</p>}
  {modal.kind==='confirm'?<><p>{title(modal.record)} will be {modal.next==='DELETED'?'marked deleted':modal.next==='HIDDEN'?'hidden from students':'published'}. Existing source copies are not changed.</p><footer className="ex-modal-footer"><button className="ex-btn ghost" onClick={close} disabled={busy}>Cancel</button><button className="ex-btn" onClick={confirm} disabled={busy}>Confirm</button></footer></>:modal.kind==='assign'?<><p className="sub">Creates independent copies of lessons, media and tests. Tests start as drafts.</p><div className="ex-picker-list">{batches.map(b=><label className="ex-row" key={b.id}><input type="checkbox" checked={selectedBatches.includes(b.id)} onChange={e=>setSelectedBatches(e.target.checked?[...selectedBatches,b.id]:selectedBatches.filter(v=>v!==b.id))}/>{b.name}</label>)}</div><footer className="ex-modal-footer"><button className="ex-btn ghost" disabled={busy} onClick={close}>Cancel</button><button className="ex-btn" disabled={busy||!selectedBatches.length} onClick={doAssign}>Copy to {selectedBatches.length} batches</button></footer></>:<form onSubmit={save}>
- {['subjects','lessons'].includes(modal.kind)?<>{input('Name','name','text',true)}{modal.kind==='subjects'&&<>{input('Code','code')}<label className="ex-field">Icon<div className="ex-toolbar">{['📚','⚛️','🧪','🧬','📖','📐','💻'].map(icon=><button type="button" className={'ex-btn '+(form.iconUrl===icon?'':'ghost')} key={icon} onClick={()=>setForm({...form,iconUrl:icon})}>{icon}</button>)}</div></label>{!modal.record.id&&<label className="ex-field">Institute<select className="ex-input" required value={form.instituteId||''} onChange={e=>setForm({...form,instituteId:e.target.value})}><option value="">Choose institute</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}</>}</>:<>{input('Title','title','text',true)}<div className="ex-two"><label className="ex-field">Subject<select className="ex-input" required disabled={view==='lesson'||!!modal.record.id} value={form.subjectId||''} onChange={e=>chooseSubject(e.target.value)}><option value="">Choose subject</option>{library.map(s=><option key={s.id} value={s.id}>{s.name} · {s.batch?.name||'Main library'}</option>)}</select></label><label className="ex-field">Lesson<select className="ex-input" required disabled={view==='lesson'||!!modal.record.id} value={form.lessonId||''} onChange={e=>setForm({...form,lessonId:e.target.value})}><option value="">Choose lesson</option>{lessons.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label></div><label className="ex-upload"><Upload size={24}/><b>{modal.kind==='videos'?'Video file':'Notes file'}</b><small>{modal.kind==='videos'?'MP4 / WebM · up to 2 GB':'PDF / DOCX / PPTX · up to 20 MB'}</small><input type="file" accept={modal.kind==='videos'?'.mp4,.webm':'.pdf,.docx,.pptx'} disabled={busy} onChange={e=>setFile(e.target.files?.[0]||null)}/></label><p className="ex-muted ex-mb">Or use an existing {modal.kind==='videos'?'video':'document'} URL.</p>{input('URL',modal.kind==='videos'?'videoUrl':'fileUrl','url')}{modal.kind==='videos'&&<><label className="ex-field">Provider<select className="ex-input" value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}><option value="YOUTUBE">YouTube</option><option value="DIRECT_MP4">Direct MP4 / WebM</option></select></label><label className="ex-field">Subtitles (optional WebVTT)<input className="ex-input" type="file" accept=".vtt" onChange={e=>setSubtitle(e.target.files?.[0]||null)}/></label><label className="ex-check ex-mb"><input type="checkbox" checked={form.watermark} onChange={e=>setForm({...form,watermark:e.target.checked})}/>Watermark student name</label></>}<label className="ex-check ex-mb"><input type="checkbox" checked={form.allowDownload} onChange={e=>setForm({...form,allowDownload:e.target.checked})}/>Allow download</label><label className="ex-field">Visibility<select className="ex-input" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="ACTIVE">Published</option><option value="HIDDEN">Draft / hidden</option></select></label></>}
+ {['subjects','lessons'].includes(modal.kind)?<>{input('Name','name','text',true)}{modal.kind==='subjects'&&<>{input('Code','code')}<label className="ex-field">Icon<div className="ex-toolbar">{['📚','⚛️','🧪','🧬','📖','📐','💻'].map(icon=><button type="button" className={'ex-btn '+(form.iconUrl===icon?'':'ghost')} key={icon} onClick={()=>setForm({...form,iconUrl:icon})}>{icon}</button>)}</div></label>{!modal.record.id&&<label className="ex-field">Institute<select className="ex-input" required value={form.instituteId||''} onChange={e=>setForm({...form,instituteId:e.target.value})}><option value="">Choose institute</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}</>}</>:<>{input('Title','title','text',true)}<div className="ex-two"><label className="ex-field">Subject<select className="ex-input" required disabled={view==='lesson'||!!modal.record.id} value={form.subjectId||''} onChange={e=>chooseSubject(e.target.value)}><option value="">Choose subject</option>{library.map(s=><option key={s.id} value={s.id}>{s.name} · {s.batch?.name||'Main library'}</option>)}</select></label><label className="ex-field">Lesson<select className="ex-input" required disabled={view==='lesson'||!!modal.record.id} value={form.lessonId||''} onChange={e=>setForm({...form,lessonId:e.target.value})}><option value="">Choose lesson</option>{lessons.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label></div><label className="ex-upload" style={{ cursor: 'pointer' }}><Upload size={24}/><b>{modal.kind==='videos'?'Video File':'PDF Notes Document'}</b><small>{modal.kind==='videos'?'MP4 / WebM · up to 2 GB':'PDF only (.pdf) · up to 20 MB'}</small><input type="file" accept={modal.kind==='videos'?'.mp4,.webm,video/mp4,video/webm':'.pdf,application/pdf'} disabled={busy} onChange={e=>{const f=e.target.files?.[0];if(f){if(modal.kind==='notes'){if(!f.name.toLowerCase().endsWith('.pdf')){setFormError('Only PDF files (.pdf) are allowed for notes.');e.target.value='';return;}if(f.size>20*1024*1024){setFormError('File exceeds 20 MB limit.');e.target.value='';return;}}setFormError('');setFile(f);}}}/></label>{file&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderRadius:12,background:'var(--pr2, rgba(99,102,241,0.08))',border:'1px solid var(--ln, #334155)',margin:'10px 0 14px'}}><div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}><FileText size={22} style={{color:modal.kind==='notes'?'#ef4444':'#6366f1',flexShrink:0}}/><div style={{minWidth:0}}><p style={{margin:0,fontSize:13,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{file.name}</p><p style={{margin:0,fontSize:11,color:'var(--mu, #94a3b8)'}}>{(file.size/1024/1024).toFixed(2)} MB · {modal.kind==='notes'?'PDF Document':'Video'}</p></div></div>{!busy&&<button type="button" className="ex-btn ghost" style={{padding:'4px 10px',fontSize:11}} onClick={()=>setFile(null)}>Remove</button>}</div>}{busy&&file&&<div style={{margin:'12px 0'}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4,color:'var(--mu)'}}><span>Uploading {modal.kind==='notes'?'PDF notes':'video'}…</span><span style={{fontWeight:700}}>{progress}%</span></div><div style={{width:'100%',height:6,borderRadius:999,background:'var(--ln, #334155)',overflow:'hidden'}}><div style={{width:`${progress}%`,height:'100%',background:'var(--pr, #6366f1)',transition:'width 0.2s ease'}}/></div></div>}<p className="ex-muted ex-mb">Or use an existing {modal.kind==='videos'?'video':'document'} URL.</p>{input('URL',modal.kind==='videos'?'videoUrl':'fileUrl','url')}{modal.kind==='videos'&&<><label className="ex-field">Provider<select className="ex-input" value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}><option value="YOUTUBE">YouTube</option><option value="DIRECT_MP4">Direct MP4 / WebM</option></select></label><label className="ex-field">Subtitles (optional WebVTT)<input className="ex-input" type="file" accept=".vtt" onChange={e=>setSubtitle(e.target.files?.[0]||null)}/></label><label className="ex-check ex-mb"><input type="checkbox" checked={form.watermark} onChange={e=>setForm({...form,watermark:e.target.checked})}/>Watermark student name</label></>}<label className="ex-check ex-mb"><input type="checkbox" checked={form.allowDownload} onChange={e=>setForm({...form,allowDownload:e.target.checked})}/>Allow download</label><label className="ex-field">Visibility<select className="ex-input" value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="ACTIVE">Published</option><option value="HIDDEN">Draft / hidden</option></select></label></>}
  <label className="ex-field">Description<textarea rows={3} className="ex-input" value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})}/></label>{busy&&file&&<p role="status">Upload: {progress}%</p>}<footer className="ex-modal-footer"><button type="button" className="ex-btn ghost" onClick={()=>busy?uploadRef.current?.abort():close()}>{busy?'Cancel upload':'Cancel'}</button><button className="ex-btn" disabled={busy}>{busy?'Saving…':'Save'}</button></footer></form>}
  </Modal>}
  </div>;
 }
 
 export function NotesViewer(){
- const {id}=useParams() as {id:string};const [data,setData]=useState<R|null>(null),[error,setError]=useState('');const ref=useRef<HTMLDivElement>(null);
- useEffect(()=>{let live=true;api.get(`/content/notes/${id}`,config).then(r=>{if(live){setData(r.data);api.post(`/content/notes/${id}/open`,{}).catch(()=>{});}}).catch(e=>{if(live)setError(message(e));});return()=>{live=false;};},[id]);
- const fileUrl=data?.note?.fileUrl;const safe=/^https?:\/\//i.test(fileUrl||'');const pdf=fileUrl&&new URL(fileUrl).pathname.toLowerCase().endsWith('.pdf');
- return <div className="batch-prototype ex-workspace"><Link className="ex-back" href={data?`/lessons/${data.note.lessonId}`:'/notes'}><ArrowLeft size={16}/>Back to lesson</Link><header className="ex-workspace-head"><div><h1><em>{data?.note.title||'Notes'}</em></h1><p className="sub">{data?.lesson.subject.name} › {data?.lesson.name} · {bytes(data?.note.fileSizeBytes||0)}</p></div><div className="ex-toolbar"><button className="ex-btn ghost" onClick={()=>ref.current?.requestFullscreen().catch(()=>setError('Fullscreen is not available in this browser.'))}><Maximize size={17}/>Full view</button>{data?.note.allowDownload&&safe&&<a className="ex-btn" href={fileUrl} target="_blank" rel="noreferrer"><Download size={17}/>Open / download</a>}</div></header>{error&&<p role="alert" className="ex-error">{error}</p>}<div className="ex-document" ref={ref}>{!data?<p role="status">Loading document…</p>:safe&&pdf?<iframe title={data.note.title} src={fileUrl+'#toolbar=1&view=FitH'}/>:<div className="ex-empty"><FileText size={40}/><h3>{data.note.title}</h3><p>Preview is available for PDF documents. Open this file in your document viewer.</p>{safe&&data.note.allowDownload&&<a className="ex-btn" href={fileUrl} target="_blank" rel="noreferrer">Open document</a>}</div>}</div><p className="sub">{data?.note.description}</p></div>;
+ const {id}=useParams() as {id:string};
+ const [data,setData]=useState<R|null>(null);
+ const [error,setError]=useState('');
+ const [isFullView,setIsFullView]=useState(false);
+ const [viewerMode,setViewerMode]=useState<'embed'|'gdocs'>('embed');
+ const containerRef=useRef<HTMLDivElement>(null);
+
+ useEffect(()=>{
+   let live=true;
+   api.get(`/content/notes/${id}`,config).then(r=>{
+     if(live){
+       setData(r.data);
+       api.post(`/content/notes/${id}/open`,{}).catch(()=>{});
+     }
+   }).catch(e=>{if(live)setError(message(e));});
+   return()=>{live=false;};
+ },[id]);
+
+ useEffect(()=>{
+   const handleKey=(e:KeyboardEvent)=>{
+     if(e.key==='Escape'&&isFullView) setIsFullView(false);
+   };
+   window.addEventListener('keydown',handleKey);
+   return()=>window.removeEventListener('keydown',handleKey);
+ },[isFullView]);
+
+ useEffect(()=>{
+   if(isFullView){
+     document.body.style.overflow='hidden';
+   }else{
+     document.body.style.overflow='';
+   }
+   return()=>{document.body.style.overflow='';};
+ },[isFullView]);
+
+ const fileUrl=data?.note?.fileUrl;
+ const safe=/^https?:\/\//i.test(fileUrl||'');
+ const pdf=!!fileUrl;
+ const directEmbedUrl=fileUrl ? `${fileUrl}#toolbar=1&navpanes=1&view=FitH` : '';
+ const gdocsUrl=fileUrl ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true` : '';
+ const activeSrc=viewerMode==='gdocs' ? gdocsUrl : directEmbedUrl;
+
+ return (
+   <>
+     <div className="batch-prototype ex-workspace">
+       <Link className="ex-back" href={data?`/lessons/${data.note.lessonId}`:'/notes'}>
+         <ArrowLeft size={16}/>Back to lesson
+       </Link>
+       <header className="ex-workspace-head" style={{ flexWrap: 'wrap', gap: 12 }}>
+         <div>
+           <h1><em>{data?.note?.title||'Notes'}</em></h1>
+           <p className="sub">{data?.lesson?.subject?.name || 'Subject'} › {data?.lesson?.name || 'Lesson'} · {bytes(data?.note?.fileSizeBytes||0)}</p>
+         </div>
+         <div className="ex-toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
+           <div style={{ display: 'inline-flex', padding: 3, borderRadius: 10, background: 'var(--ln, #1e293b)' }}>
+             <button
+               type="button"
+               className={`ex-btn ${viewerMode==='embed'?'':'ghost'}`}
+               style={{ padding: '6px 12px', fontSize: 12, height: 'auto', borderRadius: 8 }}
+               onClick={()=>setViewerMode('embed')}
+               title="Desktop standard PDF viewer"
+             >
+               <Monitor size={14}/> Direct PDF
+             </button>
+             <button
+               type="button"
+               className={`ex-btn ${viewerMode==='gdocs'?'':'ghost'}`}
+               style={{ padding: '6px 12px', fontSize: 12, height: 'auto', borderRadius: 8 }}
+               onClick={()=>setViewerMode('gdocs')}
+               title="Mobile friendly document reader"
+             >
+               <Smartphone size={14}/> Mobile Reader
+             </button>
+           </div>
+           <button
+             type="button"
+             className="ex-btn ghost"
+             onClick={()=>setIsFullView(true)}
+             title="Full screen view"
+           >
+             <Maximize size={17}/>Full view
+           </button>
+           {safe&&<a className="ex-btn ghost" href={fileUrl} target="_blank" rel="noreferrer" title="Open in new tab"><ExternalLink size={17}/>Open tab</a>}
+           {safe&&(data?.note?.allowDownload!==false)&&<a className="ex-btn" href={fileUrl} download={`${data?.note?.title||'notes'}.pdf`} target="_blank" rel="noreferrer"><Download size={17}/>Download</a>}
+         </div>
+       </header>
+
+       {error&&<p role="alert" className="ex-error">{error}</p>}
+
+       <div
+         ref={containerRef}
+         style={{
+           position: 'relative',
+           width: '100%',
+           height: 'calc(100vh - 250px)',
+           minHeight: 520,
+           borderRadius: 16,
+           overflow: 'hidden',
+           border: '1px solid var(--ln, #334155)',
+           background: 'var(--card, #0f172a)',
+           marginBottom: 16
+         }}
+       >
+         {!data ? (
+           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--mu)' }}>
+             <p role="status">Loading document…</p>
+           </div>
+         ) : safe && pdf ? (
+           <iframe
+             title={data?.note?.title || 'PDF Document'}
+             src={activeSrc}
+             style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+             allow="fullscreen"
+           />
+         ) : (
+           <div className="ex-empty" style={{ padding: 40, textAlign: 'center' }}>
+             <FileText size={48} style={{ margin: '0 auto 12px', color: '#ef4444' }}/>
+             <h3>{data?.note?.title || 'PDF Document'}</h3>
+             <p>Preview is ready. If it does not show, open or download using the buttons below.</p>
+             {safe&&<div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}><a className="ex-btn" href={fileUrl} target="_blank" rel="noreferrer">Open document</a>{data?.note?.allowDownload!==false&&<a className="ex-btn ghost" href={fileUrl} download target="_blank" rel="noreferrer">Download</a>}</div>}
+           </div>
+         )}
+       </div>
+       {data?.note?.description&&<p className="sub">{data.note.description}</p>}
+     </div>
+
+     {isFullView && data && safe && (
+       <div
+         style={{
+           position: 'fixed',
+           inset: 0,
+           zIndex: 99999,
+           background: '#090d16',
+           display: 'flex',
+           flexDirection: 'column',
+           width: '100vw',
+           height: '100vh',
+           overflow: 'hidden'
+         }}
+       >
+         <div
+           style={{
+             display: 'flex',
+             alignItems: 'center',
+             justifyContent: 'space-between',
+             padding: '12px 18px',
+             borderBottom: '1px solid rgba(255,255,255,0.1)',
+             background: '#0f172a',
+             color: '#f8fafc',
+             flexWrap: 'wrap',
+             gap: 10
+           }}
+         >
+           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+             <FileText size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
+             <div style={{ minWidth: 0 }}>
+               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                 {data.note.title}
+               </h3>
+               <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>
+                 {data.lesson?.subject?.name || 'Subject'} › {data.lesson?.name || 'Lesson'} · {bytes(data.note.fileSizeBytes||0)}
+               </p>
+             </div>
+           </div>
+
+           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+             <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: '#1e293b' }}>
+               <button
+                 type="button"
+                 style={{
+                   padding: '5px 10px',
+                   fontSize: 11,
+                   fontWeight: 700,
+                   borderRadius: 6,
+                   border: 0,
+                   cursor: 'pointer',
+                   background: viewerMode==='embed' ? '#6366f1' : 'transparent',
+                   color: '#fff'
+                 }}
+                 onClick={()=>setViewerMode('embed')}
+               >
+                 Direct PDF
+               </button>
+               <button
+                 type="button"
+                 style={{
+                   padding: '5px 10px',
+                   fontSize: 11,
+                   fontWeight: 700,
+                   borderRadius: 6,
+                   border: 0,
+                   cursor: 'pointer',
+                   background: viewerMode==='gdocs' ? '#6366f1' : 'transparent',
+                   color: '#fff'
+                 }}
+                 onClick={()=>setViewerMode('gdocs')}
+               >
+                 Mobile Reader
+               </button>
+             </div>
+
+             <a
+               href={fileUrl}
+               target="_blank"
+               rel="noreferrer"
+               style={{
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: 6,
+                 padding: '7px 12px',
+                 borderRadius: 8,
+                 fontSize: 12,
+                 fontWeight: 600,
+                 background: '#1e293b',
+                 color: '#fff',
+                 textDecoration: 'none'
+               }}
+             >
+               <ExternalLink size={14}/> Open in tab
+             </a>
+
+             {data.note.allowDownload!==false && (
+               <a
+                 href={fileUrl}
+                 download={`${data.note.title}.pdf`}
+                 target="_blank"
+                 rel="noreferrer"
+                 style={{
+                   display: 'inline-flex',
+                   alignItems: 'center',
+                   gap: 6,
+                   padding: '7px 12px',
+                   borderRadius: 8,
+                   fontSize: 12,
+                   fontWeight: 600,
+                   background: '#6366f1',
+                   color: '#fff',
+                   textDecoration: 'none'
+                 }}
+               >
+                 <Download size={14}/> Download
+               </a>
+             )}
+
+             <button
+               type="button"
+               onClick={()=>setIsFullView(false)}
+               style={{
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: 6,
+                 padding: '7px 14px',
+                 borderRadius: 8,
+                 fontSize: 12,
+                 fontWeight: 700,
+                 border: '1px solid rgba(255,255,255,0.2)',
+                 background: 'rgba(255,255,255,0.1)',
+                 color: '#fff',
+                 cursor: 'pointer'
+               }}
+             >
+               <Minimize size={14}/> Exit Full View
+             </button>
+           </div>
+         </div>
+
+         <div style={{ flex: 1, width: '100%', height: '100%', background: '#000' }}>
+           <iframe
+             title={data.note.title}
+             src={activeSrc}
+             style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+             allow="fullscreen"
+           />
+         </div>
+       </div>
+     )}
+   </>
+ );
 }
