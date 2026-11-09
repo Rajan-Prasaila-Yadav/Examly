@@ -259,11 +259,22 @@ export default function StudentsPage() {
 
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!fullName.trim()) {
+      toast.error('Required Field Missing', 'Please enter the student\'s full name.');
+      return;
+    }
+
+    if (!phone.trim()) {
+      toast.error('Required Field Missing', 'Please enter the student\'s phone number.');
+      return;
+    }
+
     const finalRollNumber = rollNumber?.trim() || generateRollNumber();
+    const chosenBatch = batches.find((b) => b.id === batchId);
 
     try {
       if (editingStudent) {
-        const chosenBatch = batches.find((b) => b.id === batchId);
         // Optimistic update
         setStudents((prev) =>
           prev.map((s) =>
@@ -277,8 +288,8 @@ export default function StudentsPage() {
                   studentProfile: {
                     ...s.studentProfile,
                     rollNumber: finalRollNumber,
-                    batchId,
-                    batch: chosenBatch,
+                    batchId: batchId || null,
+                    batch: chosenBatch || null,
                     province,
                     district,
                     municipality,
@@ -294,9 +305,9 @@ export default function StudentsPage() {
         await api.put(`/users/students/${editingStudent.id}`, {
           fullName,
           phone,
-          email,
+          email: email.trim() || undefined,
           rollNumber: finalRollNumber,
-          batchId: batchId || undefined,
+          batchId: batchId || null,
           province,
           district,
           municipality,
@@ -305,12 +316,13 @@ export default function StudentsPage() {
           avatarUrl,
         });
         toast.success('Student Updated!', `${fullName} updated successfully.`);
+        fetchStudents();
       } else {
-        toast.loading('Enrolling student...', `Adding ${fullName}`);
+        toast.loading('Enrolling student...', `Adding ${fullName} to ${chosenBatch?.name || 'Roster'}`);
         const res = await api.post('/users/students', {
           fullName,
           phone,
-          email,
+          email: email.trim() || undefined,
           rollNumber: finalRollNumber,
           batchId: batchId || undefined,
           province,
@@ -322,7 +334,7 @@ export default function StudentsPage() {
         });
         toast.success(
           'Student Enrolled Successfully!',
-          `Credentials sent: ${email || phone} • Temp Pass: ${res.data?.rawPassword || 'Set by email'}`,
+          `Enrolled into ${chosenBatch?.name || 'Roster'} • Roll: ${finalRollNumber} • Temp Pass: ${res.data?.rawPassword || 'Set by admin'}`,
         );
         fetchStudents();
       }
@@ -890,8 +902,8 @@ export default function StudentsPage() {
             <div className="px-5 sm:px-6 pt-4 pb-2 shrink-0">
               <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
                 {[
-                  { key: 'personal', label: '1. Personal & Roll No' },
-                  { key: 'academic', label: '2. Batch & Academic' },
+                  { key: 'personal', label: '1. Enrollment & Batch' },
+                  { key: 'academic', label: '2. Address & Parent' },
                   { key: 'access', label: '3. Credentials' },
                 ].map((t) => (
                   <button
@@ -910,7 +922,7 @@ export default function StudentsPage() {
 
             {/* Scrollable Form Body */}
             <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-              {/* ── TAB 1: PERSONAL & NEPAL CASCADE ── */}
+              {/* ── TAB 1: CORE ENROLLMENT & BATCH (REQUIRED FIELDS) ── */}
               {formStep === 'personal' && (
                 <div className="space-y-4">
                   {/* Photo & Name */}
@@ -933,75 +945,158 @@ export default function StudentsPage() {
                     </label>
 
                     <div className="flex-1">
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Full Name *</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Full Name <span className="text-rose-500 font-bold">*</span>
+                      </label>
                       <input
                         type="text"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Aarav Sharma"
                         required
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Phone & Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Phone Number *</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Phone Number <span className="text-rose-500 font-bold">*</span>
+                      </label>
                       <input
                         type="tel"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="98XXXXXXXX"
                         required
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Email Address</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Email Address <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+                      </label>
                       <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="student@example.com"
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Parent/Guardian Name</label>
-                      <input
-                        type="text"
-                        value={parentName}
-                        onChange={(e) => setParentName(e.target.value)}
-                        placeholder="Parent Name"
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                      />
+                  {/* Batch & Roll Number */}
+                  <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-200/60 space-y-3">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-brand-900">
+                      <GraduationCap className="w-4 h-4 text-brand-600" />
+                      Academic Enrollment Details
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Parent Phone</label>
-                      <input
-                        type="tel"
-                        value={parentPhone}
-                        onChange={(e) => setParentPhone(e.target.value)}
-                        placeholder="98XXXXXXXX"
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                      />
-                    </div>
-                  </div>
 
-                  {/* Nepal Cascade Location */}
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
-                    <span className="text-[11px] font-bold text-slate-700 block">Nepal Address & Location</span>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Province</label>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Assigned Batch <span className="text-rose-500 font-bold">*</span>
+                        </label>
+                        <select
+                          value={batchId}
+                          onChange={(e) => setBatchId(e.target.value)}
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none font-medium"
+                        >
+                          <option value="">-- Unassigned (No Batch) --</option>
+                          {batches.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name} ({b.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-slate-700">
+                            Roll Number <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setRollNumber(generateRollNumber())}
+                            className="text-[10px] text-brand-600 hover:underline font-semibold"
+                          >
+                            Auto-Generate
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={rollNumber}
+                          onChange={(e) => setRollNumber(e.target.value)}
+                          placeholder="RN-12345"
+                          required
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none font-mono font-bold text-brand-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Admission Date <span className="text-slate-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={admissionDate}
+                        onChange={(e) => setAdmissionDate(e.target.value)}
+                        className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl focus:outline-none text-slate-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── TAB 2: NEPAL CASCADE & PARENTS (OPTIONAL) ── */}
+              {formStep === 'academic' && (
+                <div className="space-y-4">
+                  {/* Parent Details */}
+                  <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
+                    <span className="text-xs font-bold text-slate-800 block">Parent / Guardian Information (Optional)</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Parent/Guardian Name</label>
+                        <input
+                          type="text"
+                          value={parentName}
+                          onChange={(e) => setParentName(e.target.value)}
+                          placeholder="Parent Name"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">Parent Phone</label>
+                        <input
+                          type="tel"
+                          value={parentPhone}
+                          onChange={(e) => setParentPhone(e.target.value)}
+                          placeholder="98XXXXXXXX"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nepal Address Cascade */}
+                  <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
+                      <MapPin className="w-4 h-4 text-brand-600" />
+                      Nepal Address & Location (Optional)
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-slate-600 mb-1">Province</label>
                         <select
                           value={province}
                           onChange={(e) => setProvince(e.target.value)}
-                          className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl"
                         >
                           {['Koshi', 'Madhesh', 'Bagmati', 'Gandaki', 'Lumbini', 'Karnali', 'Sudurpashchim'].map((p) => (
                             <option key={p} value={p}>{p}</option>
@@ -1009,85 +1104,38 @@ export default function StudentsPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">District</label>
+                        <label className="block text-[11px] text-slate-600 mb-1">District</label>
                         <input
                           type="text"
                           value={district}
                           onChange={(e) => setDistrict(e.target.value)}
                           placeholder="e.g. Kathmandu"
-                          className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl"
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Municipality / Rural</label>
+                        <label className="block text-[11px] text-slate-600 mb-1">Municipality / Rural Municipality</label>
                         <input
                           type="text"
                           value={municipality}
                           onChange={(e) => setMunicipality(e.target.value)}
-                          placeholder="e.g. Lalitpur Metro"
-                          className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl"
+                          placeholder="e.g. Kathmandu Metro"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-500 mb-1">Ward No.</label>
+                        <label className="block text-[11px] text-slate-600 mb-1">Ward No.</label>
                         <input
                           type="text"
                           value={wardNumber}
                           onChange={(e) => setWardNumber(e.target.value)}
                           placeholder="e.g. 04"
-                          className="w-full text-xs p-2 bg-white border border-slate-200 rounded-xl"
+                          className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl"
                         />
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── TAB 2: BATCH & ACADEMIC ── */}
-              {formStep === 'academic' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Assigned Batch</label>
-                    <select
-                      value={batchId}
-                      onChange={(e) => setBatchId(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                    >
-                      <option value="">-- Unassigned (No Batch) --</option>
-                      {batches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} ({b.code})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      All subjects and mock tests assigned to this batch will be instantly mapped to the student.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Roll Number *</label>
-                      <input
-                        type="text"
-                        value={rollNumber}
-                        onChange={(e) => setRollNumber(e.target.value)}
-                        placeholder="RN-12345"
-                        required
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">Admission Date</label>
-                      <input
-                        type="date"
-                        value={admissionDate}
-                        onChange={(e) => setAdmissionDate(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
-                      />
                     </div>
                   </div>
                 </div>
@@ -1102,7 +1150,7 @@ export default function StudentsPage() {
                       Automatic Credentials Generation
                     </div>
                     <p className="text-[11px] leading-relaxed text-amber-800">
-                      When enrolled, student login will be their <strong>Roll Number / Phone</strong>. A strong temporary password is generated and shown to you immediately.
+                      When enrolled, student login will be their <strong>Roll Number ({rollNumber || 'RN-XXXXX'})</strong> or <strong>Phone Number ({phone || '98XXXXXXXX'})</strong>. A temporary password is created automatically and returned to you on the screen.
                     </p>
                   </div>
                 </div>
