@@ -11,18 +11,15 @@ import {
   Users,
   FileCheck2,
   Plus,
-  Play,
   ChevronRight,
   BookOpen,
   Eye,
-  Award,
   Clock,
-  Sparkles,
   Calendar,
-  CheckCircle2,
-  ArrowRight,
   UserCheck,
-  Video,
+  Layers,
+  Sparkles,
+  Edit2,
 } from 'lucide-react';
 
 function formatTimeAgo(dateString?: string) {
@@ -33,47 +30,6 @@ function formatTimeAgo(dateString?: string) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
   return new Date(dateString).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-type ScheduleFilter = 'PREV_DAY' | 'TODAY' | 'TOMORROW' | 'THIS_WEEK' | 'THIS_MONTH' | 'NEXT_MONTH';
-
-function matchesScheduleFilter(dateStr?: string, filter: ScheduleFilter = 'TODAY'): boolean {
-  if (!dateStr) return false;
-  const targetDate = new Date(dateStr);
-  if (isNaN(targetDate.getTime())) return false;
-
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-  if (filter === 'TODAY') {
-    return targetDate >= todayStart && targetDate <= todayEnd;
-  }
-  if (filter === 'PREV_DAY') {
-    const yestStart = new Date(todayStart.getTime() - 86400000);
-    const yestEnd = new Date(todayEnd.getTime() - 86400000);
-    return targetDate >= yestStart && targetDate <= yestEnd;
-  }
-  if (filter === 'TOMORROW') {
-    const tomStart = new Date(todayStart.getTime() + 86400000);
-    const tomEnd = new Date(todayEnd.getTime() + 86400000);
-    return targetDate >= tomStart && targetDate <= tomEnd;
-  }
-  if (filter === 'THIS_WEEK') {
-    const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-    const weekStart = new Date(todayStart.getTime() - dayOfWeek * 86400000);
-    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000 - 1);
-    return targetDate >= weekStart && targetDate <= weekEnd;
-  }
-  if (filter === 'THIS_MONTH') {
-    return targetDate.getFullYear() === now.getFullYear() && targetDate.getMonth() === now.getMonth();
-  }
-  if (filter === 'NEXT_MONTH') {
-    const nextMonth = (now.getMonth() + 1) % 12;
-    const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
-    return targetDate.getFullYear() === nextYear && targetDate.getMonth() === nextMonth;
-  }
-  return true;
 }
 
 export default function DashboardOverviewPage() {
@@ -134,16 +90,6 @@ export default function DashboardOverviewPage() {
     return [];
   });
 
-  const [batchClasses, setBatchClasses] = useState<any[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const c = localStorage.getItem('examly.dashboard.cache');
-      if (c) return JSON.parse(c).batchClasses || [];
-    } catch {}
-    return [];
-  });
-
-  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>('TODAY');
   const [batchError, setBatchError] = useState('');
 
   // Persistence helper to keep next render at 0ms
@@ -172,36 +118,6 @@ export default function DashboardOverviewPage() {
           const data = res.data || [];
           setBatches(data);
           persistCache({ batches: data });
-
-          // Fetch workspace timetables for active batches
-          const activeBatchesList = data.filter((b: any) => b.status === 'ACTIVE').slice(0, 4);
-          if (activeBatchesList.length > 0) {
-            Promise.allSettled(
-              activeBatchesList.map((b: any) =>
-                api.get(`/batches/${b.id}/workspace`, config).then((r) => ({
-                  batchId: b.id,
-                  batchName: b.name,
-                  classes: r.data?.classes || [],
-                })),
-              ),
-            ).then((results) => {
-              if (!active) return;
-              const allClasses: any[] = [];
-              results.forEach((res) => {
-                if (res.status === 'fulfilled' && res.value?.classes) {
-                  res.value.classes.forEach((c: any) => {
-                    allClasses.push({
-                      ...c,
-                      batchId: res.value.batchId,
-                      batchName: res.value.batchName,
-                    });
-                  });
-                }
-              });
-              setBatchClasses(allClasses);
-              persistCache({ batchClasses: allClasses });
-            });
-          }
         })
         .catch((err) => {
           if (!active) return;
@@ -282,7 +198,7 @@ export default function DashboardOverviewPage() {
     0,
   );
 
-  // Filter batches to active batches (Show only 3 as requested)
+  // Filter batches to active batches (Show only top 3 as requested)
   const activeBatches = useMemo(() => {
     return batches.filter((b) => b.status === 'ACTIVE' || !b.status);
   }, [batches]);
@@ -304,79 +220,29 @@ export default function DashboardOverviewPage() {
     });
   }, [tests]);
 
-  // Combined Academic Schedule & Timetable Events
-  const filteredScheduleEvents = useMemo(() => {
-    const events: any[] = [];
-
-    // 1. Add batch classes
-    batchClasses.forEach((c) => {
-      if (matchesScheduleFilter(c.date, scheduleFilter)) {
-        events.push({
-          id: `class-${c.id}`,
-          type: 'CLASS',
-          title: c.topic || 'Class Session',
-          batchName: c.batchName || 'Academic Batch',
-          subjectName: c.subject?.name || 'Curriculum',
-          teacherName: c.teacher?.fullName || 'Faculty Instructor',
-          date: c.date,
-          startTime: c.startTime,
-          endTime: c.endTime,
-          status: c.status || 'Upcoming',
-          link: `/batches/${c.batchId}`,
-        });
-      }
-    });
-
-    // 2. Add scheduled/live tests
-    tests.forEach((t) => {
-      const testDate = t.startDateTime ? t.startDateTime.slice(0, 10) : null;
-      if (matchesScheduleFilter(testDate, scheduleFilter)) {
-        const ended = isTestEnded(t);
-        const isLive = (t.testStatus === 'LIVE' || t.isPublished) && !ended;
-        events.push({
-          id: `test-${t.id}`,
-          type: 'EXAM',
-          title: t.title,
-          batchName: t.batch?.name || 'All Batches',
-          subjectName: 'CBT Examination',
-          teacherName: 'Automated Proctor',
-          date: testDate,
-          startTime: t.startDateTime
-            ? new Date(t.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : 'Scheduled',
-          endTime: `${t.durationMinutes || 120}m duration`,
-          status: isLive ? 'Live' : ended ? 'Completed' : 'Upcoming',
-          link: `/tests/${t.id}`,
-        });
-      }
-    });
-
-    return events;
-  }, [batchClasses, tests, scheduleFilter]);
-
-  // 3D Artwork 1: Live CBT Examination Terminal
+  // 3D Artwork: Live CBT Examination Terminal
   const LiveTestArena3DArt = (
-    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[74px] sm:h-[64px] drop-shadow-md shrink-0">
+    <svg viewBox="0 0 100 85" className="w-[54px] h-[46px] sm:w-[68px] sm:h-[58px] drop-shadow-md shrink-0">
       <defs>
         <linearGradient id="liveTerminal" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2A1435" />
-          <stop offset="100%" stopColor="#140B1D" />
+          <stop offset="0%" stopColor="#3B1228" />
+          <stop offset="100%" stopColor="#180712" />
         </linearGradient>
       </defs>
       <ellipse cx="50" cy="78" rx="34" ry="5.5" fill="#1E293B" opacity="0.25" />
       <rect x="18" y="16" width="64" height="46" rx="10" fill="url(#liveTerminal)" stroke="#F43F5E" strokeWidth="1.5" strokeOpacity="0.5" />
-      <rect x="22" y="20" width="56" height="38" rx="6" fill="#0F0816" />
+      <rect x="22" y="20" width="56" height="38" rx="6" fill="#0E050D" />
       <path d="M26 39 L36 39 L40 28 L45 48 L50 34 L54 42 L58 39 L74 39" fill="none" stroke="#FB7185" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="70" cy="26" r="3.5" fill="#E11D48" />
       <circle cx="70" cy="26" r="6" fill="#FB7185" opacity="0.4" />
-      <path d="M42 62 L58 62 L64 74 L36 74 Z" fill="#2A1435" />
+      <path d="M42 62 L58 62 L64 74 L36 74 Z" fill="#2A0E1F" />
       <rect x="34" y="73" width="32" height="3" rx="1.5" fill="#E11D48" opacity="0.8" />
     </svg>
   );
 
-  // 3D Artwork 2: Upcoming Test Schedule Pad & Clock
+  // 3D Artwork: Upcoming Test Schedule Pad & Clock
   const UpcomingTestSchedule3DArt = (
-    <svg viewBox="0 0 100 85" className="w-[58px] h-[50px] sm:w-[74px] sm:h-[64px] drop-shadow-md shrink-0">
+    <svg viewBox="0 0 100 85" className="w-[54px] h-[46px] sm:w-[68px] sm:h-[58px] drop-shadow-md shrink-0">
       <defs>
         <linearGradient id="schedCal" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#4F46E5" />
@@ -405,7 +271,7 @@ export default function DashboardOverviewPage() {
   );
 
   return (
-    <div className="space-y-7 max-w-7xl mx-auto pb-14 font-sans">
+    <div className="space-y-6 sm:space-y-7 max-w-7xl mx-auto pb-14 font-sans">
       {/* ── 1. UNIFIED 3D CAPABILITIES & LIVE STATS RAIL (SECTION 1 UNTOUCHED) ── */}
       <DashboardFeatureRail
         batchesCount={batches.length}
@@ -433,39 +299,32 @@ export default function DashboardOverviewPage() {
         </div>
       )}
 
-      {/* ── 2. ACTIVE BATCHES (EXACTLY 3 CARDS) ── */}
-      <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Active Batches
-              <span className="text-xs font-normal text-slate-500 dark:text-[#94A3B8] font-mono">
-                ({displayBatches.length} of {activeBatches.length})
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-              Manage ongoing study batches, curriculum, and learner enrollments.
-            </p>
-          </div>
+      {/* ── 2. ACTIVE BATCHES (PROPER 3D CARD VIEW - EXACTLY 3 BATCHES) ── */}
+      <div className="bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] space-y-4">
+        {/* Header with zero secondary text */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
+          <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+            Active Batches
+          </h2>
 
           <div className="flex items-center gap-2">
             <Link
               href="/batches"
-              className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#1A1D2B] dark:hover:bg-[#22273A] text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-slate-200 dark:border-[#282E42] transition-all cursor-pointer flex items-center gap-1"
             >
-              <Plus className="w-3.5 h-3.5" /> New Batch
+              Manage All <ChevronRight className="w-3.5 h-3.5" />
             </Link>
             <Link
               href="/batches"
-              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
+              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1"
             >
-              View All ({batches.length}) <ChevronRight className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5" /> New Batch
             </Link>
           </div>
         </div>
 
-        {/* 3 Active Batches Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 3D Batch Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
           {displayBatches.map((b) => {
             const subjectsCount = b.subjects?.length ?? b._count?.subjects ?? 0;
             const batchTestsCount = b.tests?.length ?? b._count?.tests ?? 0;
@@ -476,68 +335,73 @@ export default function DashboardOverviewPage() {
             return (
               <div
                 key={b.id}
-                className="bg-slate-50/70 dark:bg-[#161824] border border-slate-200/80 dark:border-[#1E222F] rounded-2xl overflow-hidden hover:border-brand-500/50 dark:hover:border-brand-500/50 transition-all flex flex-col justify-between group shadow-2xs"
+                className="group relative rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1 bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#181B28] dark:via-[#131522] dark:to-[#0D0F18] border border-slate-200/90 dark:border-white/[0.08] hover:border-brand-500/50 dark:hover:border-indigo-500/50 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_16px_32px_-8px_rgba(99,102,241,0.18)]"
               >
-                {/* Header Strip */}
-                <div className="p-3.5 bg-slate-100/60 dark:bg-[#1A1D2B] border-b border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-white dark:bg-[#12141C] border border-slate-200 dark:border-[#1E222F] text-[10px] font-mono font-bold text-brand-700 dark:text-brand-300">
-                    {b.code || 'BATCH'}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-[#0B291B] text-emerald-700 dark:text-emerald-300">
-                      {feeLabel}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-[#1C2548] text-blue-700 dark:text-blue-300">
-                      ACTIVE
-                    </span>
-                  </div>
-                </div>
+                {/* 3D Sheen Highlight */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 dark:via-white/15 to-transparent rounded-t-2xl" />
 
-                {/* Content */}
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
+                <div className="space-y-3.5">
+                  {/* Top Strip with 3D Badges */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-brand-50 to-indigo-50 dark:from-indigo-950/80 dark:to-brand-950/80 border border-brand-200/90 dark:border-brand-700/60 text-[10px] font-mono font-black text-brand-700 dark:text-brand-300 shadow-2xs tracking-wider">
+                      {b.code || 'BATCH'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-[#0B291B] text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80">
+                        {feeLabel}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-[#16244A] text-blue-800 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80">
+                        ACTIVE
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Title & Institute */}
+                  <div className="space-y-1">
                     <Link
                       href={`/batches/${b.id}`}
-                      className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1"
+                      className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1"
                     >
                       {b.name}
                     </Link>
                     {b.institute?.name && (
-                      <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] line-clamp-1 mt-0.5">
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-[#94A3B8] line-clamp-1">
                         {b.institute.name}
                       </p>
                     )}
-                    {b.description && (
-                      <p className="text-xs text-slate-600 dark:text-[#94A3B8] line-clamp-2 mt-1.5 leading-relaxed">
-                        {b.description}
-                      </p>
-                    )}
                   </div>
 
-                  {/* Metrics Info */}
-                  <div className="pt-3 border-t border-slate-200/50 dark:border-[#1E222F] flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-3 text-slate-500 dark:text-[#94A3B8] text-[11px] font-mono">
-                      <span className="flex items-center gap-1" title="Subjects">
-                        <BookOpen className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
-                        {subjectsCount}
-                      </span>
-                      <span className="flex items-center gap-1" title="Tests">
-                        <FileCheck2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        {batchTestsCount}
-                      </span>
-                      <span className="flex items-center gap-1" title="Learners">
-                        <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        {enrolledCount}
-                      </span>
-                    </div>
+                  {/* Description */}
+                  {b.description && (
+                    <p className="text-xs text-slate-600 dark:text-[#94A3B8] line-clamp-2 leading-relaxed">
+                      {b.description}
+                    </p>
+                  )}
+                </div>
 
-                    <Link
-                      href={`/batches/${b.id}`}
-                      className="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors flex items-center gap-1 cursor-pointer shrink-0"
-                    >
-                      Manage →
-                    </Link>
+                {/* Footer Metrics & 3D Manage Button */}
+                <div className="pt-4 mt-3.5 border-t border-slate-200/60 dark:border-[#1E222F] flex items-center justify-between text-xs gap-2">
+                  <div className="flex items-center gap-2.5 text-slate-500 dark:text-[#94A3B8] text-[11px] font-mono">
+                    <span className="flex items-center gap-1" title="Curriculum Subjects">
+                      <BookOpen className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      {subjectsCount}
+                    </span>
+                    <span className="flex items-center gap-1" title="Mock Tests">
+                      <FileCheck2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      {batchTestsCount}
+                    </span>
+                    <span className="flex items-center gap-1" title="Enrolled Learners">
+                      <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      {enrolledCount}
+                    </span>
                   </div>
+
+                  <Link
+                    href={`/batches/${b.id}`}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(79,70,229,0.25)] hover:shadow-[0_6px_16px_rgba(79,70,229,0.35)] active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    Manage →
+                  </Link>
                 </div>
               </div>
             );
@@ -547,42 +411,29 @@ export default function DashboardOverviewPage() {
             <div className="col-span-full py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
               <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="font-semibold">No active batches created yet.</p>
-              <p className="text-[11px] mt-1 text-slate-500 dark:text-[#94A3B8]">
-                Create your first batch to add subjects and schedule tests.
-              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── 3. CBT EXAMINATION ARENA: LIVE TESTS & UPCOMING TESTS (WITH 3D ARTWORKS) ── */}
+      {/* ── 3. CBT EXAMINATION ARENA: LIVE EXAMINATIONS & UPCOMING TESTS ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
-        {/* LEFT: LIVE TESTS ARENA (WITH 3D ART) */}
-        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* LEFT: LIVE EXAMINATIONS */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] space-y-4">
+          {/* Header with zero secondary text, Manage All button */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
             <div className="flex items-center gap-3">
               {LiveTestArena3DArt}
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Live Examinations
-                  {liveTests.length > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      {liveTests.length} Live
-                    </span>
-                  )}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-                  Examinations currently ongoing and accepting submissions.
-                </p>
-              </div>
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Live Examinations
+              </h3>
             </div>
 
             <Link
               href="/tests"
-              className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 shrink-0"
+              className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-xs rounded-xl border border-rose-200/80 dark:border-rose-800/80 transition-all flex items-center gap-1 cursor-pointer shrink-0"
             >
-              Monitor <ChevronRight className="w-3.5 h-3.5" />
+              Manage All <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -590,9 +441,9 @@ export default function DashboardOverviewPage() {
             {liveTests.slice(0, 3).map((t) => (
               <div
                 key={t.id}
-                className="p-4 rounded-2xl bg-rose-50/40 dark:bg-[#20121F] border border-rose-200/70 dark:border-rose-900/40 hover:border-rose-400 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="group p-4 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-0.5 bg-gradient-to-b from-rose-50/40 via-white to-rose-50/20 dark:from-[#21101D] dark:via-[#190C16] dark:to-[#120710] border border-rose-200/90 dark:border-rose-900/50 hover:border-rose-400 dark:hover:border-rose-500 shadow-[0_4px_16px_rgba(244,63,94,0.06)] dark:shadow-[0_8px_24px_rgba(244,63,94,0.12)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link
                       href={`/tests/${t.id}`}
@@ -600,6 +451,10 @@ export default function DashboardOverviewPage() {
                     >
                       {t.title}
                     </Link>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-600 text-white animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      LIVE
+                    </span>
                     {t.batch?.name && (
                       <span className="px-2 py-0.5 rounded-md bg-rose-100/70 dark:bg-rose-950/70 text-rose-800 dark:text-rose-200 text-[10px] font-semibold">
                         {t.batch.name}
@@ -615,48 +470,38 @@ export default function DashboardOverviewPage() {
 
                 <Link
                   href={`/tests/${t.id}`}
-                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(225,29,72,0.25)] hover:shadow-[0_6px_16px_rgba(225,29,72,0.35)] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Proctor Live →
+                  <Eye className="w-3.5 h-3.5" /> Manage →
                 </Link>
               </div>
             ))}
 
             {liveTests.length === 0 && (
               <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
-                <Clock className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-rose-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No tests currently live</p>
-                <p className="text-[11px] mt-0.5 text-slate-500">
-                  Tests will automatically appear here when their scheduled time begins.
-                </p>
+                <Clock className="w-7 h-7 mx-auto mb-1 opacity-40 text-rose-500" />
+                <p className="font-semibold text-slate-700 dark:text-slate-300">No examinations currently live</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* RIGHT: UPCOMING TESTS (WITH 3D ART) */}
-        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* RIGHT: UPCOMING TESTS */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] space-y-4">
+          {/* Header with zero secondary text, Author Test button */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
             <div className="flex items-center gap-3">
               {UpcomingTestSchedule3DArt}
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Upcoming Tests
-                  <span className="text-xs font-normal text-slate-500 dark:text-[#94A3B8] font-mono">
-                    ({upcomingTests.length} Scheduled)
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-                  Scheduled mock test papers awaiting start date.
-                </p>
-              </div>
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Upcoming Tests
+              </h3>
             </div>
 
             <Link
               href="/tests/create"
-              className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
+              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
             >
-              Author Test <ChevronRight className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5" /> Author Test
             </Link>
           </div>
 
@@ -664,9 +509,9 @@ export default function DashboardOverviewPage() {
             {upcomingTests.slice(0, 3).map((t) => (
               <div
                 key={t.id}
-                className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#161824] border border-slate-200/70 dark:border-[#1E222F] hover:border-brand-500/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="group p-4 rounded-2xl transition-all duration-300 ease-out hover:-translate-y-0.5 bg-gradient-to-b from-indigo-50/30 via-white to-slate-50/30 dark:from-[#17192A] dark:via-[#131522] dark:to-[#0E101A] border border-slate-200/80 dark:border-white/[0.08] hover:border-brand-500/50 dark:hover:border-indigo-500/50 shadow-[0_4px_16px_rgba(0,0,0,0.03)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link
                       href={`/tests/${t.id}`}
@@ -694,46 +539,39 @@ export default function DashboardOverviewPage() {
                 </div>
 
                 <Link
-                  href={`/tests/${t.id}`}
-                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-[#1E222F] hover:bg-brand-50 dark:hover:bg-brand-950/60 text-slate-700 dark:text-white hover:text-brand-600 font-bold text-xs rounded-xl border border-slate-200 dark:border-[#2A2F40] transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
+                  href={`/tests/create?testId=${t.id}`}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-[#1E222F] dark:hover:bg-[#282D3E] text-slate-800 dark:text-white font-extrabold text-xs rounded-xl border border-slate-200 dark:border-[#2D3346] shadow-2xs active:scale-95 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
                 >
-                  <Eye className="w-3.5 h-3.5" /> Inspect Paper →
+                  <Edit2 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" /> Author Test
                 </Link>
               </div>
             ))}
 
             {upcomingTests.length === 0 && (
               <div className="py-8 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50 dark:bg-[#161824] rounded-2xl border border-slate-200/70 dark:border-[#1E222F]">
-                <Calendar className="w-7 h-7 mx-auto mb-1.5 opacity-40 text-indigo-500" />
+                <Calendar className="w-7 h-7 mx-auto mb-1 opacity-40 text-indigo-500" />
                 <p className="font-semibold text-slate-700 dark:text-slate-300">No upcoming tests scheduled</p>
-                <p className="text-[11px] mt-0.5 text-slate-500">
-                  Use the test authoring tool to schedule mock examinations for your batches.
-                </p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── 4. RECENT MEMBERS JOINED: 3 STUDENTS & 3 FACULTY ── */}
+      {/* ── 4. RECENT MEMBERS JOINED: RECENT STUDENTS & RECENT FACULTY ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
-        {/* RECENT STUDENTS (JUST 3) */}
-        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* RECENT STUDENTS (EXACTLY 3) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] space-y-4">
+          {/* Header with zero secondary text */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                Recently Joined Students
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-                Latest student admissions and batch enrollments.
-              </p>
-            </div>
+            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+              Recent Students
+            </h3>
 
             <Link
               href="/students"
               className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
             >
-              All Students ({studentsCount}) <ChevronRight className="w-3.5 h-3.5" />
+              View All <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -742,7 +580,7 @@ export default function DashboardOverviewPage() {
               <Link
                 key={s.id}
                 href={`/students/${s.id}`}
-                className="group p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/80 dark:hover:bg-[#1A1D2B] border border-slate-200/70 dark:border-[#1E222F] transition-all flex items-center justify-between gap-3 cursor-pointer"
+                className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/90 dark:hover:bg-[#1C2030] border border-slate-200/80 dark:border-[#1E222F] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
@@ -778,29 +616,25 @@ export default function DashboardOverviewPage() {
             {recentStudents.length === 0 && (
               <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
                 <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-blue-500" />
-                <p className="font-semibold">No student admissions recorded</p>
+                <p className="font-semibold">No students recorded</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* RECENT FACULTY (JUST 3) */}
-        <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* RECENT FACULTY (EXACTLY 3) */}
+        <div className="bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.5)] space-y-4">
+          {/* Header with zero secondary text */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                Newly Joined Faculty
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-                Assigned instructors, lecturers, and evaluators.
-              </p>
-            </div>
+            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+              Recent Faculty
+            </h3>
 
             <Link
               href="/teachers"
               className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 shrink-0"
             >
-              All Faculty ({teachersCount}) <ChevronRight className="w-3.5 h-3.5" />
+              View All <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -809,7 +643,7 @@ export default function DashboardOverviewPage() {
               <Link
                 key={t.id}
                 href={`/teachers/${t.id}`}
-                className="group p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/80 dark:hover:bg-[#1A1D2B] border border-slate-200/70 dark:border-[#1E222F] transition-all flex items-center justify-between gap-3 cursor-pointer"
+                className="group p-3.5 rounded-2xl transition-all duration-200 bg-slate-50/70 dark:bg-[#161824] hover:bg-slate-100/90 dark:hover:bg-[#1C2030] border border-slate-200/80 dark:border-[#1E222F] flex items-center justify-between gap-3 cursor-pointer shadow-2xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
@@ -843,121 +677,10 @@ export default function DashboardOverviewPage() {
             {recentTeachers.length === 0 && (
               <div className="py-6 text-center text-slate-400 dark:text-[#94A3B8] text-xs">
                 <Users className="w-6 h-6 mx-auto mb-1 opacity-40 text-amber-500" />
-                <p className="font-semibold">No faculty members registered</p>
+                <p className="font-semibold">No faculty registered</p>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* ── 5. ACADEMIC SCHEDULE & TIMETABLE (WITH INTERACTIVE FILTERS) ── */}
-      <div className="bg-white dark:bg-[#12141C] border border-slate-200/80 dark:border-[#1E222F] rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-[#1E222F]">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              Academic Schedule & Timetable
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">
-              Live timetable of classes, mock examinations, and batch sessions.
-            </p>
-          </div>
-
-          {/* Interactive Date Range Filter Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {[
-              { id: 'PREV_DAY', label: 'Previous Day' },
-              { id: 'TODAY', label: 'Today' },
-              { id: 'TOMORROW', label: 'Tomorrow' },
-              { id: 'THIS_WEEK', label: 'This Week' },
-              { id: 'THIS_MONTH', label: 'This Month' },
-              { id: 'NEXT_MONTH', label: 'Next Month' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setScheduleFilter(f.id as ScheduleFilter)}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer text-xs ${
-                  scheduleFilter === f.id
-                    ? 'bg-brand-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-[#161824] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-200/80 dark:hover:bg-[#1F2333] border border-transparent dark:border-[#1E222F]'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Schedule Items List */}
-        <div className="space-y-3">
-          {filteredScheduleEvents.map((ev) => (
-            <div
-              key={ev.id}
-              className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#161824] border border-slate-200/70 dark:border-[#1E222F] hover:border-brand-500/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-            >
-              <div className="flex items-start sm:items-center gap-3 min-w-0">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    ev.type === 'EXAM'
-                      ? 'bg-rose-100 dark:bg-[#2A1320] text-rose-600 dark:text-rose-400'
-                      : 'bg-brand-100 dark:bg-[#162345] text-brand-600 dark:text-brand-400'
-                  }`}
-                >
-                  {ev.type === 'EXAM' ? <FileCheck2 className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-                </div>
-
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Link
-                      href={ev.link}
-                      className="font-bold text-sm text-slate-900 dark:text-white hover:text-brand-600 transition-colors"
-                    >
-                      {ev.title}
-                    </Link>
-                    <span className="px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-[#1E222F] text-slate-700 dark:text-slate-300 text-[10px] font-semibold">
-                      {ev.batchName}
-                    </span>
-                    {ev.status === 'Live' && (
-                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-extrabold animate-pulse">
-                        🔴 LIVE NOW
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 text-slate-500 dark:text-[#94A3B8] font-mono text-[11px] flex-wrap">
-                    <span>
-                      🕒 {ev.startTime}
-                      {ev.endTime ? ` – ${ev.endTime}` : ''}
-                    </span>
-                    <span>•</span>
-                    <span>{ev.subjectName}</span>
-                    <span>•</span>
-                    <span className="font-sans text-slate-600 dark:text-slate-400">
-                      Instructor: {ev.teacherName}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <Link
-                href={ev.link}
-                className="px-3.5 py-1.5 bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 hover:bg-brand-100 font-bold text-xs rounded-xl border border-brand-200/60 dark:border-brand-800 transition-colors flex items-center gap-1 shrink-0 self-start sm:self-center cursor-pointer"
-              >
-                View Details <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          ))}
-
-          {filteredScheduleEvents.length === 0 && (
-            <div className="py-10 text-center text-slate-400 dark:text-[#94A3B8] text-xs bg-slate-50/50 dark:bg-[#161824] rounded-2xl border border-dashed border-slate-200 dark:border-[#1E222F]">
-              <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40 text-brand-500" />
-              <p className="font-semibold text-slate-700 dark:text-slate-300">
-                No sessions or exams scheduled for this date range
-              </p>
-              <p className="text-[11px] mt-0.5 text-slate-500">
-                Classes and mock examinations scheduled in batches will automatically populate this schedule.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
