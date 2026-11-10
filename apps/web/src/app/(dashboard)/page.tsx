@@ -778,18 +778,16 @@ export default function DashboardOverviewPage() {
             })}
 
             {batches.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-40 text-brand-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">
-                  {isStudent ? 'Not enrolled in any batch' : 'No batches created yet'}
-                </p>
+              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <GraduationCap className="w-4 h-4 text-brand-500 opacity-70 shrink-0" />
+                <span>{isStudent ? 'Not enrolled in any batch' : 'No batches created yet'}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* RIGHT: TESTS */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Tests
@@ -860,9 +858,9 @@ export default function DashboardOverviewPage() {
             })}
 
             {tests.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <FileCheck2 className="w-8 h-8 mx-auto mb-2 opacity-40 text-rose-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No tests available</p>
+              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <FileCheck2 className="w-4 h-4 text-rose-500 opacity-70 shrink-0" />
+                <span>No tests available yet</span>
               </div>
             )}
           </div>
@@ -872,7 +870,7 @@ export default function DashboardOverviewPage() {
       {/* ── 4. TIMETABLE SCHEDULE & NEXT UPCOMING TESTS (2-COLUMN GRID) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
         {/* LEFT: TODAY'S CLASSES */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Today’s classes
@@ -944,17 +942,16 @@ export default function DashboardOverviewPage() {
             })}
 
             {(!studentData?.todayClasses || studentData.todayClasses.length === 0) && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <Clock className="w-8 h-8 mx-auto mb-2 opacity-40 text-brand-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No classes scheduled for today</p>
-                <p className="text-[11px] text-slate-500 mt-1">Open timetable to view your schedule</p>
+              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <Clock className="w-4 h-4 text-brand-500 opacity-70 shrink-0" />
+                <span>No classes scheduled for today</span>
               </div>
             )}
           </div>
         </div>
 
         {/* RIGHT: NEXT 5 UPCOMING TESTS */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Next 5 upcoming tests
@@ -1009,9 +1006,9 @@ export default function DashboardOverviewPage() {
             })}
 
             {upcomingTests.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40 text-indigo-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No upcoming tests scheduled</p>
+              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <Calendar className="w-4 h-4 text-indigo-500 opacity-70 shrink-0" />
+                <span>No upcoming tests scheduled</span>
               </div>
             )}
           </div>
@@ -1021,7 +1018,7 @@ export default function DashboardOverviewPage() {
       {/* ── 5. CONDITIONAL: RECENT ROSTERS (ADMIN) vs TEST RESULTS (STUDENT) ── */}
       {isStudent ? (
         /* MY RECENT TEST RESULTS */
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
               My Recent Test Results
@@ -1069,10 +1066,9 @@ export default function DashboardOverviewPage() {
             })}
 
             {(!studentData?.recentAttempts || studentData.recentAttempts.length === 0) && (
-              <div className="col-span-full py-8 text-center text-slate-400 text-xs">
-                <FileCheck2 className="w-8 h-8 mx-auto mb-2 opacity-40 text-emerald-500" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300">No test attempts completed yet</p>
-                <p className="text-[11px] text-slate-500 mt-1">Take mock tests in your batch to track your score progression</p>
+              <div className="col-span-full py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <FileCheck2 className="w-4 h-4 text-emerald-500 opacity-70 shrink-0" />
+                <span>No test attempts completed yet</span>
               </div>
             )}
           </div>
@@ -1081,7 +1077,7 @@ export default function DashboardOverviewPage() {
         /* ADMIN & FACULTY: RECENT STUDENTS & TEACHERS (2-COLUMN GRID) */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
           {/* RECENTLY JOINED STUDENTS */}
-          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
                 Recently joined students
@@ -1160,16 +1156,16 @@ export default function DashboardOverviewPage() {
               })}
 
               {recentStudents.length === 0 && (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-blue-500" />
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">No students recorded</p>
+                <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <Users className="w-4 h-4 text-blue-500 opacity-70 shrink-0" />
+                  <span>No students recorded</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* RECENTLY JOINED TEACHERS */}
-          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-4">
+          <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
                 Recently joined teachers
@@ -1235,9 +1231,9 @@ export default function DashboardOverviewPage() {
               })}
 
               {recentTeachers.length === 0 && (
-                <div className="py-8 text-center text-slate-400 text-xs">
-                  <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-40 text-amber-500" />
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">No teachers recorded</p>
+                <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <UserCheck className="w-4 h-4 text-amber-500 opacity-70 shrink-0" />
+                  <span>No teachers recorded</span>
                 </div>
               )}
             </div>
