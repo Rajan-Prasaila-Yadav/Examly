@@ -6,7 +6,7 @@ import { api, invalidateApiCache } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import VideoCollection from './video-collection';
 import { DataTable, IconButton, Modal } from './batch-workspace';
-import { Plus, Pencil, Archive, Trash2, Upload, ArrowLeft, FileText, BookOpen, Copy, Maximize, Minimize, Download, Search, Eye, Monitor, Book, Minus } from "lucide-react";
+import { Plus, Pencil, Archive, Trash2, Upload, ArrowLeft, FileText, BookOpen, Copy, Maximize, Minimize, Download, Search, Eye, Monitor, Book, Minus, X } from "lucide-react";
 type R = Record<string, any>;
 const config = { timeout: 30000 } as any;
 const message = (e: any) => e.response?.data?.message || e.message || 'Unable to save';
@@ -439,98 +439,217 @@ export function NotesViewer() {
   const safe = /^https?:\/\//i.test(fileUrl || '');
   const nativeEmbedUrl = fileUrl ? `${fileUrl}#view=FitH&navpanes=0&toolbar=1` : '';
 
-  const renderControls = (isOverlay = false) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'var(--ln, #1e293b)' }}>
-        <button
-          type="button"
-          className={`ex-btn ${viewerMode === 'canvas' ? '' : 'ghost'}`}
-          style={{ padding: '5px 10px', fontSize: 11, height: 'auto', borderRadius: 6 }}
-          onClick={() => setViewerMode('canvas')}
-          title="Interactive continuous mobile & desktop reader"
-        >
-          <Book size={13} /> Reader
-        </button>
-        <button
-          type="button"
-          className={`ex-btn ${viewerMode === 'native' ? '' : 'ghost'}`}
-          style={{ padding: '5px 10px', fontSize: 11, height: 'auto', borderRadius: 6 }}
-          onClick={() => setViewerMode('native')}
-          title="Browser native PDF viewer"
-        >
-          <Monitor size={13} /> Native
-        </button>
-      </div>
+  const renderSidebar = (isOverlay: boolean) => (
+    <aside
+      aria-label="PDF Controls Sidebar"
+      style={{
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 60,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 6,
+        padding: '8px 6px',
+        borderRadius: 14,
+        background: 'rgba(15, 23, 42, 0.88)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
+        userSelect: 'none',
+        color: '#ffffff'
+      }}
+    >
+      {/* Full screen toggle symbol */}
+      <button
+        type="button"
+        title={isOverlay ? "Exit Fullscreen (Esc)" : "Full screen view"}
+        aria-label={isOverlay ? "Exit Fullscreen" : "Full screen"}
+        onClick={() => setIsFullView(!isOverlay)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: isOverlay ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
+          color: '#ffffff',
+          border: 0,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease'
+        }}
+      >
+        {isOverlay ? <Minimize size={18} /> : <Maximize size={18} />}
+      </button>
 
-      {viewerMode === 'canvas' && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 8, background: 'var(--ln, #1e293b)' }}>
-          <button
-            type="button"
-            className="ex-btn ghost"
-            style={{ padding: '4px 6px', fontSize: 11, height: 'auto' }}
-            onClick={() => setZoomScale(s => Math.max(0.6, s - 0.2))}
-            title="Zoom out"
-          >
-            <Minus size={13} />
-          </button>
-          <span style={{ fontSize: 11, fontWeight: 700, minWidth: 38, textAlign: 'center' }}>
-            {Math.round(zoomScale * 100)}%
-          </span>
-          <button
-            type="button"
-            className="ex-btn ghost"
-            style={{ padding: '4px 6px', fontSize: 11, height: 'auto' }}
-            onClick={() => setZoomScale(s => Math.min(2.5, s + 0.2))}
-            title="Zoom in"
-          >
-            <Plus size={13} />
-          </button>
-          <button
-            type="button"
-            className="ex-btn ghost"
-            style={{ padding: '4px 8px', fontSize: 10, height: 'auto' }}
-            onClick={() => setZoomScale(1.15)}
-            title="Fit to width"
-          >
-            Fit
-          </button>
-        </div>
+      <div style={{ width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }} />
+
+      {/* Zoom In (+) */}
+      <button
+        type="button"
+        title="Zoom in (+)"
+        aria-label="Zoom in"
+        onClick={() => setZoomScale(s => Math.min(2.5, +(s + 0.15).toFixed(2)))}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'rgba(255, 255, 255, 0.08)',
+          color: '#ffffff',
+          border: 0,
+          cursor: 'pointer'
+        }}
+      >
+        <Plus size={18} />
+      </button>
+
+      {/* Zoom Percentage */}
+      <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255, 255, 255, 0.85)', letterSpacing: '-0.5px' }}>
+        {Math.round(zoomScale * 100)}%
+      </span>
+
+      {/* Zoom Out (-) */}
+      <button
+        type="button"
+        title="Zoom out (-)"
+        aria-label="Zoom out"
+        onClick={() => setZoomScale(s => Math.max(0.6, +(s - 0.15).toFixed(2)))}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'rgba(255, 255, 255, 0.08)',
+          color: '#ffffff',
+          border: 0,
+          cursor: 'pointer'
+        }}
+      >
+        <Minus size={18} />
+      </button>
+
+      {/* Fit to width */}
+      <button
+        type="button"
+        title="Fit to width"
+        aria-label="Fit to width"
+        onClick={() => setZoomScale(1.15)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 26,
+          borderRadius: 8,
+          background: 'rgba(255, 255, 255, 0.08)',
+          color: '#ffffff',
+          fontSize: 10,
+          fontWeight: 700,
+          border: 0,
+          cursor: 'pointer'
+        }}
+      >
+        FIT
+      </button>
+
+      <div style={{ width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }} />
+
+      {/* Total pages badge */}
+      {numPages > 0 && (
+        <span
+          title={`Total ${numPages} pages`}
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            color: 'rgba(255, 255, 255, 0.65)',
+            padding: '2px 4px',
+            borderRadius: 4,
+            background: 'rgba(255, 255, 255, 0.05)',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {numPages}p
+        </span>
       )}
 
-      {isOverlay ? (
-        <button
-          type="button"
-          className="ex-btn"
-          style={{ padding: '6px 12px', fontSize: 11, background: '#6366f1' }}
-          onClick={() => setIsFullView(false)}
-          title="Exit full view (Esc)"
-        >
-          <Minimize size={14} /> Exit Full View
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="ex-btn ghost"
-          style={{ padding: '6px 12px', fontSize: 12 }}
-          onClick={() => setIsFullView(true)}
-          title="Full screen view"
-        >
-          <Maximize size={15} /> Full view
-        </button>
-      )}
+      {/* Mode toggle (Reader vs Native) */}
+      <button
+        type="button"
+        title={viewerMode === 'canvas' ? "Switch to Browser Native PDF" : "Switch to Continuous Reader"}
+        aria-label="Switch viewer mode"
+        onClick={() => setViewerMode(m => m === 'canvas' ? 'native' : 'canvas')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'rgba(255, 255, 255, 0.08)',
+          color: '#ffffff',
+          border: 0,
+          cursor: 'pointer'
+        }}
+      >
+        {viewerMode === 'canvas' ? <Monitor size={16} /> : <Book size={16} />}
+      </button>
 
+      {/* Download button if allowed */}
       {safe && (data?.note?.allowDownload !== false) && (
         <a
-          className={`ex-btn ${isOverlay ? 'ghost' : ''}`}
-          style={{ padding: isOverlay ? '6px 12px' : undefined, fontSize: 12 }}
           href={fileUrl}
           download={`${data?.note?.title || 'notes'}.pdf`}
           title="Download PDF"
+          aria-label="Download PDF"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: 'rgba(255, 255, 255, 0.08)',
+            color: '#ffffff',
+            textDecoration: 'none'
+          }}
         >
-          <Download size={15} /> Download
+          <Download size={16} />
         </a>
       )}
-    </div>
+
+      {/* Exit button in full view mode */}
+      {isOverlay && (
+        <button
+          type="button"
+          title="Exit Full View (Esc)"
+          aria-label="Exit Full View"
+          onClick={() => setIsFullView(false)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: 'rgba(239, 68, 68, 0.25)',
+            color: '#ef4444',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            cursor: 'pointer',
+            marginTop: 2
+          }}
+        >
+          <X size={18} />
+        </button>
+      )}
+    </aside>
   );
 
   const renderContent = (isOverlay = false) => {
@@ -546,12 +665,13 @@ export function NotesViewer() {
       return (
         <div
           style={{
+            position: 'relative',
             width: '100%',
             height: '100%',
             overflowY: 'auto',
             overflowX: 'auto',
             WebkitOverflowScrolling: 'touch',
-            padding: isOverlay ? '24px 12px' : '20px 10px',
+            padding: isOverlay ? '16px 12px 40px' : '16px 10px 30px',
             background: '#090d16',
             display: 'flex',
             flexDirection: 'column',
@@ -559,6 +679,8 @@ export function NotesViewer() {
             gap: 20
           }}
         >
+          {renderSidebar(isOverlay)}
+
           {pdfLoading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--mu)', gap: 10 }}>
               <div className="animate-spin" style={{ width: 28, height: 28, border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%' }} />
@@ -613,33 +735,30 @@ export function NotesViewer() {
     }
 
     return (
-      <iframe
-        title={data?.note?.title || 'PDF Document'}
-        src={nativeEmbedUrl}
-        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-        allow="fullscreen"
-      />
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {renderSidebar(isOverlay)}
+        <iframe
+          title={data?.note?.title || 'PDF Document'}
+          src={nativeEmbedUrl}
+          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+          allow="fullscreen"
+        />
+      </div>
     );
   };
 
   return (
     <>
       <div className="batch-prototype ex-workspace">
-        <Link className="ex-back" href={data ? `/lessons/${data.note.lessonId}` : '/notes'}>
-          <ArrowLeft size={16} />Back to lesson
-        </Link>
-        <header className="ex-workspace-head" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1><em>{data?.note?.title || 'Notes'}</em></h1>
-            <p className="sub">
-              {data?.lesson?.subject?.name || 'Subject'} › {data?.lesson?.name || 'Lesson'} · {bytes(data?.note?.fileSizeBytes || 0)}
-              {numPages > 0 ? ` · ${numPages} pages` : ''}
-            </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+          <Link className="ex-back" href={data ? `/lessons/${data.note.lessonId}` : '/notes'} style={{ margin: 0 }}>
+            <ArrowLeft size={16} />Back to lesson
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{data?.note?.title || 'Notes'}</span>
+            <span style={{ fontSize: 11, color: 'var(--mu)' }}>· {data?.lesson?.subject?.name || ''}</span>
           </div>
-          <div className="ex-toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {renderControls(false)}
-          </div>
-        </header>
+        </div>
 
         {error && <p role="alert" className="ex-error">{error}</p>}
 
@@ -647,8 +766,8 @@ export function NotesViewer() {
           style={{
             position: 'relative',
             width: '100%',
-            height: 'calc(100vh - 210px)',
-            minHeight: 620,
+            height: 'calc(100vh - 160px)',
+            minHeight: 650,
             borderRadius: 16,
             overflow: 'hidden',
             border: '1px solid var(--ln, #334155)',
@@ -661,6 +780,7 @@ export function NotesViewer() {
         {data?.note?.description && <p className="sub">{data.note.description}</p>}
       </div>
 
+      {/* FULL VIEW MODE: Completely edge-to-edge, NO top portion, full screen with floating sidebar */}
       {isFullView && data && safe && (
         <div
           style={{
@@ -668,46 +788,12 @@ export function NotesViewer() {
             inset: 0,
             zIndex: 99999,
             background: '#090d16',
-            display: 'flex',
-            flexDirection: 'column',
             width: '100vw',
             height: '100vh',
             overflow: 'hidden'
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 16px',
-              borderBottom: '1px solid rgba(255,255,255,0.1)',
-              background: '#0f172a',
-              color: '#f8fafc',
-              flexWrap: 'wrap',
-              gap: 8,
-              minHeight: 52
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <FileText size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {data.note.title}
-                </h3>
-                <p style={{ margin: 0, fontSize: 10, color: '#94a3b8' }}>
-                  {data.lesson?.subject?.name || 'Subject'} › {data.lesson?.name || 'Lesson'}
-                  {numPages > 0 ? ` · ${numPages} pages` : ''}
-                </p>
-              </div>
-            </div>
-
-            {renderControls(true)}
-          </div>
-
-          <div style={{ flex: 1, width: '100%', height: 'calc(100% - 52px)', background: '#000', overflow: 'hidden' }}>
-            {renderContent(true)}
-          </div>
+          {renderContent(true)}
         </div>
       )}
     </>
