@@ -17,6 +17,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
   const params = useParams(); const id = params.id as string; const router = useRouter(); const { user } = useAuth();
   const roleCode = typeof user?.role === 'object' ? (user.role as any)?.code || (user.role as any)?.name : user?.role;
   const isStudent = String(roleCode || '').toUpperCase() === 'STUDENT';
+  const cleanBatchName = (name?: string) => (name || '').replace(/🎓\s*/g, '').trim();
   const manage = !isStudent && ['ADMIN', 'SUPER_ADMIN', 'TEACHER'].includes(String(roleCode || '').toUpperCase());
   const path = view === 'subject' ? `/content/subjects/${id}` : view === 'lesson' ? `/content/lessons/${id}` : `/content/${view}`;
   const initialCached = typeof window !== 'undefined' ? api.getCached<any>(path) : null;
@@ -39,18 +40,21 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
       if (isStudent && view === 'subjects') {
         try {
           const bRes = await api.get('/batches', config);
-          const bList = Array.isArray(bRes.data) ? bRes.data : [];
+          const bList = (Array.isArray(bRes.data) ? bRes.data : []).map((b: any) => ({
+            ...b,
+            name: cleanBatchName(b.name)
+          }));
           if (bList.length > 0) {
             setStudentBatches(bList);
             setSelectedBatchId(prev => prev || bList[0].id);
           } else if (list.length > 0) {
-            const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: x.batch.name, code: x.batch.code }])).values());
+            const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: cleanBatchName(x.batch.name), code: x.batch.code }])).values());
             setStudentBatches(derived as any);
             if (derived.length > 0) setSelectedBatchId(prev => prev || (derived[0] as any).id);
           }
         } catch {
           if (list.length > 0) {
-            const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: x.batch.name, code: x.batch.code }])).values());
+            const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: cleanBatchName(x.batch.name), code: x.batch.code }])).values());
             setStudentBatches(derived as any);
             if (derived.length > 0) setSelectedBatchId(prev => prev || (derived[0] as any).id);
           }
@@ -213,7 +217,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
         <h1>
           {view === 'subjects' ? (
             isStudent ? (
-              currentBatch ? <>{currentBatch.name} <em>Subjects</em></> : <>My Course <em>Subjects</em></>
+              currentBatch ? <>{cleanBatchName(currentBatch.name)} <em>Subjects</em></> : <>My Course <em>Subjects</em></>
             ) : (
               <>Main <em>Subjects</em></>
             )
@@ -228,7 +232,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
         <p className="sub">
           {view === 'subjects' ? (
             isStudent ? (
-              currentBatch ? `Curriculum units, lessons, notes and mock tests for ${currentBatch.name}.` : 'Curriculum subjects and syllabus for your enrolled batch.'
+              currentBatch ? `Curriculum units, lessons, notes and mock tests for ${cleanBatchName(currentBatch.name)}.` : 'Curriculum subjects and syllabus for your enrolled batch.'
             ) : (
               'Build once, copy into any batch. Main stays untouched.'
             )
@@ -237,7 +241,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
           ) : view === 'notes' ? (
             isStudent ? 'Read and download study notes for your enrolled subjects.' : 'PDF and document notes with open tracking.'
           ) : (
-            data?.description || (view === 'subject' ? `${data?.code || ''} · ${data?.batch?.name ? `${data.batch.name} Batch` : isStudent ? 'Course Subject' : 'Main library'}` : 'Videos, notes and lesson tests.')
+            data?.description || (view === 'subject' ? `${data?.code || ''} · ${data?.batch?.name ? `${cleanBatchName(data.batch.name)} Batch` : isStudent ? 'Course Subject' : 'Main library'}` : 'Videos, notes and lesson tests.')
           )}
         </p>
       </div>
@@ -255,7 +259,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
                   className={activeBatchId === b.id ? 'on' : ''}
                   onClick={() => setSelectedBatchId(b.id)}
                 >
-                  {b.name} {b.code ? `(${b.code})` : ''}
+                  {cleanBatchName(b.name)} {b.code ? `(${b.code})` : ''}
                 </button>
               ))}
             </nav>
@@ -263,7 +267,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mu)' }}>Enrolled Batch:</span>
               <span className="ex-chip ok" style={{ fontSize: 12, fontWeight: 800 }}>
-                {studentBatches[0].name} {studentBatches[0].code ? `(${studentBatches[0].code})` : ''}
+                {cleanBatchName(studentBatches[0].name)} {studentBatches[0].code ? `(${studentBatches[0].code})` : ''}
               </span>
             </div>
           ) : null
@@ -281,7 +285,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
             { label: 'Subject', render: (r: R) => <b>{r.iconUrl && !r.iconUrl.startsWith('http') ? r.iconUrl : '📚'} {r.name}</b> },
             { label: 'Code', render: (r: R) => r.code || '—' },
             { label: 'Lessons', render: (r: R) => r._count?.lessons ?? (r.lessons?.length || 0) },
-            { label: 'Batch', render: (r: R) => <span className="ex-chip">{r.batch?.name || currentBatch?.name || (isStudent ? 'Enrolled Batch' : 'Main library')}</span> },
+            { label: 'Batch', render: (r: R) => <span className="ex-chip">{cleanBatchName(r.batch?.name || currentBatch?.name) || (isStudent ? 'Enrolled Batch' : 'Main library')}</span> },
             { label: 'Status', render: (r: R) => <span className="ex-chip ok">{status(r.status)}</span> },
           ]}
           onOpen={(r: R) => router.push(`/subjects/${r.id}`)}
@@ -312,7 +316,20 @@ export function NotesViewer() {
   const [zoomScale, setZoomScale] = useState<number>(1.2);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfError, setPdfError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const canvasRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mob = typeof window !== 'undefined' && window.innerWidth < 768;
+      setIsMobile(mob);
+      if (mob) setZoomScale(prev => (prev === 1.2 ? 1.0 : prev));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -418,9 +435,51 @@ export function NotesViewer() {
     return () => { cancelled = true; };
   }, [pdfDoc, zoomScale, viewerMode, isFullView]);
 
+  const toggleFullscreen = async () => {
+    try {
+      const isCurrentlyFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      if (!isCurrentlyFs) {
+        setIsFullView(true);
+        const target = containerRef.current || document.documentElement;
+        if (target.requestFullscreen) {
+          await target.requestFullscreen();
+        } else if ((target as any).webkitRequestFullscreen) {
+          await (target as any).webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+        setIsFullView(false);
+      }
+    } catch {
+      setIsFullView(v => !v);
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullView(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullView) setIsFullView(false);
+      if (e.key === 'Escape' && isFullView) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsFullView(false);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -439,42 +498,66 @@ export function NotesViewer() {
   const safe = /^https?:\/\//i.test(fileUrl || '');
   const nativeEmbedUrl = fileUrl ? `${fileUrl}#view=FitH&navpanes=0&toolbar=1` : '';
 
-  const renderSidebar = (isOverlay: boolean) => (
+  const renderFloatingControls = (isOverlay: boolean) => (
     <aside
-      aria-label="PDF Controls Sidebar"
-      style={{
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 60,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 6,
-        padding: '8px 6px',
-        borderRadius: 14,
-        background: 'rgba(15, 23, 42, 0.88)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-        userSelect: 'none',
-        color: '#ffffff'
-      }}
+      aria-label="PDF Controls"
+      style={
+        isMobile
+          ? {
+              position: 'absolute',
+              bottom: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 70,
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 5,
+              padding: '6px 12px',
+              borderRadius: 999,
+              background: 'rgba(15, 23, 42, 0.94)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.75)',
+              userSelect: 'none',
+              color: '#ffffff',
+              maxWidth: 'calc(100vw - 20px)'
+            }
+          : {
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 70,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 6px',
+              borderRadius: 14,
+              background: 'rgba(15, 23, 42, 0.88)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
+              userSelect: 'none',
+              color: '#ffffff'
+            }
+      }
     >
-      {/* Full screen toggle symbol */}
+      {/* Full screen toggle */}
       <button
         type="button"
-        title={isOverlay ? "Exit Fullscreen (Esc)" : "Full screen view"}
-        aria-label={isOverlay ? "Exit Fullscreen" : "Full screen"}
-        onClick={() => setIsFullView(!isOverlay)}
+        title={isOverlay ? "Exit Fullscreen" : "Full screen view"}
+        aria-label={isOverlay ? "Exit Fullscreen" : "Full screen view"}
+        onClick={toggleFullscreen}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 36,
-          height: 36,
-          borderRadius: 10,
+          width: 34,
+          height: 34,
+          borderRadius: 8,
           background: isOverlay ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
           color: '#ffffff',
           border: 0,
@@ -482,10 +565,16 @@ export function NotesViewer() {
           transition: 'all 0.15s ease'
         }}
       >
-        {isOverlay ? <Minimize size={18} /> : <Maximize size={18} />}
+        {isOverlay ? <Minimize size={17} /> : <Maximize size={17} />}
       </button>
 
-      <div style={{ width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }} />
+      <div
+        style={
+          isMobile
+            ? { width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }
+            : { width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }
+        }
+      />
 
       {/* Zoom In (+) */}
       <button
@@ -497,20 +586,28 @@ export function NotesViewer() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 36,
-          height: 36,
-          borderRadius: 10,
+          width: 32,
+          height: 32,
+          borderRadius: 8,
           background: 'rgba(255, 255, 255, 0.08)',
           color: '#ffffff',
           border: 0,
           cursor: 'pointer'
         }}
       >
-        <Plus size={18} />
+        <Plus size={16} />
       </button>
 
       {/* Zoom Percentage */}
-      <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255, 255, 255, 0.85)', letterSpacing: '-0.5px' }}>
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 800,
+          color: 'rgba(255, 255, 255, 0.85)',
+          minWidth: 32,
+          textAlign: 'center'
+        }}
+      >
         {Math.round(zoomScale * 100)}%
       </span>
 
@@ -524,16 +621,16 @@ export function NotesViewer() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 36,
-          height: 36,
-          borderRadius: 10,
+          width: 32,
+          height: 32,
+          borderRadius: 8,
           background: 'rgba(255, 255, 255, 0.08)',
           color: '#ffffff',
           border: 0,
           cursor: 'pointer'
         }}
       >
-        <Minus size={18} />
+        <Minus size={16} />
       </button>
 
       {/* Fit to width */}
@@ -541,14 +638,14 @@ export function NotesViewer() {
         type="button"
         title="Fit to width"
         aria-label="Fit to width"
-        onClick={() => setZoomScale(1.15)}
+        onClick={() => setZoomScale(isMobile ? 1.0 : 1.15)}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 36,
-          height: 26,
-          borderRadius: 8,
+          padding: '0 8px',
+          height: 28,
+          borderRadius: 7,
           background: 'rgba(255, 255, 255, 0.08)',
           color: '#ffffff',
           fontSize: 10,
@@ -560,17 +657,23 @@ export function NotesViewer() {
         FIT
       </button>
 
-      <div style={{ width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }} />
+      <div
+        style={
+          isMobile
+            ? { width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }
+            : { width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }
+        }
+      />
 
       {/* Total pages badge */}
       {numPages > 0 && (
         <span
           title={`Total ${numPages} pages`}
           style={{
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 800,
             color: 'rgba(255, 255, 255, 0.65)',
-            padding: '2px 4px',
+            padding: '2px 5px',
             borderRadius: 4,
             background: 'rgba(255, 255, 255, 0.05)',
             whiteSpace: 'nowrap'
@@ -590,16 +693,16 @@ export function NotesViewer() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 36,
-          height: 36,
-          borderRadius: 10,
+          width: 32,
+          height: 32,
+          borderRadius: 8,
           background: 'rgba(255, 255, 255, 0.08)',
           color: '#ffffff',
           border: 0,
           cursor: 'pointer'
         }}
       >
-        {viewerMode === 'canvas' ? <Monitor size={16} /> : <Book size={16} />}
+        {viewerMode === 'canvas' ? <Monitor size={15} /> : <Book size={15} />}
       </button>
 
       {/* Download button if allowed */}
@@ -613,15 +716,15 @@ export function NotesViewer() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: 36,
-            height: 36,
-            borderRadius: 10,
+            width: 32,
+            height: 32,
+            borderRadius: 8,
             background: 'rgba(255, 255, 255, 0.08)',
             color: '#ffffff',
             textDecoration: 'none'
           }}
         >
-          <Download size={16} />
+          <Download size={15} />
         </a>
       )}
 
@@ -629,24 +732,23 @@ export function NotesViewer() {
       {isOverlay && (
         <button
           type="button"
-          title="Exit Full View (Esc)"
+          title="Exit Full View"
           aria-label="Exit Full View"
-          onClick={() => setIsFullView(false)}
+          onClick={toggleFullscreen}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: 36,
-            height: 36,
-            borderRadius: 10,
+            width: 32,
+            height: 32,
+            borderRadius: 8,
             background: 'rgba(239, 68, 68, 0.25)',
             color: '#ef4444',
             border: '1px solid rgba(239, 68, 68, 0.4)',
-            cursor: 'pointer',
-            marginTop: 2
+            cursor: 'pointer'
           }}
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       )}
     </aside>
@@ -661,141 +763,248 @@ export function NotesViewer() {
       );
     }
 
-    if (viewerMode === 'canvas') {
-      return (
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            height: '100%',
-            overflowY: 'auto',
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            padding: isOverlay ? '16px 12px 40px' : '16px 10px 30px',
-            background: '#090d16',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 20
-          }}
-        >
-          {renderSidebar(isOverlay)}
+    return (
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          background: '#090d16',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        {/* Floating controls - OUTSIDE the scrolling container so they never scroll away! */}
+        {renderFloatingControls(isOverlay)}
 
-          {pdfLoading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--mu)', gap: 10 }}>
-              <div className="animate-spin" style={{ width: 28, height: 28, border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%' }} />
-              <p style={{ fontSize: 13 }}>Preparing PDF pages…</p>
-            </div>
-          ) : numPages > 0 ? (
-            Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
-              <div
-                key={pageNum}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  position: 'relative'
-                }}
-              >
+        {viewerMode === 'canvas' ? (
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              overflowY: 'auto',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              padding: isMobile ? '12px 6px 96px' : '20px 16px 40px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 16
+            }}
+          >
+            {pdfLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--mu)', gap: 10 }}>
+                <div className="animate-spin" style={{ width: 28, height: 28, border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Preparing PDF pages…</p>
+              </div>
+            ) : numPages > 0 ? (
+              Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
                 <div
+                  key={pageNum}
                   style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: 'rgba(255,255,255,0.45)',
-                    marginBottom: 6,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase'
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    position: 'relative'
                   }}
                 >
-                  Page {pageNum} of {numPages}
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: 'rgba(255,255,255,0.45)',
+                      marginBottom: 6,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    Page {pageNum} of {numPages}
+                  </div>
+                  <canvas
+                    ref={el => { canvasRefs.current[pageNum] = el; }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      maxWidth: '100%',
+                      borderRadius: 6,
+                      background: '#ffffff',
+                      boxShadow: '0 6px 24px rgba(0,0,0,0.45)'
+                    }}
+                  />
                 </div>
-                <canvas
-                  ref={el => { canvasRefs.current[pageNum] = el; }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    maxWidth: '100%',
-                    borderRadius: 6,
-                    background: '#ffffff',
-                    boxShadow: '0 6px 24px rgba(0,0,0,0.45)'
-                  }}
-                />
+              ))
+            ) : (
+              <div className="ex-empty" style={{ padding: 40, textAlign: 'center' }}>
+                <FileText size={44} style={{ margin: '0 auto 12px', color: '#ef4444' }} />
+                <h3>{data?.note?.title || 'PDF Document'}</h3>
+                <p>PDF loaded. Switch to Native view if pages do not show.</p>
               </div>
-            ))
-          ) : (
-            <div className="ex-empty" style={{ padding: 40, textAlign: 'center' }}>
-              <FileText size={44} style={{ margin: '0 auto 12px', color: '#ef4444' }} />
-              <h3>{data?.note?.title || 'PDF Document'}</h3>
-              <p>PDF loaded. Switch to Native view if pages do not show.</p>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {renderSidebar(isOverlay)}
-        <iframe
-          title={data?.note?.title || 'PDF Document'}
-          src={nativeEmbedUrl}
-          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-          allow="fullscreen"
-        />
+            )}
+          </div>
+        ) : (
+          <iframe
+            title={data?.note?.title || 'PDF Document'}
+            src={nativeEmbedUrl}
+            style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+            allow="fullscreen"
+          />
+        )}
       </div>
     );
   };
 
   return (
-    <>
-      <div className="batch-prototype ex-workspace">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-          <Link className="ex-back" href={data ? `/lessons/${data.note.lessonId}` : '/notes'} style={{ margin: 0 }}>
-            <ArrowLeft size={16} />Back to lesson
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>{data?.note?.title || 'Notes'}</span>
-            <span style={{ fontSize: 11, color: 'var(--mu)' }}>· {data?.lesson?.subject?.name || ''}</span>
-          </div>
-        </div>
-
-        {error && <p role="alert" className="ex-error">{error}</p>}
-
-        <div
+    <div
+      ref={containerRef}
+      className={isFullView ? 'ex-pdf-fullview-active' : ''}
+      style={
+        isFullView
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999999,
+              background: '#090d16',
+              width: '100vw',
+              height: '100dvh',
+              overflow: 'hidden'
+            }
+          : {
+              width: '100%',
+              height: isMobile ? '100dvh' : 'auto',
+              display: 'flex',
+              flexDirection: 'column'
+            }
+      }
+    >
+      {/* Sleek header bar: Only shown when NOT in full view */}
+      {!isFullView && (
+        <header
           style={{
-            position: 'relative',
-            width: '100%',
-            height: 'calc(100vh - 160px)',
-            minHeight: 650,
-            borderRadius: 16,
-            overflow: 'hidden',
-            border: '1px solid var(--ln, #334155)',
-            background: 'var(--card, #0f172a)',
-            marginBottom: 16
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: isMobile ? '8px 12px' : '12px 18px',
+            background: isMobile ? '#0b0f19' : 'var(--card, #0f172a)',
+            borderBottom: '1px solid var(--ln, #1e293b)',
+            borderRadius: isMobile ? 0 : 16,
+            marginBottom: isMobile ? 0 : 12,
+            gap: 10,
+            flexShrink: 0
           }}
         >
-          {renderContent(false)}
-        </div>
-        {data?.note?.description && <p className="sub">{data.note.description}</p>}
+          <Link
+            className="ex-back"
+            href={data ? `/lessons/${data.note.lessonId}` : '/notes'}
+            style={{
+              margin: 0,
+              padding: '6px 10px',
+              fontSize: 12,
+              fontWeight: 700,
+              background: 'rgba(99,102,241,0.12)',
+              color: '#818cf8',
+              borderRadius: 8,
+              border: '1px solid rgba(99,102,241,0.25)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              textDecoration: 'none'
+            }}
+          >
+            <ArrowLeft size={15} />
+            <span>Back</span>
+          </Link>
+
+          <div
+            style={{
+              minWidth: 0,
+              flex: 1,
+              textAlign: isMobile ? 'center' : 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              justifyContent: isMobile ? 'center' : 'flex-start'
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color: isMobile ? '#ffffff' : 'var(--tx)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {data?.note?.title || 'Notes'}
+            </span>
+            {data?.lesson?.subject?.name && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: isMobile ? 'rgba(255,255,255,0.6)' : 'var(--mu)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                · {data.lesson.subject.name}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            style={{
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              borderRadius: 8,
+              background: '#6366f1',
+              color: '#ffffff',
+              border: 0,
+              cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)'
+            }}
+          >
+            <Maximize size={15} />
+            <span>Full View</span>
+          </button>
+        </header>
+      )}
+
+      {error && !isFullView && <p role="alert" className="ex-error" style={{ margin: 8 }}>{error}</p>}
+
+      {/* PDF Container */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: isFullView
+            ? '100%'
+            : isMobile
+            ? 'calc(100dvh - 49px)'
+            : 'calc(100vh - 150px)',
+          minHeight: isMobile ? 400 : 650,
+          borderRadius: isFullView || isMobile ? 0 : 16,
+          overflow: 'hidden',
+          border: isFullView || isMobile ? 'none' : '1px solid var(--ln, #1e293b)',
+          background: '#090d16',
+          flex: 1
+        }}
+      >
+        {renderContent(isFullView)}
       </div>
 
-      {/* FULL VIEW MODE: Completely edge-to-edge, NO top portion, full screen with floating sidebar */}
-      {isFullView && data && safe && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: '#090d16',
-            width: '100vw',
-            height: '100vh',
-            overflow: 'hidden'
-          }}
-        >
-          {renderContent(true)}
-        </div>
+      {!isFullView && !isMobile && data?.note?.description && (
+        <p className="sub" style={{ marginTop: 12 }}>{data.note.description}</p>
       )}
-    </>
+    </div>
   );
 }

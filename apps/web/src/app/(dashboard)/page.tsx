@@ -727,7 +727,7 @@ export default function DashboardOverviewPage() {
                         href={`/batches/${b.id}`}
                         className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-1"
                       >
-                        {b.name}
+                        {isStudent ? b.name?.replace(/🎓\s*/g, '') : b.name}
                       </Link>
                       {b.code && (
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#151926] text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold border border-slate-200/80 dark:border-[#22283C] shrink-0">
