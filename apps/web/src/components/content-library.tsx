@@ -313,12 +313,14 @@ export function NotesViewer() {
   const [viewerMode, setViewerMode] = useState<'canvas' | 'native'>('canvas');
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [zoomScale, setZoomScale] = useState<number>(1.2);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfError, setPdfError] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const canvasRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -435,20 +437,40 @@ export function NotesViewer() {
     return () => { cancelled = true; };
   }, [pdfDoc, zoomScale, viewerMode, isFullView]);
 
+  // Track currently visible page during scroll
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container || numPages <= 1) return;
+    const containerTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+
+    for (let p = 1; p <= numPages; p++) {
+      const c = canvasRefs.current[p];
+      if (c) {
+        const top = c.offsetTop;
+        const height = c.clientHeight;
+        if (top + height / 3 >= containerTop && top <= containerTop + containerHeight) {
+          setCurrentPage(p);
+          break;
+        }
+      }
+    }
+  };
+
   const toggleFullscreen = async () => {
     try {
       const isCurrentlyFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
       if (!isCurrentlyFs) {
         setIsFullView(true);
-        const target = containerRef.current || document.documentElement;
+        const target = document.documentElement;
         if (target.requestFullscreen) {
-          await target.requestFullscreen();
+          await target.requestFullscreen().catch(() => {});
         } else if ((target as any).webkitRequestFullscreen) {
           await (target as any).webkitRequestFullscreen();
         }
       } else {
         if (document.exitFullscreen) {
-          await document.exitFullscreen();
+          await document.exitFullscreen().catch(() => {});
         } else if ((document as any).webkitExitFullscreen) {
           await (document as any).webkitExitFullscreen();
         }
@@ -498,220 +520,326 @@ export function NotesViewer() {
   const safe = /^https?:\/\//i.test(fileUrl || '');
   const nativeEmbedUrl = fileUrl ? `${fileUrl}#view=FitH&navpanes=0&toolbar=1` : '';
 
-  const renderFloatingControls = (isOverlay: boolean) => (
-    <aside
-      aria-label="PDF Controls"
-      style={
-        isMobile
-          ? {
-              position: 'absolute',
-              bottom: 16,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 70,
-              display: 'flex',
-              flexDirection: 'row',
+  // ── Unified Top Control Bar (Sticky & Non-overlapping) ──
+  const renderTopBar = (isOverlay: boolean) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: isMobile ? '8px 12px' : '10px 18px',
+        background: '#0d1322',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+        gap: 10,
+        zIndex: 50,
+        flexShrink: 0,
+        userSelect: 'none',
+        borderRadius: isOverlay || isMobile ? 0 : '16px 16px 0 0',
+      }}
+    >
+      {/* Left: Back/Exit & Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+        {isOverlay ? (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            style={{
+              display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: 'rgba(15, 23, 42, 0.94)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.75)',
-              userSelect: 'none',
-              color: '#ffffff',
-              maxWidth: 'calc(100vw - 20px)'
-            }
-          : {
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              zIndex: 70,
-              display: 'flex',
-              flexDirection: 'column',
+              padding: isMobile ? '6px 10px' : '6px 12px',
+              borderRadius: 8,
+              background: 'rgba(239, 68, 68, 0.18)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            <Minimize size={14} />
+            <span>{isMobile ? 'Exit' : 'Exit Full View'}</span>
+          </button>
+        ) : (
+          <Link
+            href={data ? `/lessons/${data.note.lessonId}` : '/notes'}
+            style={{
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
-              padding: '8px 6px',
-              borderRadius: 14,
-              background: 'rgba(15, 23, 42, 0.88)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.55)',
-              userSelect: 'none',
-              color: '#ffffff'
-            }
-      }
-    >
-      {/* Full screen toggle */}
-      <button
-        type="button"
-        title={isOverlay ? "Exit Fullscreen" : "Full screen view"}
-        aria-label={isOverlay ? "Exit Fullscreen" : "Full screen view"}
-        onClick={toggleFullscreen}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 34,
-          height: 34,
-          borderRadius: 8,
-          background: isOverlay ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
-          color: '#ffffff',
-          border: 0,
-          cursor: 'pointer',
-          transition: 'all 0.15s ease'
-        }}
-      >
-        {isOverlay ? <Minimize size={17} /> : <Maximize size={17} />}
-      </button>
+              gap: 5,
+              padding: isMobile ? '6px 10px' : '6px 12px',
+              borderRadius: 8,
+              background: 'rgba(99, 102, 241, 0.14)',
+              color: '#818cf8',
+              border: '1px solid rgba(99, 102, 241, 0.28)',
+              fontSize: 12,
+              fontWeight: 700,
+              textDecoration: 'none',
+              flexShrink: 0
+            }}
+          >
+            <ArrowLeft size={14} />
+            <span>{isMobile ? 'Back' : 'Back to lesson'}</span>
+          </Link>
+        )}
 
-      <div
-        style={
-          isMobile
-            ? { width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }
-            : { width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }
-        }
-      />
+        <FileText size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
 
-      {/* Zoom In (+) */}
-      <button
-        type="button"
-        title="Zoom in (+)"
-        aria-label="Zoom in"
-        onClick={() => setZoomScale(s => Math.min(2.5, +(s + 0.15).toFixed(2)))}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: 'rgba(255, 255, 255, 0.08)',
-          color: '#ffffff',
-          border: 0,
-          cursor: 'pointer'
-        }}
-      >
-        <Plus size={16} />
-      </button>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 13,
+                fontWeight: 800,
+                color: '#ffffff',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {data?.note?.title || 'Notes'}
+            </h3>
+            {numPages > 0 && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  color: 'rgba(255, 255, 255, 0.75)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '1px 6px',
+                  borderRadius: 6,
+                  flexShrink: 0
+                }}
+              >
+                {currentPage}/{numPages}
+              </span>
+            )}
+          </div>
+          {!isMobile && (
+            <p
+              style={{
+                margin: '1px 0 0',
+                fontSize: 11,
+                color: '#94a3b8',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {data?.lesson?.subject?.name || 'Subject'} › {data?.lesson?.name || 'Lesson'}
+              {bytes(data?.note?.fileSizeBytes || 0) !== '—' ? ` · ${bytes(data?.note?.fileSizeBytes || 0)}` : ''}
+            </p>
+          )}
+        </div>
+      </div>
 
-      {/* Zoom Percentage */}
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 800,
-          color: 'rgba(255, 255, 255, 0.85)',
-          minWidth: 32,
-          textAlign: 'center'
-        }}
-      >
-        {Math.round(zoomScale * 100)}%
-      </span>
+      {/* Right: Controls Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {/* Mode Switcher: Reader vs Native */}
+        {!isMobile && (
+          <div style={{ display: 'flex', background: 'rgba(15, 23, 42, 0.95)', padding: 3, borderRadius: 8, border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+            <button
+              type="button"
+              onClick={() => setViewerMode('canvas')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                border: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: viewerMode === 'canvas' ? '#6366f1' : 'transparent',
+                color: viewerMode === 'canvas' ? '#ffffff' : '#94a3b8',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Book size={13} />
+              <span>Reader</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewerMode('native')}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                border: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: viewerMode === 'native' ? '#6366f1' : 'transparent',
+                color: viewerMode === 'native' ? '#ffffff' : '#94a3b8',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Monitor size={13} />
+              <span>Native</span>
+            </button>
+          </div>
+        )}
 
-      {/* Zoom Out (-) */}
-      <button
-        type="button"
-        title="Zoom out (-)"
-        aria-label="Zoom out"
-        onClick={() => setZoomScale(s => Math.max(0.6, +(s - 0.15).toFixed(2)))}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: 'rgba(255, 255, 255, 0.08)',
-          color: '#ffffff',
-          border: 0,
-          cursor: 'pointer'
-        }}
-      >
-        <Minus size={16} />
-      </button>
+        {/* Zoom Controls (Desktop only in top bar; mobile has dedicated bottom bar) */}
+        {!isMobile && viewerMode === 'canvas' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(15, 23, 42, 0.95)', padding: '2px 4px', borderRadius: 8, border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+            <button
+              type="button"
+              title="Zoom out"
+              onClick={() => setZoomScale(s => Math.max(0.6, +(s - 0.15).toFixed(2)))}
+              style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 4 }}
+            >
+              <Minus size={14} />
+            </button>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#e2e8f0', minWidth: 38, textAlign: 'center' }}>
+              {Math.round(zoomScale * 100)}%
+            </span>
+            <button
+              type="button"
+              title="Zoom in"
+              onClick={() => setZoomScale(s => Math.min(2.5, +(s + 0.15).toFixed(2)))}
+              style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 4 }}
+            >
+              <Plus size={14} />
+            </button>
+            <button
+              type="button"
+              title="Fit to width"
+              onClick={() => setZoomScale(1.15)}
+              style={{ padding: '2px 8px', height: 24, fontSize: 10, fontWeight: 800, background: 'rgba(255, 255, 255, 0.1)', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 4, marginLeft: 2 }}
+            >
+              FIT
+            </button>
+          </div>
+        )}
 
-      {/* Fit to width */}
-      <button
-        type="button"
-        title="Fit to width"
-        aria-label="Fit to width"
-        onClick={() => setZoomScale(isMobile ? 1.0 : 1.15)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '0 8px',
-          height: 28,
-          borderRadius: 7,
-          background: 'rgba(255, 255, 255, 0.08)',
-          color: '#ffffff',
-          fontSize: 10,
-          fontWeight: 700,
-          border: 0,
-          cursor: 'pointer'
-        }}
-      >
-        FIT
-      </button>
-
-      <div
-        style={
-          isMobile
-            ? { width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)', margin: '0 2px' }
-            : { width: '80%', height: 1, background: 'rgba(255, 255, 255, 0.12)', margin: '1px 0' }
-        }
-      />
-
-      {/* Total pages badge */}
-      {numPages > 0 && (
-        <span
-          title={`Total ${numPages} pages`}
+        {/* Fullscreen Button */}
+        <button
+          type="button"
+          onClick={toggleFullscreen}
           style={{
-            fontSize: 10,
-            fontWeight: 800,
-            color: 'rgba(255, 255, 255, 0.65)',
-            padding: '2px 5px',
-            borderRadius: 4,
-            background: 'rgba(255, 255, 255, 0.05)',
-            whiteSpace: 'nowrap'
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: isMobile ? '6px 10px' : '6px 12px',
+            borderRadius: 8,
+            background: isOverlay ? 'rgba(255, 255, 255, 0.1)' : '#6366f1',
+            color: '#ffffff',
+            border: 0,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: isOverlay ? 'none' : '0 2px 10px rgba(99, 102, 241, 0.4)'
           }}
         >
-          {numPages}p
-        </span>
-      )}
+          {isOverlay ? <Minimize size={14} /> : <Maximize size={14} />}
+          <span>{isOverlay ? (isMobile ? 'Exit' : 'Exit Full View') : 'Full View'}</span>
+        </button>
 
-      {/* Mode toggle (Reader vs Native) */}
+        {/* Download Button (if allowed) */}
+        {!isMobile && safe && data?.note?.allowDownload !== false && (
+          <a
+            href={fileUrl}
+            download={`${data?.note?.title || 'notes'}.pdf`}
+            title="Download PDF"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#ffffff',
+              textDecoration: 'none'
+            }}
+          >
+            <Download size={14} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
+  // ── Dedicated Mobile Bottom Dock (Zero Obscurity) ──
+  const renderMobileBottomBar = () => (
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '6px 12px',
+        background: 'rgba(13, 19, 34, 0.96)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+        zIndex: 50,
+        flexShrink: 0,
+        gap: 6
+      }}
+    >
+      {/* Zoom controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(255, 255, 255, 0.08)', padding: '2px 4px', borderRadius: 8 }}>
+        <button
+          type="button"
+          onClick={() => setZoomScale(s => Math.max(0.6, +(s - 0.15).toFixed(2)))}
+          style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 4 }}
+        >
+          <Minus size={15} />
+        </button>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#ffffff', minWidth: 36, textAlign: 'center' }}>
+          {Math.round(zoomScale * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={() => setZoomScale(s => Math.min(2.5, +(s + 0.15).toFixed(2)))}
+          style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 4 }}
+        >
+          <Plus size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomScale(1.0)}
+          style={{ padding: '2px 8px', height: 26, fontSize: 10, fontWeight: 800, background: 'rgba(255, 255, 255, 0.12)', border: 0, color: '#ffffff', cursor: 'pointer', borderRadius: 6 }}
+        >
+          FIT
+        </button>
+      </div>
+
+      {/* Mode toggle */}
       <button
         type="button"
-        title={viewerMode === 'canvas' ? "Switch to Browser Native PDF" : "Switch to Continuous Reader"}
-        aria-label="Switch viewer mode"
-        onClick={() => setViewerMode(m => m === 'canvas' ? 'native' : 'canvas')}
+        onClick={() => setViewerMode(m => (m === 'canvas' ? 'native' : 'canvas'))}
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          width: 32,
-          height: 32,
+          gap: 5,
+          padding: '5px 10px',
           borderRadius: 8,
           background: 'rgba(255, 255, 255, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
           color: '#ffffff',
-          border: 0,
+          fontSize: 11,
+          fontWeight: 700,
           cursor: 'pointer'
         }}
       >
-        {viewerMode === 'canvas' ? <Monitor size={15} /> : <Book size={15} />}
+        {viewerMode === 'canvas' ? <Monitor size={14} /> : <Book size={14} />}
+        <span>{viewerMode === 'canvas' ? 'Native' : 'Reader'}</span>
       </button>
 
-      {/* Download button if allowed */}
-      {safe && (data?.note?.allowDownload !== false) && (
+      {/* Download button */}
+      {safe && data?.note?.allowDownload !== false && (
         <a
           href={fileUrl}
           download={`${data?.note?.title || 'notes'}.pdf`}
           title="Download PDF"
-          aria-label="Download PDF"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -720,6 +848,7 @@ export function NotesViewer() {
             height: 32,
             borderRadius: 8,
             background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             color: '#ffffff',
             textDecoration: 'none'
           }}
@@ -727,31 +856,7 @@ export function NotesViewer() {
           <Download size={15} />
         </a>
       )}
-
-      {/* Exit button in full view mode */}
-      {isOverlay && (
-        <button
-          type="button"
-          title="Exit Full View"
-          aria-label="Exit Full View"
-          onClick={toggleFullscreen}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: 'rgba(239, 68, 68, 0.25)',
-            color: '#ef4444',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            cursor: 'pointer'
-          }}
-        >
-          <X size={16} />
-        </button>
-      )}
-    </aside>
+    </div>
   );
 
   const renderContent = (isOverlay = false) => {
@@ -775,19 +880,22 @@ export function NotesViewer() {
           flexDirection: 'column'
         }}
       >
-        {/* Floating controls - OUTSIDE the scrolling container so they never scroll away! */}
-        {renderFloatingControls(isOverlay)}
+        {/* Sticky Top Bar (Pinned at top, never scrolls off, never obstructs pages) */}
+        {renderTopBar(isOverlay)}
 
+        {/* Scrollable Reading Area */}
         {viewerMode === 'canvas' ? (
           <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
             style={{
               position: 'relative',
               width: '100%',
-              height: '100%',
+              flex: 1,
               overflowY: 'auto',
               overflowX: 'auto',
               WebkitOverflowScrolling: 'touch',
-              padding: isMobile ? '12px 6px 96px' : '20px 16px 40px',
+              padding: isMobile ? '12px 6px 20px' : '24px 16px 40px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -831,7 +939,7 @@ export function NotesViewer() {
                       maxWidth: '100%',
                       borderRadius: 6,
                       background: '#ffffff',
-                      boxShadow: '0 6px 24px rgba(0,0,0,0.45)'
+                      boxShadow: '0 6px 24px rgba(0,0,0,0.5)'
                     }}
                   />
                 </div>
@@ -848,10 +956,13 @@ export function NotesViewer() {
           <iframe
             title={data?.note?.title || 'PDF Document'}
             src={nativeEmbedUrl}
-            style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+            style={{ width: '100%', flex: 1, border: 0, display: 'block' }}
             allow="fullscreen"
           />
         )}
+
+        {/* Dedicated Mobile Bottom Bar */}
+        {isMobile && renderMobileBottomBar()}
       </div>
     );
   };
@@ -869,116 +980,17 @@ export function NotesViewer() {
               background: '#090d16',
               width: '100vw',
               height: '100dvh',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
             }
           : {
               width: '100%',
-              height: isMobile ? '100dvh' : 'auto',
               display: 'flex',
               flexDirection: 'column'
             }
       }
     >
-      {/* Sleek header bar: Only shown when NOT in full view */}
-      {!isFullView && (
-        <header
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: isMobile ? '8px 12px' : '12px 18px',
-            background: isMobile ? '#0b0f19' : 'var(--card, #0f172a)',
-            borderBottom: '1px solid var(--ln, #1e293b)',
-            borderRadius: isMobile ? 0 : 16,
-            marginBottom: isMobile ? 0 : 12,
-            gap: 10,
-            flexShrink: 0
-          }}
-        >
-          <Link
-            className="ex-back"
-            href={data ? `/lessons/${data.note.lessonId}` : '/notes'}
-            style={{
-              margin: 0,
-              padding: '6px 10px',
-              fontSize: 12,
-              fontWeight: 700,
-              background: 'rgba(99,102,241,0.12)',
-              color: '#818cf8',
-              borderRadius: 8,
-              border: '1px solid rgba(99,102,241,0.25)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              textDecoration: 'none'
-            }}
-          >
-            <ArrowLeft size={15} />
-            <span>Back</span>
-          </Link>
-
-          <div
-            style={{
-              minWidth: 0,
-              flex: 1,
-              textAlign: isMobile ? 'center' : 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              justifyContent: isMobile ? 'center' : 'flex-start'
-            }}
-          >
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: isMobile ? '#ffffff' : 'var(--tx)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {data?.note?.title || 'Notes'}
-            </span>
-            {data?.lesson?.subject?.name && (
-              <span
-                style={{
-                  fontSize: 12,
-                  color: isMobile ? 'rgba(255,255,255,0.6)' : 'var(--mu)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                · {data.lesson.subject.name}
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            style={{
-              padding: '6px 12px',
-              fontSize: 12,
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              borderRadius: 8,
-              background: '#6366f1',
-              color: '#ffffff',
-              border: 0,
-              cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)'
-            }}
-          >
-            <Maximize size={15} />
-            <span>Full View</span>
-          </button>
-        </header>
-      )}
-
       {error && !isFullView && <p role="alert" className="ex-error" style={{ margin: 8 }}>{error}</p>}
 
       {/* PDF Container */}
@@ -989,9 +1001,9 @@ export function NotesViewer() {
           height: isFullView
             ? '100%'
             : isMobile
-            ? 'calc(100dvh - 49px)'
+            ? 'calc(100dvh - 120px)'
             : 'calc(100vh - 150px)',
-          minHeight: isMobile ? 400 : 650,
+          minHeight: isMobile ? 440 : 680,
           borderRadius: isFullView || isMobile ? 0 : 16,
           overflow: 'hidden',
           border: isFullView || isMobile ? 'none' : '1px solid var(--ln, #1e293b)',
