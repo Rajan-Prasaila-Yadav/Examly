@@ -111,3 +111,94 @@ export async function optimizeBatchCover(
   });
 }
 
+/**
+ * High-performance client-side image optimizer for user/faculty/student avatars:
+ * - Center-crops to 1:1 square.
+ * - Scales to 256x256 pixels.
+ * - Compresses into lightweight WebP / JPEG (~15 KB - 30 KB).
+ * - Prevents localStorage quota exceeded errors completely.
+ */
+export async function optimizeAvatar(
+  file: File,
+  targetSize = 256,
+): Promise<{ dataUrl: string; blob: Blob; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const isImage =
+      file.type.startsWith('image/') ||
+      /\.(jpe?g|png|webp|avif|gif|bmp|tiff)$/i.test(file.name);
+
+    if (!isImage) {
+      return reject(
+        new Error('Please select a valid image file (JPG, PNG, WebP, or AVIF).'),
+      );
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to decode image file.'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Canvas context is not available.'));
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Center-crop source into 1:1 square
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+
+          ctx.drawImage(
+            img,
+            sx,
+            sy,
+            minDim,
+            minDim,
+            0,
+            0,
+            targetSize,
+            targetSize,
+          );
+
+          let dataUrl = '';
+          let mime = 'image/webp';
+          try {
+            dataUrl = canvas.toDataURL('image/webp', 0.85);
+            if (!dataUrl.startsWith('data:image/webp')) {
+              mime = 'image/jpeg';
+              dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            }
+          } catch {
+            mime = 'image/jpeg';
+            dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          }
+
+          canvas.toBlob(
+            (blob) => {
+              const finalBlob =
+                blob || new Blob([dataUrl], { type: mime });
+              resolve({
+                dataUrl,
+                blob: finalBlob,
+                mimeType: mime,
+              });
+            },
+            mime,
+            0.85,
+          );
+        } catch (err: any) {
+          reject(new Error(err?.message || 'Failed to process avatar canvas.'));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+

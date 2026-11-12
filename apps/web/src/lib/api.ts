@@ -40,7 +40,7 @@ function persistSnapshots(){
      .slice(-100)
      .map(([key,r])=>[key,{data:r.data,status:r.status,statusText:r.statusText,headers:{},config:{},timestamp:r.timestamp}]);
    const text=JSON.stringify({scope:verifiedScope,savedAt:Date.now(),entries});
-   if(text.length<4500000)localStorage.setItem(SNAPSHOT_KEY,text);
+   if(text.length<500000)localStorage.setItem(SNAPSHOT_KEY,text);
  }catch{}
 }
 export function getCached<T = any>(url: string, params?: any): T | null {

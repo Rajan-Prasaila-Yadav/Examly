@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/lib/toast-context';
+import { optimizeAvatar } from '@/lib/image-optimizer';
 import { CardGridSkeleton, TableSkeleton } from '@/components/skeleton';
 import {
   UserSquare2,
@@ -134,21 +135,19 @@ export default function TeachersPage() {
     setIsModalOpen(true);
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploadingPhoto(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarUrl(reader.result as string);
+    try {
+      const optimized = await optimizeAvatar(file, 256);
+      setAvatarUrl(optimized.dataUrl);
+    } catch (err: any) {
+      toast.error('Image Error', err?.message || 'Failed to process avatar');
+    } finally {
       setIsUploadingPhoto(false);
-    };
-    reader.onerror = () => {
-      alert('Failed to read image file');
-      setIsUploadingPhoto(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveTeacher = async (e: React.FormEvent) => {

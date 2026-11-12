@@ -53,6 +53,44 @@ function normalizeUserRole(rawUser: any) {
   };
 }
 
+function sanitizeUserForStorage(rawUser: any) {
+  if (!rawUser) return rawUser;
+  const copy = { ...rawUser };
+  // Large base64 data URIs (> 20KB) must not be written to localStorage
+  // to prevent browser localStorage quota exhaustion. In-memory state remains untouched.
+  if (typeof copy.avatarUrl === 'string' && copy.avatarUrl.length > 20000) {
+    copy.avatarUrl = '';
+  }
+  return copy;
+}
+
+export function safeLocalStorageSetItem(key: string, value: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e: any) {
+    console.warn(`[Storage] Failed to set "${key}". Attempting cache cleanup...`, e);
+    try {
+      // Evict non-critical navigation and dashboard caches to free quota
+      localStorage.removeItem('examly.navigation.v1');
+      localStorage.removeItem('examly.dashboard.cache');
+      localStorage.removeItem('examly.student.dashboard.cache');
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('examly.navigation') || k.startsWith('examly_test_creation_wizard'))) {
+          localStorage.removeItem(k);
+        }
+      }
+      localStorage.setItem(key, value);
+      return true;
+    } catch (retryError) {
+      console.warn(`[Storage] Quota still exceeded for "${key}" after cleanup:`, retryError);
+      return false;
+    }
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(normalized);
           setApiCacheScope(normalized.id,normalized.cacheVersion);
           setPermissions(normalized.permissions||[]);
-          localStorage.setItem('examly_user', JSON.stringify(normalized));
+          safeLocalStorageSetItem('examly_user', JSON.stringify(sanitizeUserForStorage(normalized)));
         } catch (e:any) {
           setApiCacheScope();
           if(e.response?.status!==401 && e.response?.status!==403){setIsLoading(false);return;}
@@ -108,9 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setApiCacheScope();
     invalidateApiCache();
     const normalized = normalizeUserRole(data.user);
-    localStorage.setItem('examly_access_token', data.accessToken);
-    localStorage.setItem('examly_refresh_token', data.refreshToken);
-    localStorage.setItem('examly_user', JSON.stringify(normalized));
+    safeLocalStorageSetItem('examly_access_token', data.accessToken);
+    safeLocalStorageSetItem('examly_refresh_token', data.refreshToken);
+    safeLocalStorageSetItem('examly_user', JSON.stringify(sanitizeUserForStorage(normalized)));
     setUser(normalized);
     setIsLoading(false);
     setPermissions([]);
