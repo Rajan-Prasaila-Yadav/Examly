@@ -51,3 +51,10 @@ base.apk
 decompiled_apk/
 1st_docs/
 2nd Docs/
+
+# Local Dev Scratch & Test Scripts
+scratch_*.js
+scratch_*
+_patch_*
+scripts/verify-test-hierarchy.cjs
+
