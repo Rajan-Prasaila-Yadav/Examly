@@ -63,6 +63,7 @@ export default function TeachersPage() {
   const [facultyCode, setFacultyCode] = useState('');
   const [designation, setDesignation] = useState('Senior Faculty');
   const [specialization, setSpecialization] = useState('Physics');
+  const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
@@ -114,6 +115,7 @@ export default function TeachersPage() {
     setFacultyCode(generateFacultyCode());
     setDesignation('Senior Faculty');
     setSpecialization('Physics');
+    setSelectedBatchIds([]);
     setAvatarUrl('');
     setIsModalOpen(true);
   };
@@ -126,6 +128,8 @@ export default function TeachersPage() {
     setFacultyCode(tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : generateFacultyCode()));
     setDesignation(tch.teacherProfile?.designation || 'Senior Faculty');
     setSpecialization((tch.teacherProfile?.specialization || []).join(', '));
+    const batchIds = tch.batchFaculty ? tch.batchFaculty.map((bf: any) => bf.batchId) : (tch.teacherProfile?.assignedBatchIds || []);
+    setSelectedBatchIds(batchIds);
     setAvatarUrl(tch.avatarUrl || '');
     setIsModalOpen(true);
   };
@@ -151,6 +155,17 @@ export default function TeachersPage() {
     e.preventDefault();
     const finalCode = facultyCode.trim() || generateFacultyCode();
 
+    const payload = {
+      fullName,
+      email,
+      phone,
+      facultyCode: finalCode,
+      designation,
+      specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
+      assignedBatchIds: selectedBatchIds,
+      avatarUrl,
+    };
+
     try {
       if (editingTeacher) {
         // Optimistic UI update
@@ -167,7 +182,8 @@ export default function TeachersPage() {
                     ...t.teacherProfile,
                     facultyCode: finalCode,
                     designation,
-                    specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
+                    specialization: payload.specialization,
+                    assignedBatchIds: selectedBatchIds,
                   },
                 }
               : t,
@@ -175,27 +191,12 @@ export default function TeachersPage() {
         );
 
         toast.loading('Saving teacher...', `Updating ${fullName}`);
-        await api.put(`/users/teachers/${editingTeacher.id}`, {
-          fullName,
-          email,
-          phone,
-          facultyCode: finalCode,
-          designation,
-          specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
-          avatarUrl,
-        });
+        await api.put(`/users/teachers/${editingTeacher.id}`, payload);
         toast.success('Teacher Updated!', `${fullName} saved successfully.`);
+        fetchTeachers();
       } else {
         toast.loading('Onboarding teacher...', `Adding ${fullName}`);
-        const res = await api.post('/users/teachers', {
-          fullName,
-          email,
-          phone,
-          facultyCode: finalCode,
-          designation,
-          specialization: specialization.split(',').map((s) => s.trim()).filter(Boolean),
-          avatarUrl,
-        });
+        const res = await api.post('/users/teachers', payload);
         toast.success(
           'Teacher Onboarded!',
           `Credentials sent: ${email || phone} • Temp Pass: ${res.data?.rawPassword || 'Set by email'}`,
@@ -238,10 +239,11 @@ export default function TeachersPage() {
     toast.loading('Deleting faculty member...', `Removing ${teacherName}`);
 
     try {
-      await api.put(`/users/${targetId}/status`, { status: 'DELETED' });
+      await api.delete(`/users/teachers/${targetId}`);
       toast.success('Faculty Member Deleted', `${teacherName} was removed from the roster.`);
-    } catch (e) {
-      toast.error('Failed to delete teacher');
+      fetchTeachers();
+    } catch (e: any) {
+      toast.error('Failed to delete teacher', e.response?.data?.message || 'Error occurred');
       fetchTeachers();
     }
   };
@@ -412,11 +414,20 @@ export default function TeachersPage() {
                       </div>
                     </td>
 
-                    {/* 3. Designation */}
+                    {/* 3. Designation & Batches */}
                     <td className="py-3 px-4">
                       <span className="font-semibold text-slate-800 block text-xs">
                         {tch.teacherProfile?.designation || 'Faculty Instructor'}
                       </span>
+                      {tch.batchFaculty && tch.batchFaculty.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {tch.batchFaculty.map((bf: any) => (
+                            <span key={bf.batchId} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 font-medium">
+                              {bf.batch?.name || 'Batch'}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </td>
 
                     {/* 4. Status */}
@@ -550,6 +561,16 @@ export default function TeachersPage() {
                       </span>
                     ))}
                   </div>
+
+                  {tch.batchFaculty && tch.batchFaculty.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {tch.batchFaculty.map((bf: any) => (
+                        <span key={bf.batchId} className="px-2 py-0.5 rounded text-[10px] bg-brand-50 text-brand-700 font-semibold border border-brand-200/60">
+                          {bf.batch?.name || 'Batch'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="space-y-1 mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
                     <div className="flex items-center gap-2 truncate">
@@ -713,6 +734,39 @@ export default function TeachersPage() {
                   placeholder="e.g. Organic Chemistry, Thermodynamics, Botany"
                   className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Assign to Batches ({selectedBatchIds.length} selected)
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl max-h-28 overflow-y-auto">
+                  {batches.length === 0 ? (
+                    <span className="text-[11px] text-slate-400">No batches available</span>
+                  ) : (
+                    batches.map((b) => {
+                      const isSelected = selectedBatchIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedBatchIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== b.id) : [...prev, b.id]
+                            );
+                          }}
+                          className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all ${
+                            isSelected
+                              ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-brand-300'
+                          }`}
+                        >
+                          {b.name}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-2xl text-xs text-purple-900 space-y-1">

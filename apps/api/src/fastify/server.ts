@@ -44,6 +44,20 @@ export async function createFastifyApp(): Promise<FastifyInstance> {
     trustProxy: true,
   });
 
+  // Support empty JSON bodies gracefully (e.g. DELETE requests)
+  fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const text = typeof body === 'string' ? body : (body as any)?.toString('utf8') || '';
+    if (!text || text.trim() === '') {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(text));
+    } catch (err: any) {
+      done(err, undefined);
+    }
+  });
+
   // 1. Security Headers via Helmet
   await fastify.register(helmet, {
     crossOriginResourcePolicy: { policy: 'cross-origin' },

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requirePermission } from '../plugins/rbac.plugin';
 import { RecordStatus, RoleType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { effectivePermissions } from '../plugins/permission-catalog';
 
 const StudentQuerySchema = z.object({
   batchId: z.string().optional(),
@@ -41,6 +42,34 @@ const UpdateStudentSchema = z.object({
   parentPhone: z.string().optional().or(z.literal('')).transform((v) => v || null),
   avatarUrl: z.string().optional().or(z.literal('')).transform((v) => v || null),
   status: z.enum(['ACTIVE', 'BLOCKED', 'DELETED']).optional(),
+});
+
+const CreateTeacherSchema = z.object({
+  fullName: z.string().trim().min(2, 'Full name must be at least 2 characters'),
+  email: z.string().trim().email('Invalid email address').optional().or(z.literal('')).transform((v) => v || undefined),
+  phone: z.string().trim().optional().or(z.literal('')).transform((v) => v || undefined),
+  facultyCode: z.string().trim().optional().or(z.literal('')).transform((v) => v || undefined),
+  designation: z.string().trim().optional().default('Senior Faculty'),
+  specialization: z.array(z.string().trim()).optional().default([]),
+  assignedBatchIds: z.array(z.string().trim()).optional().default([]),
+  avatarUrl: z.string().optional().or(z.literal('')).transform((v) => v || undefined),
+  password: z.string().optional().or(z.literal('')).transform((v) => v || undefined),
+});
+
+const UpdateTeacherSchema = z.object({
+  fullName: z.string().trim().min(2).optional(),
+  email: z.string().trim().email().optional().or(z.literal('')).transform((v) => v || null),
+  phone: z.string().trim().optional().or(z.literal('')).transform((v) => v || null),
+  facultyCode: z.string().trim().optional().or(z.literal('')).transform((v) => v || undefined),
+  designation: z.string().trim().optional(),
+  specialization: z.array(z.string().trim()).optional(),
+  assignedBatchIds: z.array(z.string().trim()).optional(),
+  avatarUrl: z.string().optional().or(z.literal('')).transform((v) => v || null),
+  status: z.enum(['ACTIVE', 'BLOCKED', 'DELETED']).optional(),
+});
+
+const TeacherPermissionsSchema = z.object({
+  permissions: z.record(z.string(), z.boolean()),
 });
 
 export const usersRoutes: FastifyPluginAsync = async (fastify) => {
@@ -191,7 +220,7 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         });
-      });
+      }, { timeout: 20000, maxWait: 10000 });
 
       fastify.cache.invalidateTag('students');
 
@@ -365,7 +394,15 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
       const user = request.user!;
 
       if (user.roleCode !== RoleType.SUPER_ADMIN && user.roleCode !== RoleType.ADMIN) {
-        await requirePermission('students', 'update')(request, reply);
+        const target = await fastify.prisma.user.findUnique({
+          where: { id },
+          include: { role: true },
+        });
+        if (target?.role.code === RoleType.TEACHER) {
+          await requirePermission('teachers', status === RecordStatus.DELETED ? 'delete' : 'update')(request, reply);
+        } else {
+          await requirePermission('students', status === RecordStatus.DELETED ? 'delete' : 'update')(request, reply);
+        }
         if (reply.sent) return;
       }
 
@@ -643,7 +680,7 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // GET /api/v1/users/teachers
+  // GET /api/v1/users/teachers — List All Active Faculty Members
   fastify.get(
     '/api/v1/users/teachers',
     {
@@ -674,6 +711,12 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
               avatarUrl: true,
               status: true,
               teacherProfile: true,
+              batchFaculty: {
+                select: {
+                  batchId: true,
+                  batch: { select: { id: true, name: true, code: true } },
+                },
+              },
               createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -685,7 +728,358 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // GET /api/v1/users/teachers/:id/360
+  // POST /api/v1/users/teachers — Onboard New Faculty Member
+  fastify.post(
+    '/api/v1/users/teachers',
+    {
+      preHandler: [fastify.authenticate, requirePermission('teachers', 'create')],
+    },
+    async (request, reply) => {
+      const user = request.user!;
+      const parseResult = CreateTeacherSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          message: parseResult.error.issues.map((e) => e.message).join(', '),
+          error: 'Bad Request',
+        });
+      }
+      const body = parseResult.data;
+
+      // Determine Institute ID
+      let instituteId = user.instituteId;
+      if (!instituteId) {
+        const inst = await fastify.prisma.institute.findFirst({
+          where: { status: RecordStatus.ACTIVE },
+          select: { id: true },
+        });
+        if (inst) instituteId = inst.id;
+      }
+
+      // Find TEACHER role
+      const teacherRole = await fastify.prisma.role.findFirst({
+        where: {
+          code: RoleType.TEACHER,
+          OR: [
+            ...(instituteId ? [{ instituteId }] : []),
+            { isSystem: true },
+            { instituteId: null },
+          ],
+        },
+        orderBy: { isSystem: 'asc' },
+      });
+
+      if (!teacherRole) {
+        return reply.status(500).send({
+          statusCode: 500,
+          message: 'Teacher role not found in system. Please initialize roles.',
+          error: 'Internal Server Error',
+        });
+      }
+
+      // Duplicate check: email
+      if (body.email) {
+        const existingEmail = await fastify.prisma.user.findFirst({
+          where: { email: body.email, status: { not: RecordStatus.DELETED } },
+          select: { id: true, fullName: true },
+        });
+        if (existingEmail) {
+          return reply.status(409).send({
+            statusCode: 409,
+            message: `A user with email "${body.email}" already exists (${existingEmail.fullName})`,
+            error: 'Conflict',
+          });
+        }
+      }
+
+      // Duplicate check: phone
+      if (body.phone) {
+        const existingPhone = await fastify.prisma.user.findFirst({
+          where: { phone: body.phone, status: { not: RecordStatus.DELETED } },
+          select: { id: true, fullName: true },
+        });
+        if (existingPhone) {
+          return reply.status(409).send({
+            statusCode: 409,
+            message: `A user with phone number "${body.phone}" already exists (${existingPhone.fullName})`,
+            error: 'Conflict',
+          });
+        }
+      }
+
+      // Determine unique facultyCode and identifier
+      let finalCode = body.facultyCode?.trim();
+      if (!finalCode) {
+        finalCode = `TCH-${Math.floor(100 + Math.random() * 900)}`;
+      }
+      let identifier = finalCode;
+      const existingIdent = await fastify.prisma.user.findUnique({
+        where: { identifier },
+        select: { id: true },
+      });
+      if (existingIdent) {
+        identifier = `TCH-${Math.floor(1000 + Math.random() * 9000)}`;
+        finalCode = identifier;
+      }
+
+      // Password generation
+      const rawPassword = body.password?.trim() || `Pass@${Math.floor(1000 + Math.random() * 9000)}`;
+      const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+      const newTeacher = await fastify.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            fullName: body.fullName,
+            phone: body.phone || null,
+            email: body.email || null,
+            identifier,
+            passwordHash,
+            avatarUrl: body.avatarUrl || null,
+            roleId: teacherRole.id,
+            instituteId,
+            status: RecordStatus.ACTIVE,
+            teacherProfile: {
+              create: {
+                facultyCode: finalCode,
+                designation: body.designation,
+                specialization: body.specialization,
+                assignedBatchIds: body.assignedBatchIds,
+              },
+            },
+          },
+          select: {
+            id: true,
+            fullName: true,
+            identifier: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            status: true,
+            createdAt: true,
+            teacherProfile: true,
+          },
+        });
+
+        // Link assigned batches
+        if (body.assignedBatchIds && body.assignedBatchIds.length > 0) {
+          for (const bId of body.assignedBatchIds) {
+            await tx.batchFaculty.create({
+              data: {
+                batchId: bId,
+                userId: createdUser.id,
+                subjectIds: [],
+              },
+            });
+          }
+        }
+
+        return createdUser;
+      }, { timeout: 20000, maxWait: 10000 });
+
+      fastify.cache.invalidateTag('teachers');
+      fastify.cache.invalidate(`teachers:list:${instituteId || 'all'}`);
+
+      return reply.status(201).send({
+        success: true,
+        data: newTeacher,
+        rawPassword,
+        message: 'Teacher onboarded successfully',
+      });
+    },
+  );
+
+  // PUT /api/v1/users/teachers/:id — Update Faculty Member Profile
+  fastify.put(
+    '/api/v1/users/teachers/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('teachers', 'update')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const user = request.user!;
+      const parseResult = UpdateTeacherSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          message: parseResult.error.issues.map((e) => e.message).join(', '),
+          error: 'Bad Request',
+        });
+      }
+      const body = parseResult.data;
+
+      const existing = await fastify.prisma.user.findFirst({
+        where: {
+          id,
+          role: { code: RoleType.TEACHER },
+          status: { not: RecordStatus.DELETED },
+          ...(user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN ? { instituteId: user.instituteId } : {}),
+        },
+        include: { teacherProfile: true },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ statusCode: 404, message: 'Teacher not found' });
+      }
+
+      // Check duplicate email
+      if (body.email && body.email !== existing.email) {
+        const emailDup = await fastify.prisma.user.findFirst({
+          where: { email: body.email, id: { not: id }, status: { not: RecordStatus.DELETED } },
+          select: { id: true, fullName: true },
+        });
+        if (emailDup) {
+          return reply.status(409).send({
+            statusCode: 409,
+            message: `Email "${body.email}" is already used by ${emailDup.fullName}`,
+            error: 'Conflict',
+          });
+        }
+      }
+
+      // Check duplicate phone
+      if (body.phone && body.phone !== existing.phone) {
+        const phoneDup = await fastify.prisma.user.findFirst({
+          where: { phone: body.phone, id: { not: id }, status: { not: RecordStatus.DELETED } },
+          select: { id: true, fullName: true },
+        });
+        if (phoneDup) {
+          return reply.status(409).send({
+            statusCode: 409,
+            message: `Phone number "${body.phone}" is already used by ${phoneDup.fullName}`,
+            error: 'Conflict',
+          });
+        }
+      }
+
+      const updated = await fastify.prisma.$transaction(async (tx) => {
+        const userUpdate: any = {};
+        if (body.fullName !== undefined) userUpdate.fullName = body.fullName;
+        if (body.email !== undefined) userUpdate.email = body.email;
+        if (body.phone !== undefined) userUpdate.phone = body.phone;
+        if (body.avatarUrl !== undefined) userUpdate.avatarUrl = body.avatarUrl;
+        if (body.status !== undefined) userUpdate.status = body.status;
+
+        if (Object.keys(userUpdate).length > 0) {
+          await tx.user.update({
+            where: { id },
+            data: userUpdate,
+          });
+        }
+
+        const facultyCode = body.facultyCode !== undefined ? body.facultyCode : (existing.teacherProfile?.facultyCode || existing.identifier);
+        const designation = body.designation !== undefined ? body.designation : (existing.teacherProfile?.designation || 'Senior Faculty');
+        const specialization = body.specialization !== undefined ? body.specialization : (existing.teacherProfile?.specialization || []);
+        const assignedBatchIds = body.assignedBatchIds !== undefined ? body.assignedBatchIds : (existing.teacherProfile?.assignedBatchIds || []);
+
+        await tx.teacherProfile.upsert({
+          where: { userId: id },
+          create: {
+            userId: id,
+            facultyCode,
+            designation,
+            specialization,
+            assignedBatchIds,
+          },
+          update: {
+            facultyCode,
+            designation,
+            specialization,
+            assignedBatchIds,
+          },
+        });
+
+        if (body.assignedBatchIds !== undefined) {
+          await tx.batchFaculty.deleteMany({ where: { userId: id } });
+          for (const bId of body.assignedBatchIds) {
+            await tx.batchFaculty.create({
+              data: { batchId: bId, userId: id, subjectIds: [] },
+            });
+          }
+        }
+
+        return tx.user.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            identifier: true,
+            avatarUrl: true,
+            status: true,
+            teacherProfile: true,
+            batchFaculty: {
+              select: {
+                batchId: true,
+                batch: { select: { id: true, name: true, code: true } },
+              },
+            },
+          },
+        });
+      }, { timeout: 20000, maxWait: 10000 });
+
+      fastify.cache.invalidateTag('teachers');
+      fastify.cache.invalidate(`teachers:list:${user.instituteId || 'all'}`);
+      fastify.cache.invalidate(`teachers:360:${id}`);
+      fastify.cache.invalidate(`user:${id}`);
+
+      return {
+        success: true,
+        data: updated,
+        message: 'Teacher profile updated successfully',
+      };
+    },
+  );
+
+  // DELETE /api/v1/users/teachers/:id — Remove Faculty Member from Roster
+  fastify.delete(
+    '/api/v1/users/teachers/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('teachers', 'delete')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const user = request.user!;
+
+      const existing = await fastify.prisma.user.findFirst({
+        where: {
+          id,
+          role: { code: RoleType.TEACHER },
+          status: { not: RecordStatus.DELETED },
+          ...(user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN ? { instituteId: user.instituteId } : {}),
+        },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ statusCode: 404, message: 'Teacher not found' });
+      }
+
+      await fastify.prisma.user.update({
+        where: { id },
+        data: {
+          status: RecordStatus.DELETED,
+          deletedAt: new Date(),
+        },
+      });
+
+      await fastify.prisma.userSession.updateMany({
+        where: { userId: id, isActive: true },
+        data: { isActive: false },
+      });
+
+      fastify.cache.invalidateTag('teachers');
+      fastify.cache.invalidate(`teachers:list:${user.instituteId || 'all'}`);
+      fastify.cache.invalidate(`teachers:360:${id}`);
+      fastify.cache.invalidate(`user:${id}`);
+
+      return {
+        success: true,
+        message: `Teacher ${existing.fullName} removed from roster`,
+      };
+    },
+  );
+
+  // GET /api/v1/users/teachers/:id/360 — Faculty 360° Profile & Detailed Permissions
   fastify.get(
     '/api/v1/users/teachers/:id/360',
     {
@@ -712,6 +1106,17 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
           status: true,
           createdAt: true,
           teacherProfile: true,
+          role: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              permissions: { select: { resource: true, action: true } },
+            },
+          },
+          permissionGrants: {
+            select: { id: true, resource: true, action: true, effect: true },
+          },
         },
       });
 
@@ -719,11 +1124,112 @@ export const usersRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ statusCode: 404, message: 'Teacher not found' });
       }
 
+      const [batchFaculties, classesCount] = await Promise.all([
+        fastify.prisma.batchFaculty.findMany({
+          where: { userId: id },
+          include: {
+            batch: {
+              select: { id: true, name: true, code: true, status: true, _count: { select: { students: true } } },
+            },
+          },
+        }),
+        fastify.prisma.batchClass.count({
+          where: { teacherId: id },
+        }),
+      ]);
+
+      const assignedBatchIds = batchFaculties.map((bf) => bf.batchId);
+      const testsCreatedCount = await fastify.prisma.test.count({
+        where: {
+          OR: [
+            { batchId: { in: assignedBatchIds } },
+          ],
+          status: { not: 'DELETED' as any },
+        },
+      });
+
+      const grantsMap: Record<string, boolean> = {};
+      for (const g of teacher.permissionGrants) {
+        grantsMap[`${g.resource}.${g.action}`] = g.effect === 'ALLOW';
+      }
+
       return {
         user: teacher,
-        subjectsCount: 0,
-        lessonsCount: 0,
-        testsCreatedCount: 0,
+        assignedBatches: batchFaculties.map((bf) => bf.batch),
+        teachingClassesCount: classesCount,
+        testsCreatedCount,
+        grants: grantsMap,
+        effectivePermissions: effectivePermissions(teacher.role, teacher.permissionGrants),
+      };
+    },
+  );
+
+  // PUT /api/v1/users/teachers/:id/permissions — Update Custom Granular Permissions
+  fastify.put(
+    '/api/v1/users/teachers/:id/permissions',
+    {
+      preHandler: [fastify.authenticate, requirePermission('teachers', 'update')],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const user = request.user!;
+      const parseResult = TeacherPermissionsSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          message: 'Invalid permissions payload format',
+          error: 'Bad Request',
+        });
+      }
+
+      const teacher = await fastify.prisma.user.findFirst({
+        where: {
+          id,
+          role: { code: RoleType.TEACHER },
+          status: { not: RecordStatus.DELETED },
+          ...(user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN ? { instituteId: user.instituteId } : {}),
+        },
+      });
+
+      if (!teacher) {
+        return reply.status(404).send({ statusCode: 404, message: 'Teacher not found' });
+      }
+
+      const { permissions } = parseResult.data;
+
+      await fastify.prisma.$transaction(async (tx) => {
+        for (const [key, isAllowed] of Object.entries(permissions)) {
+          const [resource, action] = key.split('.');
+          if (!resource || !action) continue;
+
+          const effect = isAllowed ? 'ALLOW' : 'DENY';
+          await tx.permissionGrant.upsert({
+            where: {
+              userId_resource_action: {
+                userId: id,
+                resource,
+                action,
+              },
+            },
+            create: {
+              userId: id,
+              resource,
+              action,
+              effect,
+            },
+            update: {
+              effect,
+            },
+          });
+        }
+      }, { timeout: 20000, maxWait: 10000 });
+
+      fastify.cache.invalidate(`user:${id}`);
+      fastify.cache.invalidate(`teachers:360:${id}`);
+
+      return {
+        success: true,
+        message: `Permissions updated successfully for ${teacher.fullName}`,
       };
     },
   );

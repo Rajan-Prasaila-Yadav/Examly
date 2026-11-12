@@ -16,6 +16,10 @@ import {
   Check,
   BookOpen,
   Sparkles,
+  Layers,
+  GraduationCap,
+  Calendar,
+  FileCheck2,
 } from 'lucide-react';
 import { Profile360Skeleton } from '@/components/skeleton';
 
@@ -25,6 +29,7 @@ export default function TeacherDetailPage() {
 
   const [data360, setData360] = useState<any>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Per-Teacher Custom Permissions
@@ -54,13 +59,48 @@ export default function TeacherDetailPage() {
     }
   }, [teacherId]);
 
+  useEffect(() => {
+    if (data360) {
+      const defaultKeys = [
+        'tests.create',
+        'tests.publish',
+        'videos.create',
+        'notes.create',
+        'students.read',
+        'community.create',
+      ];
+      const initial: Record<string, boolean> = {};
+      const eff = new Set(data360.effectivePermissions || []);
+      for (const k of defaultKeys) {
+        if (data360.grants && data360.grants[k] !== undefined) {
+          initial[k] = data360.grants[k];
+        } else {
+          initial[k] = eff.has('*.*') || eff.has(k);
+        }
+      }
+      setPermissions(initial);
+    }
+  }, [data360]);
+
   const handleToggle = (key: string) => {
     setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleSavePermissions = async () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+    try {
+      setIsSaving(true);
+      await api.put(`/users/teachers/${teacherId}/permissions`, {
+        permissions,
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+      fetchTeacher360();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.response?.data?.message || 'Failed to save permissions');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -93,9 +133,17 @@ export default function TeacherDetailPage() {
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20">
-              {teacher.fullName ? teacher.fullName[0] : 'T'}
-            </div>
+            {teacher.avatarUrl ? (
+              <img
+                src={teacher.avatarUrl}
+                alt={teacher.fullName}
+                className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-md"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20">
+                {teacher.fullName ? teacher.fullName[0] : 'T'}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-extrabold text-slate-900">{teacher.fullName}</h1>
@@ -110,9 +158,48 @@ export default function TeacherDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${
+                teacher.status === 'ACTIVE'
+                  ? 'text-emerald-600 bg-emerald-50 border-emerald-200/60'
+                  : 'text-rose-600 bg-rose-50 border-rose-200/60'
+              }`}
+            >
               <CheckCircle2 className="w-3.5 h-3.5" /> {teacher.status || 'ACTIVE'}
             </span>
+          </div>
+        </div>
+
+        {/* Stats KPI Row */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100">
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <Layers className="w-4 h-4 text-brand-600" />
+              <span>Assigned Batches</span>
+            </div>
+            <p className="text-xl font-black text-slate-900 mt-1">
+              {data360?.assignedBatches?.length || 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              <span>Classes Scheduled</span>
+            </div>
+            <p className="text-xl font-black text-slate-900 mt-1">
+              {data360?.teachingClassesCount || 0}
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+              <FileCheck2 className="w-4 h-4 text-purple-600" />
+              <span>Tests Managed</span>
+            </div>
+            <p className="text-xl font-black text-slate-900 mt-1">
+              {data360?.testsCreatedCount || 0}
+            </p>
           </div>
         </div>
 
@@ -141,6 +228,33 @@ export default function TeacherDetailPage() {
         </div>
       </div>
 
+      {/* Assigned Batches List */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3">
+        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <Layers className="w-4 h-4 text-brand-600" /> Assigned Batches
+        </h2>
+        {(!data360?.assignedBatches || data360.assignedBatches.length === 0) ? (
+          <p className="text-xs text-slate-400 italic">No batches assigned to this faculty member yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data360.assignedBatches.map((batch: any) => (
+              <div
+                key={batch.id}
+                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between"
+              >
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">{batch.name}</h4>
+                  <span className="text-[10px] text-slate-500 font-mono">{batch.code}</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+                  {batch._count?.students || 0} students
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Granular Permission Overrides Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
@@ -155,10 +269,11 @@ export default function TeacherDetailPage() {
 
           <button
             onClick={handleSavePermissions}
-            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all"
+            disabled={isSaving}
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
           >
             {isSaved ? <Check className="w-4 h-4 text-emerald-300" /> : <Save className="w-4 h-4" />}
-            {isSaved ? 'Saved!' : 'Save Permissions'}
+            {isSaved ? 'Saved!' : isSaving ? 'Saving...' : 'Save Permissions'}
           </button>
         </div>
 
