@@ -290,8 +290,8 @@ export default function TeachersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Faculty & Instructors</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Faculty & Instructors</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Full Faculty Management: Onboard, Edit profiles, Block/Unblock, and 360° Profile Analytics.
           </p>
         </div>
@@ -299,7 +299,7 @@ export default function TeachersPage() {
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-200 dark:border dark:border-white/10 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
             title="Export Faculty to CSV"
           >
             <Download className="w-3.5 h-3.5" /> Export CSV
@@ -314,9 +314,9 @@ export default function TeachersPage() {
       </div>
 
       {/* Main Table / Grid Container */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden space-y-0">
         {/* Search Toolbar with View Toggle */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 border-b border-slate-100 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -324,19 +324,21 @@ export default function TeachersPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search faculty name, faculty code, email..."
-              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-[#141824] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-auto">
-            <span className="text-xs text-slate-500 font-medium">{filteredTeachers.length} Faculty Listed</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{filteredTeachers.length} Faculty Listed</span>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/60">
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-[#141824] rounded-xl border border-slate-200/60 dark:border-white/10">
               <button
                 onClick={() => setViewMode('list')}
                 className={`p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                  viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  viewMode === 'list'
+                    ? 'bg-white dark:bg-[#1f2438] text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                 }`}
                 title="List / Table View"
               >
@@ -345,7 +347,9 @@ export default function TeachersPage() {
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                  viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-[#1f2438] text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                 }`}
                 title="Cards Grid View"
               >
@@ -367,7 +371,7 @@ export default function TeachersPage() {
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left text-xs whitespace-nowrap">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/60">
+                <tr className="border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/80 dark:bg-[#10131f]">
                   <th className="py-3 px-4">Faculty Member</th>
                   <th className="py-3 px-4">Contact</th>
                   <th className="py-3 px-4">Designation</th>
@@ -375,9 +379,9 @@ export default function TeachersPage() {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-700 dark:text-slate-200">
                 {filteredTeachers.map((tch) => (
-                  <tr key={tch.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={tch.id} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.04] transition-colors">
                     {/* 1. Faculty Member & Avatar */}
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
@@ -385,7 +389,7 @@ export default function TeachersPage() {
                           <img
                             src={tch.avatarUrl}
                             alt={tch.fullName}
-                            className="w-8 h-8 rounded-xl object-cover border border-slate-200 shrink-0"
+                            className="w-8 h-8 rounded-xl object-cover border border-slate-200 dark:border-white/10 shrink-0"
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold flex items-center justify-center text-xs shadow-sm shrink-0">
@@ -393,7 +397,7 @@ export default function TeachersPage() {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <Link href={`/teachers/${tch.id}`} className="font-extrabold text-slate-900 hover:text-brand-600 truncate block">
+                          <Link href={`/teachers/${tch.id}`} className="font-extrabold text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 truncate block">
                             {tch.fullName}
                           </Link>
                         </div>
@@ -403,11 +407,11 @@ export default function TeachersPage() {
                     {/* 2. Email & Contact (Dedicated Column) */}
                     <td className="py-3 px-4">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-700 font-medium truncate text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium truncate text-xs">
                           <Mail className="w-3 h-3 text-slate-400 shrink-0" />
                           <span className="truncate">{tch.email || 'No email'}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-slate-500 font-mono text-[11px]">
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                           <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>{tch.phone || '-'}</span>
                         </div>
@@ -416,13 +420,13 @@ export default function TeachersPage() {
 
                     {/* 3. Designation & Batches */}
                     <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-800 block text-xs">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
                         {tch.teacherProfile?.designation || 'Faculty Instructor'}
                       </span>
                       {tch.batchFaculty && tch.batchFaculty.length > 0 ? (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {tch.batchFaculty.map((bf: any) => (
-                            <span key={bf.batchId} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 font-medium">
+                            <span key={bf.batchId} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 font-medium">
                               {bf.batch?.name || 'Batch'}
                             </span>
                           ))}
@@ -435,8 +439,8 @@ export default function TeachersPage() {
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                           tch.status === 'ACTIVE'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
                         }`}
                       >
                         <span
@@ -453,14 +457,14 @@ export default function TeachersPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
                           href={`/teachers/${tch.id}`}
-                          className="px-2.5 py-1 bg-brand-50 text-brand-700 hover:bg-brand-100 text-[11px] font-bold rounded-lg transition-colors"
+                          className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:hover:bg-brand-500/25 dark:text-brand-300 text-[11px] font-bold rounded-lg transition-colors"
                         >
                           360° View
                         </Link>
 
                         <button
                           onClick={() => handleOpenEdit(tch)}
-                          className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                          className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/20 rounded-lg transition-colors"
                           title="Edit Teacher"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -470,8 +474,8 @@ export default function TeachersPage() {
                           onClick={() => handleToggleStatus(tch.id, tch.status)}
                           className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors border ${
                             tch.status === 'ACTIVE'
-                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80'
-                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80'
+                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20 dark:hover:bg-rose-500/20'
+                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20'
                           }`}
                         >
                           {tch.status === 'ACTIVE' ? 'Block' : 'Unblock'}
@@ -479,7 +483,7 @@ export default function TeachersPage() {
 
                         <button
                           onClick={() => setDeletingTeacher(tch)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/20 rounded-lg transition-colors"
                           title="Delete Teacher"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -491,7 +495,7 @@ export default function TeachersPage() {
 
                 {filteredTeachers.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
                       No faculty members found. Click &quot;Onboard Faculty Teacher&quot; above to add one.
                     </td>
                   </tr>
@@ -507,7 +511,7 @@ export default function TeachersPage() {
             {filteredTeachers.map((tch) => (
               <div
                 key={tch.id}
-                className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 flex flex-col justify-between hover:border-brand-300 transition-all group"
+                className="bg-slate-50/70 dark:bg-[#121524] rounded-2xl border border-slate-200 dark:border-white/10 p-5 flex flex-col justify-between hover:border-brand-300 dark:hover:border-brand-500/50 transition-all group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -515,7 +519,7 @@ export default function TeachersPage() {
                       <img
                         src={tch.avatarUrl}
                         alt={tch.fullName}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200"
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-white/10"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-bold text-sm flex items-center justify-center shadow-md">
@@ -524,20 +528,20 @@ export default function TeachersPage() {
                     )}
 
                     <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-[10px] font-bold border border-purple-200">
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono text-[10px] font-bold border border-purple-200 dark:border-purple-800/40">
                         {tch.teacherProfile?.facultyCode || (tch.identifier && !tch.identifier.includes('@') ? tch.identifier : '-')}
                       </span>
 
                       <button
                         onClick={() => handleOpenEdit(tch)}
-                        className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                        className="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/20 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
 
                       <button
                         onClick={() => setDeletingTeacher(tch)}
-                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/20 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -545,18 +549,18 @@ export default function TeachersPage() {
                   </div>
 
                   <Link href={`/teachers/${tch.id}`}>
-                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors flex items-center justify-between">
                       <span>{tch.fullName}</span>
                       <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
                     </h3>
                   </Link>
-                  <p className="text-xs text-brand-600 font-medium mt-0.5">
+                  <p className="text-xs text-brand-600 dark:text-brand-400 font-medium mt-0.5">
                     {tch.teacherProfile?.designation || 'Faculty Instructor'}
                   </p>
 
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {(tch.teacherProfile?.specialization || ['Curriculum Expert']).map((spec: string) => (
-                      <span key={spec} className="px-2 py-0.5 bg-white text-slate-600 text-[10px] font-medium rounded-md border border-slate-200">
+                      <span key={spec} className="px-2 py-0.5 bg-white dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 text-[10px] font-medium rounded-md border border-slate-200 dark:border-white/10">
                         {spec}
                       </span>
                     ))}
@@ -565,14 +569,14 @@ export default function TeachersPage() {
                   {tch.batchFaculty && tch.batchFaculty.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {tch.batchFaculty.map((bf: any) => (
-                        <span key={bf.batchId} className="px-2 py-0.5 rounded text-[10px] bg-brand-50 text-brand-700 font-semibold border border-brand-200/60">
+                        <span key={bf.batchId} className="px-2 py-0.5 rounded text-[10px] bg-brand-50 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-semibold border border-brand-200/60 dark:border-brand-500/30">
                           {bf.batch?.name || 'Batch'}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  <div className="space-y-1 mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500">
+                  <div className="space-y-1 mt-3 pt-3 border-t border-slate-200 dark:border-white/10 text-xs text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2 truncate">
                       <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate">{tch.email || 'No email set'}</span>
@@ -584,13 +588,13 @@ export default function TeachersPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         tch.status === 'ACTIVE'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
                       }`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${tch.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
@@ -601,8 +605,8 @@ export default function TeachersPage() {
                       onClick={() => handleToggleStatus(tch.id, tch.status)}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors border ${
                         tch.status === 'ACTIVE'
-                          ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80'
-                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80'
+                          ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200/80 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20 dark:hover:bg-rose-500/20'
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20'
                       }`}
                     >
                       {tch.status === 'ACTIVE' ? 'Block' : 'Unblock'}
@@ -611,7 +615,7 @@ export default function TeachersPage() {
 
                   <Link
                     href={`/teachers/${tch.id}`}
-                    className="px-3 py-1 bg-white hover:bg-brand-600 hover:text-white text-slate-700 text-xs font-bold rounded-lg border border-slate-200 shadow-sm transition-all flex items-center gap-1"
+                    className="px-3 py-1 bg-white dark:bg-white/[0.08] hover:bg-brand-600 hover:text-white text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg border border-slate-200 dark:border-white/10 shadow-sm transition-all flex items-center gap-1"
                   >
                     360° View →
                   </Link>
