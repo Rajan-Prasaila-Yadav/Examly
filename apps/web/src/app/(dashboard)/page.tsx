@@ -763,13 +763,26 @@ export default function DashboardOverviewPage() {
                   href={`/batches/${b.id}`}
                   className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group"
                 >
-                  <div className="min-w-0 pr-2">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
-                      {isStudent ? b.name?.replace(/🎓\s*/g, '') : b.name}
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
-                      {enrolled} students · {testCount} tests
-                    </p>
+                  <div className="flex items-center gap-3 min-w-0 pr-2">
+                    {b.imageUrl ? (
+                      <img
+                        src={b.imageUrl}
+                        alt=""
+                        className="w-11 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-11 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-700 flex items-center justify-center text-white shrink-0 shadow-2xs">
+                        <GraduationCap className="w-4 h-4 opacity-85" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                        {isStudent ? b.name?.replace(/🎓\s*/g, '') : b.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
+                        {enrolled} students · {testCount} tests
+                      </p>
+                    </div>
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${

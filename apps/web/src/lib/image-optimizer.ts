@@ -111,6 +111,26 @@ export async function optimizeBatchCover(
   });
 }
 
+export const BATCH_COVER_PRESETS = [
+  {
+    name: 'Medical / CEE',
+    url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1280&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Engineering / IOE',
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1280&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Class 12 Science',
+    url: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1280&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Foundation / General',
+    url: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1280&auto=format&fit=crop&q=80',
+  },
+];
+
+
 /**
  * High-performance client-side image optimizer for user/faculty/student avatars:
  * - Center-crops to 1:1 square.
@@ -201,4 +221,5 @@ export async function optimizeAvatar(
     reader.readAsDataURL(file);
   });
 }
+
 
