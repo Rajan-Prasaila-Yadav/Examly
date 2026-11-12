@@ -555,6 +555,28 @@ export default function DashboardOverviewPage() {
     });
   }, [tests]);
 
+  // Dashboard sorted tests: Live tests first, then scheduled/upcoming, then others
+  const sortedDashboardTests = useMemo(() => {
+    return [...tests].sort((a, b) => {
+      const aEnded = isTestEnded(a);
+      const bEnded = isTestEnded(b);
+      const aLive = (a.testStatus === 'LIVE' || a.isPublished) && !aEnded;
+      const bLive = (b.testStatus === 'LIVE' || b.isPublished) && !bEnded;
+      if (aLive && !bLive) return -1;
+      if (!aLive && bLive) return 1;
+
+      const aSched = !aEnded && !aLive && (a.testStatus === 'SCHEDULED' || !!a.startDateTime);
+      const bSched = !bEnded && !bLive && (b.testStatus === 'SCHEDULED' || !!b.startDateTime);
+      if (aSched && !bSched) return -1;
+      if (!aSched && bSched) return 1;
+
+      if (!aEnded && bEnded) return -1;
+      if (aEnded && !bEnded) return 1;
+
+      return 0;
+    });
+  }, [tests]);
+
   // 3D Artwork: Live CBT Examination Terminal
   const LiveTestArena3DArt = (
     <svg viewBox="0 0 100 85" className="w-[54px] h-[46px] sm:w-[68px] sm:h-[58px] drop-shadow-md shrink-0">
@@ -727,19 +749,6 @@ export default function DashboardOverviewPage() {
             </Link>
           </div>
 
-          {/* Status Filter Pills */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]">
-              Active {batches.filter((b) => b.status === 'ACTIVE' || !b.status).length}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]">
-              Draft {batches.filter((b) => b.status === 'DRAFT').length}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#F3E8FF] text-[#9333EA] dark:bg-[#2E1065]/60 dark:text-[#C084FC]">
-              Archived {batches.filter((b) => b.status === 'ARCHIVED').length}
-            </span>
-          </div>
-
           {/* Batches Rows */}
           <div className="space-y-2.5">
             {batches.slice(0, 4).map((b) => {
@@ -792,33 +801,25 @@ export default function DashboardOverviewPage() {
             <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Tests
             </h3>
-            <Link
-              href="/tests"
-              className="px-3.5 py-1 bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] text-xs font-bold rounded-full hover:bg-[#E0E7FF] dark:hover:bg-[#1E1B4B] transition-colors"
-            >
-              View all
-            </Link>
-          </div>
-
-          {/* Status Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]">
-              Live {tests.filter((t) => (t.testStatus === 'LIVE' || t.isPublished) && !isTestEnded(t)).length}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]">
-              Scheduled {tests.filter((t) => (t.testStatus === 'SCHEDULED' || (!t.testStatus && t.startDateTime)) && !isTestEnded(t)).length}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#F3E8FF] text-[#9333EA] dark:bg-[#2E1065]/60 dark:text-[#C084FC]">
-              Draft {tests.filter((t) => t.testStatus === 'DRAFT').length}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EDE9FE] text-[#6366F1] dark:bg-[#312E81]/60 dark:text-[#A5B4FC]">
-              Completed {tests.filter((t) => isTestEnded(t)).length}
-            </span>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/tests"
+                className="px-3.5 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-full hover:bg-amber-500/20 transition-colors"
+              >
+                Upcoming tests
+              </Link>
+              <Link
+                href="/tests"
+                className="px-3.5 py-1 bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] text-xs font-bold rounded-full hover:bg-[#E0E7FF] dark:hover:bg-[#1E1B4B] transition-colors"
+              >
+                View all
+              </Link>
+            </div>
           </div>
 
           {/* Tests Rows */}
           <div className="space-y-2.5">
-            {tests.slice(0, 4).map((t) => {
+            {sortedDashboardTests.slice(0, 4).map((t) => {
               const ended = isTestEnded(t);
               const isLive = (t.testStatus === 'LIVE' || t.isPublished) && !ended;
               const isSched = !ended && !isLive && (t.testStatus === 'SCHEDULED' || !!t.startDateTime);
@@ -833,9 +834,14 @@ export default function DashboardOverviewPage() {
                   className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group"
                 >
                   <div className="min-w-0 pr-2">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
-                      {t.title}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      {isLive && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block shrink-0" />
+                      )}
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                        {t.title}
+                      </h4>
+                    </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
                       {t.type ? t.type.replace('_', ' ').toLowerCase() : 'Batch test'} · {t.batch?.name || 'All Batches'}
                     </p>
@@ -867,151 +873,84 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* ── 4. TIMETABLE SCHEDULE & NEXT UPCOMING TESTS (2-COLUMN GRID) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7 items-start">
-        {/* LEFT: TODAY'S CLASSES */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-              Today’s classes
-            </h3>
-            <Link
-              href="/batches"
-              className="px-3.5 py-1 bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] text-xs font-bold rounded-full hover:bg-[#E0E7FF] dark:hover:bg-[#1E1B4B] transition-colors"
-            >
-              Open timetable
-            </Link>
-          </div>
-
-          <div className="space-y-2.5">
-            {(studentData?.todayClasses || []).map((c: any, idx: number) => {
-              const timeColors = ['bg-[#2563EB]', 'bg-[#EC4899]', 'bg-[#059669]', 'bg-[#7C3AED]'];
-              const badgeColor = timeColors[idx % timeColors.length];
-              const status = c.status || 'Upcoming';
-              const isLive = status.toLowerCase() === 'live';
-              const isCancelled = status.toLowerCase() === 'cancelled';
-              const isCompleted = status.toLowerCase() === 'completed';
-
-              return (
-                <div
-                  key={c.id || idx}
-                  className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all gap-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`px-2.5 py-1.5 rounded-xl ${badgeColor} text-white font-mono font-bold text-xs shrink-0 shadow-2xs`}>
-                      {c.startTime || '07:00'}
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                          {c.subject?.name || 'Subject'}
-                        </h4>
-                        {c.subject?.code && (
-                          <span className="text-xs font-mono font-bold text-slate-400">
-                            {c.subject.code}
-                          </span>
-                        )}
-                        {c.topic && (
-                          <span className="text-xs text-slate-600 dark:text-slate-300">
-                            · {c.topic}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
-                        {c.batch?.name || studentData?.batch?.name || 'Class Batch'} · {c.teacher?.fullName || 'Faculty Instructor'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
-                      isLive
-                        ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]'
-                        : isCancelled
-                        ? 'bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]'
-                        : isCompleted
-                        ? 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]'
-                        : 'bg-[#EDE9FE] text-[#6366F1] dark:bg-[#312E81]/60 dark:text-[#A5B4FC]'
-                    }`}
-                  >
-                    {status}
-                  </span>
-                </div>
-              );
-            })}
-
-            {(!studentData?.todayClasses || studentData.todayClasses.length === 0) && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                <Clock className="w-4 h-4 text-brand-500 opacity-70 shrink-0" />
-                <span>No classes scheduled for today</span>
-              </div>
-            )}
-          </div>
+      {/* ── 4. TIMETABLE SCHEDULE: TODAY'S CLASSES ── */}
+      <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+            Today’s classes
+          </h3>
+          <Link
+            href="/batches"
+            className="px-3.5 py-1 bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] text-xs font-bold rounded-full hover:bg-[#E0E7FF] dark:hover:bg-[#1E1B4B] transition-colors"
+          >
+            Open timetable
+          </Link>
         </div>
 
-        {/* RIGHT: NEXT 5 UPCOMING TESTS */}
-        <div className="bg-white dark:bg-[#090B10] border border-slate-200/90 dark:border-[#161824] rounded-3xl p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-              Next 5 upcoming tests
-            </h3>
-            <Link
-              href="/tests"
-              className="px-3.5 py-1 bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] text-xs font-bold rounded-full hover:bg-[#E0E7FF] dark:hover:bg-[#1E1B4B] transition-colors"
-            >
-              All tests
-            </Link>
-          </div>
+        <div className="space-y-2.5">
+          {(studentData?.todayClasses || []).map((c: any, idx: number) => {
+            const timeColors = ['bg-[#2563EB]', 'bg-[#EC4899]', 'bg-[#059669]', 'bg-[#7C3AED]'];
+            const badgeColor = timeColors[idx % timeColors.length];
+            const status = c.status || 'Upcoming';
+            const isLive = status.toLowerCase() === 'live';
+            const isCancelled = status.toLowerCase() === 'cancelled';
+            const isCompleted = status.toLowerCase() === 'completed';
 
-          <div className="space-y-2.5">
-            {upcomingTests.slice(0, 5).map((t) => {
-              const { day, month } = formatDayAndMonth(t.startDateTime);
-              const rel = getUpcomingRelativeTime(t.startDateTime);
-              const isLive = rel === 'Live now';
-
-              return (
-                <Link
-                  key={t.id}
-                  href={isStudent ? `/tests/${t.id}/runner` : `/tests/${t.id}`}
-                  className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group gap-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-[#EEF2FF] dark:bg-[#1E1B4B]/60 text-[#4F46E5] dark:text-[#818CF8] border border-[#C7D2FE]/60 dark:border-[#312E81]/40 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-sm font-black leading-none">{day}</span>
-                      <span className="text-[10px] font-bold uppercase mt-0.5">{month}</span>
-                    </div>
-
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
-                        {t.title}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
-                        {formatTimeRange(t.startDateTime, t.endDateTime)} · {t.type ? t.type.replace('_', ' ').toLowerCase() : 'Test'} · {t.batch?.name || 'Curriculum'}
-                      </p>
-                    </div>
+            return (
+              <div
+                key={c.id || idx}
+                className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`px-2.5 py-1.5 rounded-xl ${badgeColor} text-white font-mono font-bold text-xs shrink-0 shadow-2xs`}>
+                    {c.startTime || '07:00'}
                   </div>
 
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
-                      isLive
-                        ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24] animate-pulse'
-                        : 'bg-[#EEF2FF] text-[#4F46E5] dark:bg-[#1E1B4B]/60 dark:text-[#818CF8]'
-                    }`}
-                  >
-                    {rel}
-                  </span>
-                </Link>
-              );
-            })}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {c.subject?.name || 'Subject'}
+                      </h4>
+                      {c.subject?.code && (
+                        <span className="text-xs font-mono font-bold text-slate-400">
+                          {c.subject.code}
+                        </span>
+                      )}
+                      {c.topic && (
+                        <span className="text-xs text-slate-600 dark:text-slate-300">
+                          · {c.topic}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
+                      {c.batch?.name || studentData?.batch?.name || 'Class Batch'} · {c.teacher?.fullName || 'Faculty Instructor'}
+                    </p>
+                  </div>
+                </div>
 
-            {upcomingTests.length === 0 && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                <Calendar className="w-4 h-4 text-indigo-500 opacity-70 shrink-0" />
-                <span>No upcoming tests scheduled</span>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
+                    isLive
+                      ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]'
+                      : isCancelled
+                      ? 'bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]'
+                      : isCompleted
+                      ? 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]'
+                      : 'bg-[#EDE9FE] text-[#6366F1] dark:bg-[#312E81]/60 dark:text-[#A5B4FC]'
+                  }`}
+                >
+                  {status}
+                </span>
               </div>
-            )}
-          </div>
+            );
+          })}
+
+          {(!studentData?.todayClasses || studentData.todayClasses.length === 0) && (
+            <div className="py-2.5 px-3.5 rounded-xl bg-slate-50/60 dark:bg-white/[0.02] border border-dashed border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <Clock className="w-4 h-4 text-brand-500 opacity-70 shrink-0" />
+              <span>No classes scheduled for today</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1090,19 +1029,6 @@ export default function DashboardOverviewPage() {
               </Link>
             </div>
 
-            {/* Filter Status Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]">
-                Active {recentStudents.filter((s) => s.status === 'ACTIVE' || !s.status).length}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]">
-                Blocked {recentStudents.filter((s) => s.status === 'BLOCKED').length}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#F3E8FF] text-[#9333EA] dark:bg-[#2E1065]/60 dark:text-[#C084FC]">
-                Archived {recentStudents.filter((s) => s.status === 'ARCHIVED').length}
-              </span>
-            </div>
-
             <div className="space-y-2.5">
               {recentStudents.slice(0, 5).map((s) => {
                 const feeStatus = s.studentProfile?.feeStatus;
@@ -1126,9 +1052,17 @@ export default function DashboardOverviewPage() {
                     className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
-                        {s.fullName?.[0]?.toUpperCase() || 'S'}
-                      </div>
+                      {s.avatarUrl ? (
+                        <img
+                          src={s.avatarUrl}
+                          alt={s.fullName}
+                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 dark:border-white/10 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                          {s.fullName?.[0]?.toUpperCase() || 'S'}
+                        </div>
+                      )}
 
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
@@ -1178,16 +1112,6 @@ export default function DashboardOverviewPage() {
               </Link>
             </div>
 
-            {/* Filter Status Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]">
-                Active {recentTeachers.filter((t) => t.status === 'ACTIVE' || !t.status).length}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]">
-                Blocked {recentTeachers.filter((t) => t.status === 'BLOCKED').length}
-              </span>
-            </div>
-
             <div className="space-y-2.5">
               {recentTeachers.slice(0, 5).map((t) => {
                 const isBlocked = t.status === 'BLOCKED';
@@ -1203,9 +1127,17 @@ export default function DashboardOverviewPage() {
                     className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
-                        {t.fullName?.[0]?.toUpperCase() || 'T'}
-                      </div>
+                      {t.avatarUrl ? (
+                        <img
+                          src={t.avatarUrl}
+                          alt={t.fullName}
+                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 dark:border-white/10 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                          {t.fullName?.[0]?.toUpperCase() || 'T'}
+                        </div>
+                      )}
 
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
