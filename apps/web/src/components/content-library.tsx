@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api, invalidateApiCache } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import VideoCollection from './video-collection';
+import NotesCollection from './notes-collection';
 import { DataTable, IconButton, Modal } from './batch-workspace';
 import { Plus, Pencil, Archive, Trash2, Upload, ArrowLeft, FileText, BookOpen, Copy, Maximize, Minimize, Download, Search, Eye, Monitor, Book, Minus, X } from "lucide-react";
 type R = Record<string, any>;
@@ -107,94 +108,8 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
   const doAssign = async () => { setBusy(true); const done: string[] = []; try { for (const batchId of selectedBatches) { await api.post(`/batches/${batchId}/assign/subjects`, { ids: [modal!.record.id] }, { timeout: 90000 }); done.push(batchId); } setModal(null); setNotice(`Copied to ${done.length} batches`); } catch (e) { setSelectedBatches(selectedBatches.filter(id => !done.includes(id))); setFormError(`${done.length} batches completed. ${message(e)}`); } finally { setBusy(false); } };
   const actions = (kind: string) => (r: R) => <>{manage && <><IconButton title={'Edit ' + title(r)} onClick={() => open(kind, r)}><Pencil size={17} /></IconButton>{kind === 'subjects' && <IconButton title="Copy to batches" onClick={() => assign(r)}><Copy size={17} /></IconButton>}<IconButton title={r.status === 'ACTIVE' ? 'Archive' : 'Publish'} onClick={() => setStatus(kind, r, r.status === 'ACTIVE' ? 'HIDDEN' : 'ACTIVE')}><Archive size={17} /></IconButton><IconButton title={'Delete ' + title(r)} onClick={() => setStatus(kind, r, 'DELETED')}><Trash2 size={17} /></IconButton></>}</>;
   const tests = (records: R[]) => <DataTable rows={records} columns={[{ label: 'Test', render: r => <b>{r.title}</b> }, { label: 'Type', render: r => r.testType }, { label: 'Status', render: r => r.testStatus }, { label: 'Minutes', render: r => r.durationMinutes }, { label: 'Marks', render: r => r.totalMarks }]} onOpen={r => router.push(`/tests/${r.id}`)} />;
-  const NotesCollection = ({ items, onOpen, act }: { items: R[]; onOpen: (r: R) => void; act?: (r: R) => React.ReactNode }) => {
-    const [q, setQ] = useState('');
-    const [subj, setSubj] = useState('ALL');
-    const subjs = Array.from(new Set(items.map((r) => r.lesson?.subject?.name || r.subjectName).filter(Boolean)));
-    const filtered = items.filter((r) => {
-      const s = r.lesson?.subject?.name || r.subjectName || '';
-      if (subj !== 'ALL' && s !== subj) return false;
-      if (q.trim()) {
-        const term = q.toLowerCase();
-        const m = [r.title, r.lesson?.name, s, r.description].filter(Boolean).some((x) => x.toLowerCase().includes(term));
-        if (!m) return false;
-      }
-      return true;
-    });
 
-    return (
-      <div className="space-y-4">
-        <div className="ex-filters-tray">
-          <div className="ex-search-box">
-            <Search size={16} className="text-slate-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search notes, subjects, topics…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          {subjs.length > 1 && (
-            <select className="ex-filter-select" value={subj} onChange={(e) => setSubj(e.target.value)}>
-              <option value="ALL">All Subjects ({subjs.length})</option>
-              {subjs.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div className="text-xs font-semibold text-slate-500">{filtered.length} notes available</div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filtered.map((r) => {
-            const sName = r.lesson?.subject?.name || r.subjectName;
-            const lName = r.lesson?.name || r.lessonName;
-            return (
-              <div
-                key={r.id}
-                className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group cursor-pointer"
-                onClick={() => onOpen(r)}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200/70 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-                    <FileText size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2">
-                      {r.title}
-                    </h4>
-                    {(sName || lName) && (
-                      <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                        {sName ? `${sName} › ` : ''}{lName || ''}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-medium">{bytes(r.fileSizeBytes)}</span>
-                    <span className={`px-2 py-0.5 rounded-full font-bold ${r.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {status(r.status)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                    {act && act(r)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {filtered.length === 0 && (
-          <div className="text-center py-10 text-xs text-slate-400">No notes found matching your filters.</div>
-        )}
-      </div>
-    );
-  };
-
-  const media = (kind: string, records: R[]) => kind === 'videos' ? <VideoCollection rows={records.map(r => ({ ...r, lessonName: r.lesson?.name || data?.name, subjectName: r.lesson?.subject?.name || data?.subject?.name }))} onOpen={r => router.push(`/videos/${r.id}`)} actions={actions(kind)} /> : <NotesCollection items={records.map(r => ({ ...r, lessonName: r.lesson?.name || data?.name, subjectName: r.lesson?.subject?.name || data?.subject?.name }))} onOpen={r => router.push(`/${kind}/${r.id}`)} act={actions(kind)} />;
+  const media = (kind: string, records: R[]) => kind === 'videos' ? <VideoCollection rows={records.map(r => ({ ...r, lessonName: r.lesson?.name || data?.name, subjectName: r.lesson?.subject?.name || data?.subject?.name }))} onOpen={r => router.push(`/videos/${r.id}`)} actions={actions(kind)} /> : <NotesCollection rows={records.map(r => ({ ...r, lessonName: r.lesson?.name || data?.name, subjectName: r.lesson?.subject?.name || data?.subject?.name }))} onOpen={r => router.push(`/${kind}/${r.id}`)} actions={actions(kind)} />;
   const input = (name: string, key: string, type = 'text', required = false) => <label className="ex-field">{name}<input className="ex-input" type={type} required={required} value={form[key] || ''} onChange={e => setForm({ ...form, [key]: e.target.value })} /></label>;
   const activeBatchId = selectedBatchId || (studentBatches.length > 0 ? studentBatches[0].id : '');
   const currentBatch = studentBatches.find(b => b.id === activeBatchId) || (studentBatches.length > 0 ? studentBatches[0] : null);
@@ -299,7 +214,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
     {modal && <Modal title={modal.kind === 'confirm' ? (modal.next === 'DELETED' ? 'Delete record?' : 'Change visibility?') : modal.kind === 'assign' ? 'Copy subject to batches' : `${modal.record.id ? 'Edit' : modal.kind === 'subjects' || modal.kind === 'lessons' ? 'Add' : 'Upload'} ${modal.kind === 'subjects' ? 'subject' : modal.kind === 'lessons' ? 'lesson' : modal.kind === 'videos' ? 'video' : 'notes'}`} onClose={close}>
       {formError && <p role="alert" className="ex-error">{formError}</p>}
       {modal.kind === 'confirm' ? <><p>{title(modal.record)} will be {modal.next === 'DELETED' ? 'marked deleted' : modal.next === 'HIDDEN' ? 'hidden from students' : 'published'}. Existing source copies are not changed.</p><footer className="ex-modal-footer"><button className="ex-btn ghost" onClick={close} disabled={busy}>Cancel</button><button className="ex-btn" onClick={confirm} disabled={busy}>Confirm</button></footer></> : modal.kind === 'assign' ? <><p className="sub">Creates independent copies of lessons, media and tests. Tests start as drafts.</p><div className="ex-picker-list">{batches.map(b => <label className="ex-row" key={b.id}><input type="checkbox" checked={selectedBatches.includes(b.id)} onChange={e => setSelectedBatches(e.target.checked ? [...selectedBatches, b.id] : selectedBatches.filter(v => v !== b.id))} />{b.name}</label>)}</div><footer className="ex-modal-footer"><button className="ex-btn ghost" disabled={busy} onClick={close}>Cancel</button><button className="ex-btn" disabled={busy || !selectedBatches.length} onClick={doAssign}>Copy to {selectedBatches.length} batches</button></footer></> : <form onSubmit={save}>
-        {['subjects', 'lessons'].includes(modal.kind) ? <>{input('Name', 'name', 'text', true)}{modal.kind === 'subjects' && <>{input('Code', 'code')}<label className="ex-field">Icon<div className="ex-toolbar">{['📚', '⚛️', '🧪', '🧬', '📖', '📐', '💻'].map(icon => <button type="button" className={'ex-btn ' + (form.iconUrl === icon ? '' : 'ghost')} key={icon} onClick={() => setForm({ ...form, iconUrl: icon })}>{icon}</button>)}</div></label>{!modal.record.id && <label className="ex-field">Institute<select className="ex-input" required value={form.instituteId || ''} onChange={e => setForm({ ...form, instituteId: e.target.value })}><option value="">Choose institute</option>{institutes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}</>}</> : <>{input('Title', 'title', 'text', true)}<div className="ex-two"><label className="ex-field">Subject<select className="ex-input" required disabled={view === 'lesson' || !!modal.record.id} value={form.subjectId || ''} onChange={e => chooseSubject(e.target.value)}><option value="">Choose subject</option>{library.map(s => <option key={s.id} value={s.id}>{s.name} · {s.batch?.name || 'Main library'}</option>)}</select></label><label className="ex-field">Lesson<select className="ex-input" required disabled={view === 'lesson' || !!modal.record.id} value={form.lessonId || ''} onChange={e => setForm({ ...form, lessonId: e.target.value })}><option value="">Choose lesson</option>{lessons.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label></div><label className="ex-upload" style={{ cursor: 'pointer' }}><Upload size={24} /><b>{modal.kind === 'videos' ? 'Video File' : 'PDF Notes Document'}</b><small>{modal.kind === 'videos' ? 'MP4 / WebM · up to 2 GB' : 'PDF only (.pdf) · up to 20 MB'}</small><input type="file" accept={modal.kind === 'videos' ? '.mp4,.webm,video/mp4,video/webm' : '.pdf,application/pdf'} disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) { if (modal.kind === 'notes') { if (!f.name.toLowerCase().endsWith('.pdf')) { setFormError('Only PDF files (.pdf) are allowed for notes.'); e.target.value = ''; return; } if (f.size > 20 * 1024 * 1024) { setFormError('File exceeds 20 MB limit.'); e.target.value = ''; return; } } setFormError(''); setFile(f); } }} /></label>{file && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: 'var(--pr2, rgba(99,102,241,0.08))', border: '1px solid var(--ln, #334155)', margin: '10px 0 14px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><FileText size={22} style={{ color: modal.kind === 'notes' ? '#ef4444' : '#6366f1', flexShrink: 0 }} /><div style={{ minWidth: 0 }}><p style={{ margin: 0, fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p><p style={{ margin: 0, fontSize: 11, color: 'var(--mu, #94a3b8)' }}>{(file.size / 1024 / 1024).toFixed(2)} MB · {modal.kind === 'notes' ? 'PDF Document' : 'Video'}</p></div></div>{!busy && <button type="button" className="ex-btn ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => setFile(null)}>Remove</button>}</div>}{busy && file && <div style={{ margin: '12px 0' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4, color: 'var(--mu)' }}><span>Uploading {modal.kind === 'notes' ? 'PDF notes' : 'video'}…</span><span style={{ fontWeight: 700 }}>{progress}%</span></div><div style={{ width: '100%', height: 6, borderRadius: 999, background: 'var(--ln, #334155)', overflow: 'hidden' }}><div style={{ width: `${progress}%`, height: '100%', background: 'var(--pr, #6366f1)', transition: 'width 0.2s ease' }} /></div></div>}<p className="ex-muted ex-mb">Or use an existing {modal.kind === 'videos' ? 'video' : 'document'} URL.</p>{input('URL', modal.kind === 'videos' ? 'videoUrl' : 'fileUrl', 'url')}{modal.kind === 'videos' && <><label className="ex-field">Provider<select className="ex-input" value={form.provider} onChange={e => setForm({ ...form, provider: e.target.value })}><option value="YOUTUBE">YouTube</option><option value="DIRECT_MP4">Direct MP4 / WebM</option></select></label><label className="ex-field">Subtitles (optional WebVTT)<input className="ex-input" type="file" accept=".vtt" onChange={e => setSubtitle(e.target.files?.[0] || null)} /></label><label className="ex-check ex-mb"><input type="checkbox" checked={form.watermark} onChange={e => setForm({ ...form, watermark: e.target.checked })} />Watermark student name</label></>}<label className="ex-check ex-mb"><input type="checkbox" checked={form.allowDownload} onChange={e => setForm({ ...form, allowDownload: e.target.checked })} />Allow download</label><label className="ex-field">Visibility<select className="ex-input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="ACTIVE">Published</option><option value="HIDDEN">Draft / hidden</option></select></label></>}
+        {['subjects', 'lessons'].includes(modal.kind) ? <>{input('Name', 'name', 'text', true)}{modal.kind === 'subjects' && <>{input('Code', 'code')}<label className="ex-field">Icon<div className="ex-toolbar">{['📚', '⚛️', '🧪', '🧬', '📖', '📐', '💻'].map(icon => <button type="button" className={'ex-btn ' + (form.iconUrl === icon ? '' : 'ghost')} key={icon} onClick={() => setForm({ ...form, iconUrl: icon })}>{icon}</button>)}</div></label>{!modal.record.id && <label className="ex-field">Institute<select className="ex-input" required value={form.instituteId || ''} onChange={e => setForm({ ...form, instituteId: e.target.value })}><option value="">Choose institute</option>{institutes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}</>}</> : <>{input('Title', 'title', 'text', true)}<div className="ex-two"><label className="ex-field">Subject<select className="ex-input" required disabled={view === 'lesson' || !!modal.record.id} value={form.subjectId || ''} onChange={e => chooseSubject(e.target.value)}><option value="">Choose subject</option>{library.map(s => <option key={s.id} value={s.id}>{s.name} · {s.batch?.name || 'Main library'}</option>)}</select></label><label className="ex-field">Lesson<select className="ex-input" required disabled={view === 'lesson' || !!modal.record.id} value={form.lessonId || ''} onChange={e => setForm({ ...form, lessonId: e.target.value })}><option value="">Choose lesson</option>{lessons.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label></div><label className="ex-upload" style={{ cursor: 'pointer' }}><Upload size={24} /><b>{modal.kind === 'videos' ? 'Video File' : 'PDF Notes Document'}</b><small>{modal.kind === 'videos' ? 'MP4 / WebM · up to 2 GB' : 'Click or drag & drop PDF (.pdf) · up to 20 MB'}</small><input type="file" className="hidden" style={{ display: 'none' }} accept={modal.kind === 'videos' ? '.mp4,.webm,video/mp4,video/webm' : '.pdf,application/pdf'} disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) { if (modal.kind === 'notes') { if (!f.name.toLowerCase().endsWith('.pdf')) { setFormError('Only PDF files (.pdf) are allowed for notes.'); e.target.value = ''; return; } if (f.size > 20 * 1024 * 1024) { setFormError('File exceeds 20 MB limit.'); e.target.value = ''; return; } } setFormError(''); setFile(f); } }} /></label>{file && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: 'var(--pr2, rgba(99,102,241,0.08))', border: '1px solid var(--ln, #334155)', margin: '10px 0 14px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><FileText size={22} style={{ color: modal.kind === 'notes' ? '#ef4444' : '#6366f1', flexShrink: 0 }} /><div style={{ minWidth: 0 }}><p style={{ margin: 0, fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p><p style={{ margin: 0, fontSize: 11, color: 'var(--mu, #94a3b8)' }}>{(file.size / 1024 / 1024).toFixed(2)} MB · {modal.kind === 'notes' ? 'PDF Document' : 'Video'}</p></div></div>{!busy && <button type="button" className="ex-btn ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => setFile(null)}>Remove</button>}</div>}{busy && file && <div style={{ margin: '12px 0' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4, color: 'var(--mu)' }}><span>Uploading {modal.kind === 'notes' ? 'PDF notes' : 'video'}…</span><span style={{ fontWeight: 700 }}>{progress}%</span></div><div style={{ width: '100%', height: 6, borderRadius: 999, background: 'var(--ln, #334155)', overflow: 'hidden' }}><div style={{ width: `${progress}%`, height: '100%', background: 'var(--pr, #6366f1)', transition: 'width 0.2s ease' }} /></div></div>}<p className="ex-muted ex-mb">Or use an existing {modal.kind === 'videos' ? 'video' : 'document'} URL.</p>{input('URL', modal.kind === 'videos' ? 'videoUrl' : 'fileUrl', 'url')}{modal.kind === 'videos' && <><label className="ex-field">Provider<select className="ex-input" value={form.provider} onChange={e => setForm({ ...form, provider: e.target.value })}><option value="YOUTUBE">YouTube</option><option value="DIRECT_MP4">Direct MP4 / WebM</option></select></label><label className="ex-field">Subtitles (optional WebVTT)<input className="ex-input" type="file" accept=".vtt" onChange={e => setSubtitle(e.target.files?.[0] || null)} /></label><label className="ex-check ex-mb"><input type="checkbox" checked={form.watermark} onChange={e => setForm({ ...form, watermark: e.target.checked })} />Watermark student name</label></>}<label className="ex-check ex-mb"><input type="checkbox" checked={form.allowDownload} onChange={e => setForm({ ...form, allowDownload: e.target.checked })} />Allow download</label><label className="ex-field">Visibility<select className="ex-input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="ACTIVE">Published</option><option value="HIDDEN">Draft / hidden</option></select></label></>}
         <label className="ex-field">Description<textarea rows={3} className="ex-input" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} /></label>{busy && file && <p role="status">Upload: {progress}%</p>}<footer className="ex-modal-footer"><button type="button" className="ex-btn ghost" onClick={() => busy ? uploadRef.current?.abort() : close()}>{busy ? 'Cancel upload' : 'Cancel'}</button><button className="ex-btn" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button></footer></form>}
     </Modal>}
   </div>;

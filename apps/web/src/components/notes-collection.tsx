@@ -1,0 +1,746 @@
+'use client';
+
+import React, { useMemo, useState } from 'react';
+import {
+  Search,
+  LayoutGrid,
+  List,
+  FileText,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  X,
+  SlidersHorizontal,
+  Download,
+  Eye,
+  Calendar,
+  Layers,
+  Sparkles,
+} from 'lucide-react';
+
+type Row = Record<string, any>;
+
+function bytes(n: number) {
+  if (!n) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function NoteThumb({ row }: { row: Row }) {
+  const size = Number(row.fileSizeBytes) || 0;
+  const isPdf = !row.fileUrl || row.fileUrl.toLowerCase().includes('.pdf');
+
+  return (
+    <div className="relative aspect-video w-full bg-gradient-to-tr from-slate-900 via-[#13172e] to-[#25173e] text-white flex flex-col items-center justify-center overflow-hidden group-hover:scale-[1.01] transition-transform select-none">
+      {/* Decorative subtle pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
+
+      {/* Centered Document Icon & Label */}
+      <div className="relative z-10 flex flex-col items-center justify-center gap-1.5">
+        <div className="w-11 h-12 rounded-xl bg-rose-500/15 dark:bg-rose-500/25 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-md group-hover:scale-105 transition-transform">
+          <FileText size={24} />
+        </div>
+        <span className="text-[10px] font-extrabold tracking-wider text-slate-300/80 font-mono">
+          {isPdf ? 'PDF DOCUMENT' : 'STUDY NOTE'}
+        </span>
+      </div>
+
+      {/* Top Left: Subject Tag */}
+      {row.subjectName && (
+        <span className="absolute top-2.5 left-2.5 max-w-[65%] truncate text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-slate-200">
+          {row.subjectName}
+        </span>
+      )}
+
+      {/* Bottom Right: File Size */}
+      {size > 0 && (
+        <span className="absolute bottom-2.5 right-2.5 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-white/15 text-slate-200">
+          {bytes(size)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function NotesCollection({
+  rows,
+  onOpen,
+  actions,
+}: {
+  rows: Row[];
+  onOpen: (row: Row) => void;
+  actions?: (row: Row) => React.ReactNode;
+}) {
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [sort, setSort] = useState('newest');
+  const [status, setStatus] = useState('');
+  const [batchFilter, setBatchFilter] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('');
+  const [lessonFilter, setLessonFilter] = useState('');
+  const [datePreset, setDatePreset] = useState('all');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [datePick, setDatePick] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const localDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // Extract unique batches, subjects, and lessons from rows
+  const batches = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      const bId = r.batchId || r.lesson?.subject?.batchId || r.subject?.batchId;
+      const bName = r.batchName || r.lesson?.subject?.batch?.name || r.subject?.batch?.name;
+      if (bId && bName) map.set(bId, bName);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [rows]);
+
+  const subjects = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      const sId = r.subjectId || r.lesson?.subjectId || r.lesson?.subject?.id;
+      const sName = r.subjectName || r.lesson?.subject?.name;
+      const matchesBatch =
+        !batchFilter ||
+        (r.batchId || r.lesson?.subject?.batchId || r.subject?.batchId) === batchFilter;
+      if (sId && sName && matchesBatch) map.set(sId, sName);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [rows, batchFilter]);
+
+  const lessons = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      const lId = r.lessonId || r.lesson?.id;
+      const lName = r.lessonName || r.lesson?.name;
+      if (lId && lName) {
+        const matchesBatch =
+          !batchFilter ||
+          (r.batchId || r.lesson?.subject?.batchId || r.subject?.batchId) === batchFilter;
+        const matchesSubject =
+          !subjectFilter ||
+          (r.subjectId || r.lesson?.subjectId || r.lesson?.subject?.id) === subjectFilter;
+        if (matchesBatch && matchesSubject) {
+          map.set(lId, lName);
+        }
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [rows, batchFilter, subjectFilter]);
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    const todayStr = localDay(now);
+    const yesterday = localDay(new Date(Date.now() - 86400000));
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    const list = rows.filter((r) => {
+      // Status filter
+      if (status && r.status !== status) return false;
+
+      // Batch filter
+      if (batchFilter) {
+        const bId = r.batchId || r.lesson?.subject?.batchId || r.subject?.batchId;
+        if (bId !== batchFilter) return false;
+      }
+
+      // Subject filter
+      if (subjectFilter) {
+        const sId = r.subjectId || r.lesson?.subjectId || r.lesson?.subject?.id;
+        if (sId !== subjectFilter) return false;
+      }
+
+      // Lesson filter
+      if (lessonFilter) {
+        const lId = r.lessonId || r.lesson?.id;
+        if (lId !== lessonFilter) return false;
+      }
+
+      // Date filter
+      if (datePreset !== 'all' && !r.createdAt) return false;
+      if (r.createdAt) {
+        const d = new Date(r.createdAt);
+        const dStr = !isNaN(d.getTime()) ? localDay(d) : '';
+
+        if (datePreset !== 'all' && !dStr) return false;
+        if (datePreset === 'dates' && selectedDates.length && !selectedDates.includes(dStr))
+          return false;
+        if (datePreset === 'today' && dStr !== todayStr) return false;
+        if (datePreset === 'yesterday' && dStr !== yesterday) return false;
+        if (datePreset === 'this_month') {
+          if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
+        } else if (datePreset === 'prev_month') {
+          if (d.getMonth() !== prevMonth || d.getFullYear() !== prevMonthYear) return false;
+        } else if (datePreset === 'range') {
+          if (startDate && dStr < startDate) return false;
+          if (endDate && dStr > endDate) return false;
+        }
+      }
+
+      // Search query
+      if (query.trim()) {
+        const hay = [
+          r.title,
+          r.description,
+          r.lessonName,
+          r.lesson?.name,
+          r.subjectName,
+          r.lesson?.subject?.name,
+          r.batchName,
+          r.lesson?.subject?.batch?.name,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(query.toLowerCase().trim())) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting
+    return list.sort((a, b) => {
+      if (sort === 'name') return (a.title || '').localeCompare(b.title || '');
+      if (sort === 'newest') return +new Date(b.createdAt || 0) - +new Date(a.createdAt || 0);
+      if (sort === 'oldest') return +new Date(a.createdAt || 0) - +new Date(b.createdAt || 0);
+      if (sort === 'size_desc') return (b.fileSizeBytes || 0) - (a.fileSizeBytes || 0);
+      if (sort === 'size_asc') return (a.fileSizeBytes || 0) - (b.fileSizeBytes || 0);
+      const oA = a.sortOrder ?? 0;
+      const oB = b.sortOrder ?? 0;
+      return oA - oB;
+    });
+  }, [
+    rows,
+    query,
+    status,
+    batchFilter,
+    subjectFilter,
+    lessonFilter,
+    datePreset,
+    selectedDates,
+    startDate,
+    endDate,
+    sort,
+  ]);
+
+  const pageSize = 12;
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const current = Math.min(page, pages);
+  const shown = filtered.slice((current - 1) * pageSize, current * pageSize);
+
+  const activeFiltersCount =
+    (status ? 1 : 0) +
+    (batchFilter ? 1 : 0) +
+    (subjectFilter ? 1 : 0) +
+    (lessonFilter ? 1 : 0) +
+    (datePreset !== 'all' ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setStatus('');
+    setBatchFilter('');
+    setSubjectFilter('');
+    setLessonFilter('');
+    setDatePreset('all');
+    setSelectedDates([]);
+    setDatePick('');
+    setStartDate('');
+    setEndDate('');
+    setQuery('');
+    setPage(1);
+  };
+
+  return (
+    <section className="ex-video-library" aria-label="Course study notes">
+      {/* Primary Toolbar */}
+      <div className="ex-video-toolbar">
+        <label className="ex-video-search">
+          <Search size={18} className="text-slate-400 shrink-0" />
+          <input
+            value={query}
+            placeholder="Search notes, subjects, or topics…"
+            aria-label="Search notes"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+          />
+          {query && (
+            <button
+              type="button"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+              onClick={() => {
+                setQuery('');
+                setPage(1);
+              }}
+            >
+              <X size={15} />
+            </button>
+          )}
+        </label>
+
+        {/* Quick Filters */}
+        <select
+          aria-label="Notes status"
+          className="ex-input ex-auto"
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All statuses</option>
+          <option value="ACTIVE">Published</option>
+          <option value="HIDDEN">Draft / Hidden</option>
+        </select>
+
+        <select
+          aria-label="Sort notes"
+          className="ex-input ex-auto"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name">Title A–Z</option>
+          <option value="size_desc">File size: Largest</option>
+          <option value="size_asc">File size: Smallest</option>
+          <option value="order">Lesson order</option>
+        </select>
+
+        {/* Advanced Filters Toggle */}
+        <button
+          type="button"
+          className={`ex-btn ghost ${showAdvanced || activeFiltersCount > 0 ? 'is-active' : ''}`}
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          <SlidersHorizontal size={16} />
+          <span>Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}</span>
+        </button>
+
+        {/* Grid / List Switcher */}
+        <div className="ex-video-switch">
+          <button
+            type="button"
+            className={view === 'grid' ? 'is-active' : ''}
+            aria-label="Grid view"
+            aria-pressed={view === 'grid'}
+            onClick={() => setView('grid')}
+          >
+            <LayoutGrid size={18} />
+          </button>
+          <button
+            type="button"
+            className={view === 'list' ? 'is-active' : ''}
+            aria-label="List view"
+            aria-pressed={view === 'list'}
+            onClick={() => setView('list')}
+          >
+            <List size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Advanced Cascading & Date Filter Tray */}
+      {showAdvanced && (
+        <div className="ex-filters-tray">
+          <div className="ex-filters-grid">
+            {batches.length > 0 && (
+              <label className="ex-filter-item">
+                <span>Batch</span>
+                <select
+                  className="ex-input"
+                  value={batchFilter}
+                  onChange={(e) => {
+                    setBatchFilter(e.target.value);
+                    setSubjectFilter('');
+                    setLessonFilter('');
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All batches</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {subjects.length > 0 && (
+              <label className="ex-filter-item">
+                <span>Subject</span>
+                <select
+                  className="ex-input"
+                  value={subjectFilter}
+                  onChange={(e) => {
+                    setSubjectFilter(e.target.value);
+                    setLessonFilter('');
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All subjects</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {lessons.length > 0 && (
+              <label className="ex-filter-item">
+                <span>Lesson / Chapter</span>
+                <select
+                  className="ex-input"
+                  value={lessonFilter}
+                  onChange={(e) => {
+                    setLessonFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All lessons</option>
+                  {lessons.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="ex-filter-item">
+              <span>Added date</span>
+              <select
+                className="ex-input"
+                value={datePreset}
+                onChange={(e) => {
+                  setDatePreset(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">All dates</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_month">This month</option>
+                <option value="prev_month">Previous month</option>
+                <option value="range">Custom range…</option>
+                <option value="dates">Multiple dates…</option>
+              </select>
+            </label>
+
+            {datePreset === 'dates' && (
+              <label className="ex-filter-item">
+                <span>Choose dates</span>
+                <div className="ex-date-pick">
+                  <input
+                    type="date"
+                    className="ex-input"
+                    value={datePick}
+                    onChange={(e) => setDatePick(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ex-btn ghost"
+                    disabled={!datePick}
+                    onClick={() => {
+                      setSelectedDates([...new Set([...selectedDates, datePick])]);
+                      setDatePick('');
+                      setPage(1);
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="ex-date-chips">
+                  {selectedDates.map((d) => (
+                    <button
+                      type="button"
+                      key={d}
+                      className="ex-chip"
+                      aria-label={'Remove ' + d}
+                      onClick={() => setSelectedDates(selectedDates.filter((x) => x !== d))}
+                    >
+                      {d}
+                      <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              </label>
+            )}
+
+            {datePreset === 'range' && (
+              <>
+                <label className="ex-filter-item">
+                  <span>Start Date</span>
+                  <input
+                    type="date"
+                    className="ex-input"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                </label>
+                <label className="ex-filter-item">
+                  <span>End Date</span>
+                  <input
+                    type="date"
+                    className="ex-input"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                </label>
+              </>
+            )}
+          </div>
+
+          <div className="ex-filter-footer">
+            <small className="ex-muted">Dates refer to when notes were uploaded to Examly.</small>
+            <button type="button" className="ex-btn ghost text-xs" onClick={clearAllFilters}>
+              Reset all filters
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Results Header / Active Filter Pills */}
+      <div className="ex-video-summary-bar">
+        <span className="ex-video-count">
+          <b>{filtered.length}</b> {filtered.length === 1 ? 'note' : 'notes'}
+          {query && ` matching “${query}”`}
+        </span>
+        {activeFiltersCount > 0 && (
+          <div className="ex-active-filter-chips">
+            {batchFilter && (
+              <span className="ex-filter-pill">
+                Batch: {batches.find((b) => b.id === batchFilter)?.name || batchFilter}
+                <button type="button" onClick={() => setBatchFilter('')}>
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+            {subjectFilter && (
+              <span className="ex-filter-pill">
+                Subject: {subjects.find((s) => s.id === subjectFilter)?.name || subjectFilter}
+                <button type="button" onClick={() => setSubjectFilter('')}>
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+            {lessonFilter && (
+              <span className="ex-filter-pill">
+                Lesson: {lessons.find((l) => l.id === lessonFilter)?.name || lessonFilter}
+                <button type="button" onClick={() => setLessonFilter('')}>
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+            {status && (
+              <span className="ex-filter-pill">
+                Status: {status === 'ACTIVE' ? 'Published' : 'Hidden'}
+                <button type="button" onClick={() => setStatus('')}>
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+            {datePreset !== 'all' && (
+              <span className="ex-filter-pill">
+                Date: {datePreset.replace('_', ' ')}
+                <button type="button" onClick={() => setDatePreset('all')}>
+                  <X size={13} />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Notes Grid Display */}
+      {view === 'grid' ? (
+        <div className="ex-video-grid-modern">
+          {shown.map((r) => {
+            const subjectName = r.subjectName || r.lesson?.subject?.name || '';
+            const lessonName = r.lessonName || r.lesson?.name || 'Lecture Notes';
+            const isPublished = r.status === 'ACTIVE';
+
+            return (
+              <article key={r.id} className="ex-video-card-grid group">
+                <button
+                  type="button"
+                  className="ex-video-cover-btn"
+                  onClick={() => onOpen(r)}
+                  aria-label={`Open ${r.title}`}
+                >
+                  <NoteThumb row={r} />
+                </button>
+
+                <div className="ex-video-card-body">
+                  <div className="ex-video-meta-row">
+                    <span className="ex-lesson-tag" title={lessonName}>
+                      {lessonName}
+                    </span>
+                    <span className={`ex-status-pill ${isPublished ? 'published' : 'hidden'}`}>
+                      {isPublished ? 'Published' : 'Draft / Hidden'}
+                    </span>
+                  </div>
+
+                  <h3
+                    className="ex-video-card-title"
+                    title={r.title}
+                    onClick={() => onOpen(r)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    {r.title}
+                  </h3>
+
+                  {subjectName && <p className="ex-subject-subtitle">{subjectName}</p>}
+
+                  <div className="ex-video-card-actions">
+                    <button
+                      type="button"
+                      className="ex-watch-pill-btn"
+                      onClick={() => onOpen(r)}
+                    >
+                      <BookOpen size={14} />
+                      <span>Read notes</span>
+                    </button>
+                    {actions && <div className="ex-actions-menu">{actions(r)}</div>}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        /* Notes List Display */
+        <div className="ex-video-list-modern">
+          {shown.map((r) => {
+            const subjectName = r.subjectName || r.lesson?.subject?.name || '';
+            const lessonName = r.lessonName || r.lesson?.name || 'Lecture Notes';
+            const isPublished = r.status === 'ACTIVE';
+
+            return (
+              <article key={r.id} className="ex-video-card-list group">
+                <button
+                  type="button"
+                  className="ex-video-list-thumb"
+                  onClick={() => onOpen(r)}
+                  aria-label={`Open ${r.title}`}
+                >
+                  <NoteThumb row={r} />
+                </button>
+
+                <div className="ex-video-list-body">
+                  <div className="ex-video-list-top">
+                    <div className="ex-video-list-tags">
+                      <span className="ex-lesson-tag" title={lessonName}>
+                        {lessonName}
+                      </span>
+                    </div>
+                    <span className={`ex-status-pill ${isPublished ? 'published' : 'hidden'}`}>
+                      {isPublished ? 'Published' : 'Draft / Hidden'}
+                    </span>
+                  </div>
+
+                  <h3
+                    className="ex-video-card-title"
+                    title={r.title}
+                    onClick={() => onOpen(r)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    {r.title}
+                  </h3>
+
+                  {subjectName && <p className="ex-subject-subtitle">{subjectName}</p>}
+
+                  <div className="ex-video-list-footer">
+                    <button
+                      type="button"
+                      className="ex-watch-pill-btn"
+                      onClick={() => onOpen(r)}
+                    >
+                      <BookOpen size={14} />
+                      <span>Read notes</span>
+                    </button>
+                    {actions && <div className="ex-actions-menu">{actions(r)}</div>}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!shown.length && (
+        <div className="ex-empty">
+          <FileText size={36} className="text-slate-400" />
+          <b>{rows.length ? 'No matching notes found' : 'No notes uploaded yet'}</b>
+          <span>
+            {rows.length
+              ? 'Try adjusting your search terms, date range, or filter criteria.'
+              : 'Study notes and PDF documents added to this batch or course will appear here.'}
+          </span>
+          {activeFiltersCount > 0 && (
+            <button type="button" className="ex-btn ghost text-xs mt-2" onClick={clearAllFilters}>
+              Clear all filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Pagination Footer */}
+      <footer className="ex-footer">
+        <span>
+          {filtered.length
+            ? `${(current - 1) * pageSize + 1}–${Math.min(current * pageSize, filtered.length)}`
+            : '0'}{' '}
+          of {filtered.length} {filtered.length === 1 ? 'note' : 'notes'}
+        </span>
+        <div className="ex-actions">
+          <button
+            type="button"
+            className="ex-icon"
+            aria-label="Previous notes page"
+            disabled={current === 1}
+            onClick={() => setPage(current - 1)}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span>
+            Page {current} of {pages}
+          </span>
+          <button
+            type="button"
+            className="ex-icon"
+            aria-label="Next notes page"
+            disabled={current === pages}
+            onClick={() => setPage(current + 1)}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </footer>
+    </section>
+  );
+}
