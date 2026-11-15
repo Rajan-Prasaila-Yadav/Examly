@@ -23,6 +23,7 @@ import { youtubeImportRoutes } from './routes/youtube-import.routes';
 import { exportsRoutes } from './routes/exports.routes';
 import { jobsRoutes } from './routes/jobs.routes';
 import { communityRoutes } from './routes/community.routes';
+import { studentFeedRoutes } from './routes/student-feed.routes';
 import {installRoutePolicy} from './plugins/route-policy';
 
 export async function createFastifyApp(): Promise<FastifyInstance> {
@@ -136,6 +137,7 @@ export async function createFastifyApp(): Promise<FastifyInstance> {
   await fastify.register(exportsRoutes);
   await fastify.register(jobsRoutes);
   await fastify.register(communityRoutes);
+  await fastify.register(studentFeedRoutes);
 
   // 8. Global Error Handler
   fastify.setErrorHandler((error: any, request, reply) => {

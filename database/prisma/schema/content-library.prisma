@@ -1,18 +1,67 @@
 model VideoPersonalNote {
- id String @id @default(cuid())
- videoId String
- userId String
- seconds Int
- text String
- createdAt DateTime @default(now())
- video Video @relation(fields:[videoId],references:[id],onDelete:Cascade)
- @@index([videoId,userId])
+  id        String   @id @default(cuid())
+  videoId   String
+  userId    String
+  seconds   Int
+  text      String
+  createdAt DateTime @default(now())
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, userId])
 }
+
 model NoteOpen {
- noteId String
- userId String
- count Int @default(1)
- openedAt DateTime @default(now()) @updatedAt
- note Note @relation(fields:[noteId],references:[id],onDelete:Cascade)
- @@id([noteId,userId])
+  noteId   String
+  userId   String
+  count    Int      @default(1)
+  openedAt DateTime @default(now()) @updatedAt
+  note     Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, userId])
+}
+
+model PdfAnnotation {
+  id           String   @id @default(cuid())
+  noteId       String
+  userId       String
+  pageNumber   Int
+  type         String   // 'HIGHLIGHT' | 'DRAWING' | 'STICKY' | 'TEXT'
+  color        String?
+  content      String?
+  geometryJson String?  // Coordinates, bounding box, or path strokes
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  note         Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, userId])
+  @@index([noteId, pageNumber])
+}
+
+model Bookmark {
+  id           String   @id @default(cuid())
+  userId       String
+  targetType   String   // 'QUESTION' | 'NOTE' | 'VIDEO' | 'LESSON'
+  targetId     String
+  title        String?
+  metadataJson String?
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId, targetType])
+}
+
+model SupportTicket {
+  id        String    @id @default(cuid())
+  userId    String
+  subject   String
+  message   String
+  status    String    @default("OPEN") // 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'
+  priority  String    @default("NORMAL") // 'LOW' | 'NORMAL' | 'HIGH'
+  reply     String?
+  repliedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }

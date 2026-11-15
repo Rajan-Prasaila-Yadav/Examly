@@ -107,6 +107,7 @@ model Note {
   description     String?
   allowDownload   Boolean         @default(true)
   opens           NoteOpen[]
+  annotations     PdfAnnotation[]
   id              String          @id @default(cuid())
   lessonId        String
   title           String
