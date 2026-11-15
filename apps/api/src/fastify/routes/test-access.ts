@@ -17,7 +17,8 @@ export function installTestAccess(app:FastifyInstance){
    if(test.testStatus==='SCHEDULED'&&test.publishAt&&+test.publishAt<=Date.now()){await app.prisma.test.update({where:{id},data:{testStatus:'LIVE',isPublished:true}});test={...test,testStatus:'LIVE',isPublished:true};}
    request.examlyTest=test;
    if(u.roleCode==='STUDENT'){
-    const profile=await app.prisma.studentProfile.findUnique({where:{userId:u.userId},select:{batchId:true,batch:{select:{status:true}}}});
+    const profile=await app.prisma.studentProfile.findUnique({where:{userId:u.userId},select:{batchId:true,batch:{select:{status:true,instituteId:true}}}});
+    if(test.batchId && (!profile?.batchId || profile.batch?.status!=='ACTIVE' || profile.batch?.instituteId!==u.instituteId))return reply.code(404).send({message:'Test not available for this enrollment'});
     if(test.status!=='ACTIVE'||!test.isPublished)return reply.code(404).send({message:'Test not available for this enrollment'});
     if(test.batchId&&profile?.batchId&&test.batchId!==profile.batchId){
       const match=await app.prisma.subject.findFirst({where:{batchId:profile.batchId,OR:[{id:test.subjectId||'__none__'},{copiedFromId:test.subjectId||'__none__'}]}});

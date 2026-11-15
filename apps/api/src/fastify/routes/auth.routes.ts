@@ -92,7 +92,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     const accessToken = jwt.sign(payload, getAccessSecret(), { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ sub: user.id }, getRefreshSecret(), { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ sub: user.id }, getRefreshSecret(), { expiresIn: '7d', jwtid: crypto.randomUUID() });
 
     return {
       accessToken,
@@ -102,6 +102,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   }
 
   // ── 1. LOGIN ──
+  const saveSession = async (userId: string, refreshToken: string, request: any) => {
+    await fastify.prisma.userSession.create({ data: {
+      userId, refreshTokenHash: crypto.createHash('sha256').update(refreshToken).digest('hex'),
+      ipAddress: request.ip, deviceInfo: request.headers['user-agent'] || 'Unknown',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    } });
+  };
+
   fastify.post('/api/v1/auth/login', async (request, reply) => {
     const parsed = LoginSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -143,19 +151,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const tokens = generateTokens(user);
 
-    // Create session
-    const ip = request.ip || '127.0.0.1';
-    const userAgent = request.headers['user-agent'] || 'Unknown';
-
-    await fastify.prisma.userSession.create({
-      data: {
-        userId: user.id,
-        refreshTokenHash: await bcrypt.hash(tokens.refreshToken, 8),
-        ipAddress: ip,
-        deviceInfo: userAgent,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+    await saveSession(user.id, tokens.refreshToken, request);
 
     return {
       user: {
@@ -183,6 +179,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const dto = parsed.data;
+    if (dto.batchId) return reply.code(403).send({ message: 'Batch enrollment must be assigned by your institute administrator.' });
     const cleanEmail = dto.email.trim().toLowerCase();
 
     const existing = await fastify.prisma.user.findFirst({
@@ -234,6 +231,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     const tokens = generateTokens(user);
+    await saveSession(user.id, tokens.refreshToken, request);
 
     return reply.status(201).send({
       message: 'Registration successful',
@@ -365,6 +363,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const tokens = generateTokens(user);
+    await saveSession(user.id, tokens.refreshToken, request);
 
     return {
       user: {
@@ -399,14 +398,31 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const user = await fastify.prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { role: true },
+        include: { role: true, institute: true },
       });
 
-      if (!user || user.status !== RecordStatus.ACTIVE) {
+      if (!user || user.status !== RecordStatus.ACTIVE || (user.role.code !== RoleType.SUPER_ADMIN && user.institute?.status !== RecordStatus.ACTIVE)) {
         return reply.status(401).send({ statusCode: 401, message: 'User is inactive or deleted' });
       }
 
+      const sessions = await fastify.prisma.userSession.findMany({
+        where: { userId: user.id, isActive: true, expiresAt: { gt: new Date() } },
+      });
+      const hash = crypto.createHash('sha256').update(parsed.data.refreshToken).digest('hex');
+      let session;
+      for (const candidate of sessions) {
+        const matches = candidate.refreshTokenHash.startsWith('$2')
+          ? await bcrypt.compare(parsed.data.refreshToken, candidate.refreshTokenHash)
+          : candidate.refreshTokenHash === hash;
+        if (matches) { session = candidate; break; }
+      }
+      if (!session) return reply.code(401).send({ message: 'Session expired or revoked. Please sign in again.' });
       const tokens = generateTokens(user);
+      const rotated = await fastify.prisma.userSession.updateMany({
+        where: { id: session.id, isActive: true, refreshTokenHash: session.refreshTokenHash, expiresAt: { gt: new Date() } },
+        data: { refreshTokenHash: crypto.createHash('sha256').update(tokens.refreshToken).digest('hex'), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+      });
+      if (rotated.count !== 1) return reply.code(401).send({ message: 'Session has already been renewed. Please sign in again.' });
       return tokens;
     } catch (err) {
       return reply.status(401).send({ statusCode: 401, message: 'Invalid or expired refresh token' });
@@ -617,6 +633,12 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const dto = parsed.data;
+      if (dto.batchId !== undefined) {
+        const existing = await fastify.prisma.studentProfile.findUnique({ where: { userId: user.userId }, select: { batchId: true } });
+        if ((dto.batchId || null) !== (existing?.batchId || null)) {
+          return reply.code(403).send({ message: 'Batch enrollment must be assigned by your institute administrator.' });
+        }
+      }
 
       await fastify.prisma.user.update({
         where: { id: user.userId },
@@ -632,7 +654,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           create: {
             userId: user.userId,
             rollNumber: dto.rollNumber?.trim() || `STU-${Math.floor(10000 + Math.random() * 90000)}`,
-            batchId: dto.batchId || null,
+            batchId: null,
             province: dto.province || 'Bagmati',
             district: dto.district || 'Kathmandu',
             municipality: dto.municipality || 'Kathmandu Metropolitan City',
@@ -641,7 +663,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           },
           update: {
             rollNumber: dto.rollNumber?.trim() || undefined,
-            batchId: dto.batchId !== undefined ? dto.batchId : undefined,
             province: dto.province || undefined,
             district: dto.district || undefined,
             municipality: dto.municipality || undefined,

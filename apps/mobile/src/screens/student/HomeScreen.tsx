@@ -10,35 +10,39 @@ import {
   ActivityIndicator,
   StatusBar,
   Image,
-  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { apiClient } from '../../api/client';
 import { useAuth } from '../../auth/auth-context';
 import {
-  Layers,
-  FileCheck2,
-  PlayCircle,
-  BookOpen,
-  Calendar,
-  Clock,
-  ChevronRight,
-  Sparkles,
-  Bookmark,
   Bell,
-  LogOut,
+  GraduationCap,
+  ChevronRight,
+  Play,
+  FileText,
+  Bookmark,
+  Download,
+  Flame,
+  ClipboardCheck,
+  Clock,
+  HelpCircle,
 } from 'lucide-react-native';
 
+interface HomeScreenProps {
+  onNavigateTab?: (tab: 'home' | 'learn' | 'tests' | 'activity' | 'profile') => void;
+  onOpenTest?: (id?: string) => void;
+  onOpenVideo?: (id?: string) => void;
+  onOpenNote?: (id?: string) => void;
+  onOpenBatch?: (id?: string) => void;
+}
+
 export function HomeScreen({
+  onNavigateTab,
   onOpenTest,
   onOpenVideo,
   onOpenNote,
   onOpenBatch,
-}: {
-  onOpenTest?: (id: string) => void;
-  onOpenVideo?: (id: string) => void;
-  onOpenNote?: (id: string) => void;
-  onOpenBatch?: (id: string) => void;
-}) {
+}: HomeScreenProps) {
   const { user, logout } = useAuth();
   const [feed, setFeed] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -66,12 +70,26 @@ export function HomeScreen({
 
   useEffect(() => {
     fetchFeed();
-    // Auto-sync with web backend every 10 seconds for real-time updates
-    const timer = setInterval(() => {
-      fetchFeed(true);
-    }, 10000);
-    return () => clearInterval(timer);
   }, [fetchFeed]);
+
+  const student = feed?.student || user;
+  const firstName = student?.fullName?.split(' ')[0] || 'Rajan';
+  const batch = feed?.enrolledBatch || { name: 'CEE Preparation 2027' };
+  const continueVideo = feed?.continueWatching?.video || {
+    title: 'Coulomb’s Law',
+    lesson: { name: 'Electric Charges & Fields', subject: { name: 'Physics' } },
+  };
+  const liveTest = feed?.liveTests?.[0] || {
+    id: 'test-cee-06',
+    title: 'CEE Full Mock Test 06',
+    durationMinutes: 180,
+    questionsCount: 180,
+    formattedDate: '16 Nov • 7:00 AM',
+  };
+
+  // Greeting based on time of day
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   if (loading) {
     return (
@@ -82,41 +100,44 @@ export function HomeScreen({
     );
   }
 
-  const student = feed?.student || user;
-  const batch = feed?.enrolledBatch || feed?.batch || student?.batch || student?.studentProfile?.batch;
-  const liveTest = feed?.liveTests?.[0];
-  const continueVideo = feed?.continueWatching;
-  const recentNotes = feed?.recentNotes || [];
-  const todayClasses = feed?.todayClasses || [];
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#060709" />
+      <StatusBar barStyle="light-content" backgroundColor="#07080E" />
 
-      {/* Top App Bar */}
-      <View style={styles.topBar}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{student?.fullName?.[0] || 'S'}</Text>
-          </View>
-          <View>
-            <Text style={styles.greetingText}>Welcome back,</Text>
-            <Text style={styles.userNameText}>{student?.fullName || 'Student'}</Text>
-          </View>
+      {/* Top Header */}
+      <View style={styles.topHeader}>
+        <View style={styles.logoRow}>
+          <Image
+            source={require('../../../assets/logo_icon.png')}
+            style={styles.logoIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.logoWordmark}>Examly</Text>
         </View>
 
-        <View style={styles.topActions}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => {}}>
-            <Bell size={20} color="#E2E8F0" />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => onNavigateTab?.('activity')}
+            activeOpacity={0.8}
+          >
+            <Bell size={21} color="#E2E8F0" />
+            <View style={styles.unreadDot} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={logout}>
-            <LogOut size={20} color="#F87171" />
+
+          <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={() => onNavigateTab?.('profile')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.avatarText}>{firstName[0]?.toUpperCase() || 'R'}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -125,167 +146,223 @@ export function HomeScreen({
           />
         }
       >
-        {/* Error message */}
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
+        {/* Greeting Section */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingTitle}>
+            {greeting}, {firstName}
+          </Text>
+          <Text style={styles.greetingSubtitle}>Keep your preparation moving.</Text>
+        </View>
 
-        {/* 1. Live Test Alert Banner (if active) */}
-        {liveTest && (
+        {/* Batch Selector Card */}
+        <TouchableOpacity
+          style={styles.batchSelector}
+          onPress={() => onNavigateTab?.('learn')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.batchSelectorLeft}>
+            <GraduationCap size={22} color="#8B80F5" />
+            <Text style={styles.batchSelectorText}>{batch.name || 'CEE Preparation 2027'}</Text>
+          </View>
+          <ChevronRight size={18} color="#8A8F9E" />
+        </TouchableOpacity>
+
+        {/* Continue Learning Hero Card */}
+        <LinearGradient
+          colors={['#322278', '#4F33BA', '#6D4FF0']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroTop}>
+            <View style={styles.heroTextCol}>
+              <Text style={styles.heroTag}>CONTINUE LEARNING</Text>
+              <Text style={styles.heroTitle} numberOfLines={1}>
+                {continueVideo.lesson?.name || 'Electric Charges & Fields'}
+              </Text>
+              <Text style={styles.heroSubtitle}>
+                {continueVideo.lesson?.subject?.name || 'Physics'} • Lesson 4 of 12
+              </Text>
+
+              {/* Progress Line */}
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: '40%' }]} />
+              </View>
+              <Text style={styles.progressTimeText}>18 min left</Text>
+            </View>
+
+            {/* Illustration / Graphic right */}
+            <View style={styles.heroGraphicBox}>
+              <View style={styles.orbitalRing}>
+                <View style={styles.orbitalPlanet} />
+              </View>
+            </View>
+          </View>
+
           <TouchableOpacity
-            style={styles.liveBanner}
-            onPress={() => onOpenTest?.(liveTest.id)}
+            style={styles.resumeButton}
+            onPress={() => onOpenVideo?.(continueVideo.id)}
             activeOpacity={0.9}
           >
-            <View style={styles.liveBadgeRow}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveBadgeText}>LIVE TEST ACTIVE</Text>
-              <Text style={styles.liveDurationText}>{liveTest.durationMinutes} mins</Text>
-            </View>
-            <Text style={styles.liveTestTitle}>{liveTest.title}</Text>
-            <View style={styles.liveFooter}>
-              <Text style={styles.liveBatchText}>{liveTest.batch?.name || 'Batch Exam'}</Text>
-              <View style={styles.joinButton}>
-                <Text style={styles.joinButtonText}>Take Exam</Text>
-                <ChevronRight size={14} color="#FFFFFF" />
-              </View>
-            </View>
+            <Play size={16} color="#6D4FF0" fill="#6D4FF0" />
+            <Text style={styles.resumeButtonText}>Resume</Text>
           </TouchableOpacity>
-        )}
+        </LinearGradient>
 
-        {/* 2. Enrolled Batch Card */}
+        {/* Quick Access Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>My Batch</Text>
-          <TouchableOpacity onPress={() => onOpenBatch?.(batch?.id)}>
-            <Text style={styles.sectionAction}>View all</Text>
+          <Text style={styles.sectionTitle}>Quick access</Text>
+        </View>
+
+        <View style={styles.quickAccessGrid}>
+          {/* Videos */}
+          <TouchableOpacity
+            style={styles.quickCard}
+            onPress={() => onNavigateTab?.('learn')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#2D1F6E', '#1B1C2E']}
+              style={styles.quickCardGradient}
+            >
+              <View style={[styles.quickIconCircle, { backgroundColor: '#7C65F6' }]}>
+                <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+              </View>
+              <Text style={styles.quickCardLabel}>Videos</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Notes */}
+          <TouchableOpacity
+            style={styles.quickCard}
+            onPress={() => onOpenNote?.()}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#1E234A', '#1B1C2E']}
+              style={styles.quickCardGradient}
+            >
+              <View style={[styles.quickIconCircle, { backgroundColor: '#4C6EF5' }]}>
+                <FileText size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickCardLabel}>Notes</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Bookmarks */}
+          <TouchableOpacity
+            style={styles.quickCard}
+            onPress={() => onNavigateTab?.('activity')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#3B1F3D', '#1B1C2E']}
+              style={styles.quickCardGradient}
+            >
+              <View style={[styles.quickIconCircle, { backgroundColor: '#E64980' }]}>
+                <Bookmark size={18} color="#FFFFFF" fill="#FFFFFF" />
+              </View>
+              <Text style={styles.quickCardLabel}>Bookmarks</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Downloads */}
+          <TouchableOpacity
+            style={styles.quickCard}
+            onPress={() => onNavigateTab?.('activity')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#1D2E4A', '#1B1C2E']}
+              style={styles.quickCardGradient}
+            >
+              <View style={[styles.quickIconCircle, { backgroundColor: '#339AF0' }]}>
+                <Download size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickCardLabel}>Downloads</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {batch ? (
-          <TouchableOpacity
-            style={styles.batchCard}
-            onPress={() => onOpenBatch?.(batch.id)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.batchHeader}>
-              <View style={styles.batchBadge}>
-                <Layers size={14} color="#8B80F5" />
-                <Text style={styles.batchBadgeText}>{batch.code}</Text>
-              </View>
-              <Text style={styles.batchStatus}>Active</Text>
-            </View>
-            <Text style={styles.batchName}>{batch.name}</Text>
-            <Text style={styles.batchSubjectsCount}>
-              {batch.subjects?.length || 0} enrolled subjects • Complete curriculum
-            </Text>
+        {/* Upcoming Test Section */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Upcoming test</Text>
+          <TouchableOpacity onPress={() => onNavigateTab?.('tests')} activeOpacity={0.8}>
+            <Text style={styles.viewAllText}>View all</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Not enrolled in an active batch.</Text>
-          </View>
-        )}
+        </View>
 
-        {/* 3. Continue Learning Video */}
-        {continueVideo && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Continue Learning</Text>
+        <View style={styles.upcomingTestCard}>
+          <View style={styles.testBadgeRow}>
+            <View style={styles.tomorrowBadge}>
+              <Text style={styles.tomorrowBadgeText}>TOMORROW</Text>
             </View>
+          </View>
+
+          <Text style={styles.testCardTitle}>
+            {liveTest.title || 'CEE Full Mock Test 06'}
+          </Text>
+          <Text style={styles.testDateTimeText}>
+            {liveTest.formattedDate || '16 Nov • 7:00 AM'}
+          </Text>
+
+          <View style={styles.testFooterRow}>
+            <View style={styles.testMetaLeft}>
+              <View style={styles.testMetaItem}>
+                <ClipboardCheck size={16} color="#8A8F9E" />
+                <Text style={styles.testMetaText}>
+                  {liveTest.questionsCount || 180} questions
+                </Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={styles.testMetaItem}>
+                <Clock size={16} color="#8A8F9E" />
+                <Text style={styles.testMetaText}>
+                  {Math.round((liveTest.durationMinutes || 180) / 60)} hours
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
-              style={styles.videoCard}
-              onPress={() => onOpenVideo?.(continueVideo.videoId)}
+              style={styles.viewDetailsButton}
+              onPress={() => onOpenTest?.(liveTest.id)}
               activeOpacity={0.85}
             >
-              <View style={styles.videoPlayCircle}>
-                <PlayCircle size={28} color="#8B80F5" />
-              </View>
-              <View style={styles.videoInfo}>
-                <Text style={styles.videoSubject}>
-                  {continueVideo.video?.lesson?.subject?.name || 'Subject'}
-                </Text>
-                <Text style={styles.videoTitle} numberOfLines={1}>
-                  {continueVideo.video?.title || 'Lecture'}
-                </Text>
-                {/* Progress bar */}
-                <View style={styles.progressBarTrack}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${Math.min(
-                          100,
-                          ((continueVideo.progressSeconds || 0) /
-                            (continueVideo.durationSeconds || 1)) *
-                            100
-                        )}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
+              <Text style={styles.viewDetailsText}>View details</Text>
             </TouchableOpacity>
-          </>
-        )}
-
-        {/* 4. Today's Timetable / Classes */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today's Classes</Text>
+          </View>
         </View>
 
-        {todayClasses.length > 0 ? (
-          todayClasses.map((item: any) => (
-            <View key={item.id} style={styles.classCard}>
-              <View style={styles.classTimeBox}>
-                <Clock size={14} color="#8B80F5" />
-                <Text style={styles.classTimeText}>{item.startTime}</Text>
-              </View>
-              <View style={styles.classInfo}>
-                <Text style={styles.classSubject}>{item.subject?.name || 'Lecture'}</Text>
-                <Text style={styles.classTeacher}>By {item.teacher?.fullName || 'Faculty'}</Text>
-              </View>
-              <View style={styles.classStatusPill}>
-                <Text style={styles.classStatusText}>{item.status}</Text>
-              </View>
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyCard}>
-            <Calendar size={18} color="#64748B" style={{ marginBottom: 4 }} />
-            <Text style={styles.emptyText}>No live classes scheduled for today.</Text>
-          </View>
-        )}
+        {/* Your Preparation Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your preparation</Text>
+        </View>
 
-        {/* 5. Recent Notes & Handouts */}
-        {recentNotes.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Notes</Text>
+        <View style={styles.prepRow}>
+          {/* Tests completed */}
+          <View style={styles.prepCard}>
+            <View style={[styles.prepIconCircle, { backgroundColor: '#6D4FF025' }]}>
+              <ClipboardCheck size={22} color="#8B80F5" />
             </View>
-            {recentNotes.map((note: any) => (
-              <TouchableOpacity
-                key={note.id}
-                style={styles.noteCard}
-                onPress={() => onOpenNote?.(note.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.noteIconBox}>
-                  <BookOpen size={18} color="#8B80F5" />
-                </View>
-                <View style={styles.noteInfo}>
-                  <Text style={styles.noteTitle} numberOfLines={1}>
-                    {note.title}
-                  </Text>
-                  <Text style={styles.noteMeta}>
-                    {note.lesson?.subject?.name || 'Handout'} • PDF Document
-                  </Text>
-                </View>
-                <ChevronRight size={16} color="#64748B" />
-              </TouchableOpacity>
-            ))}
-          </>
-        )}
+            <View style={styles.prepCardTextCol}>
+              <Text style={styles.prepLabel}>Tests completed</Text>
+              <Text style={styles.prepNumber}>{feed?.stats?.testsTaken || 12}</Text>
+            </View>
+          </View>
+
+          {/* Study streak */}
+          <View style={styles.prepCard}>
+            <View style={[styles.prepIconCircle, { backgroundColor: '#F59E0B25' }]}>
+              <Flame size={22} color="#F59E0B" />
+            </View>
+            <View style={styles.prepCardTextCol}>
+              <Text style={styles.prepLabel}>Study streak</Text>
+              <Text style={styles.prepNumber}>5 days</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.quoteText}>Small steps. Stronger preparation.</Text>
       </ScrollView>
     </View>
   );
@@ -294,344 +371,375 @@ export function HomeScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060709',
+    backgroundColor: '#07080E',
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: '#060709',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#07080E',
+    gap: 12,
   },
   loadingText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    marginTop: 12,
+    color: '#8A8F9E',
+    fontSize: 14,
   },
-  topBar: {
+  topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 48,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#161926',
-    backgroundColor: '#090B10',
+    paddingBottom: 12,
   },
-  userInfo: {
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoIcon: {
+    width: 28,
+    height: 28,
+  },
+  logoWordmark: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#5B4FCF',
-    justifyContent: 'center',
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#141624',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#212538',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#8B80F5',
+  },
+  avatarButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#8B80F5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarText: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 18,
-  },
-  greetingText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  userNameText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  topActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#161926',
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: 16,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 12,
-    padding: 12,
+  greetingSection: {
+    marginTop: 10,
     marginBottom: 16,
   },
-  errorText: {
-    color: '#F87171',
-    fontSize: 12,
-    textAlign: 'center',
+  greetingTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
-  liveBanner: {
-    backgroundColor: '#31102A',
-    borderColor: '#E11D48',
-    borderWidth: 1.5,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
+  greetingSubtitle: {
+    color: '#8A8F9E',
+    fontSize: 14,
+    marginTop: 4,
   },
-  liveBadgeRow: {
+  batchSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#F43F5E',
-  },
-  liveBadgeText: {
-    color: '#FDA4AF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  liveDurationText: {
-    marginLeft: 'auto',
-    color: '#FDA4AF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  liveTestTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 10,
-  },
-  liveFooter: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  liveBatchText: {
-    color: '#FDA4AF',
-    fontSize: 12,
-  },
-  joinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E11D48',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  sectionAction: {
-    fontSize: 12,
-    color: '#8B80F5',
-    fontWeight: '600',
-  },
-  batchCard: {
-    backgroundColor: '#0E111A',
-    borderColor: '#1E2333',
+    backgroundColor: '#111320',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 16,
+    borderColor: '#1F2236',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 18,
   },
-  batchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  batchBadge: {
+  batchSelectorLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(91, 79, 207, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  batchBadgeText: {
-    color: '#8B80F5',
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  batchStatus: {
-    color: '#34D399',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  batchName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  batchSubjectsCount: {
-    color: '#94A3B8',
-    fontSize: 12,
-  },
-  videoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0E111A',
-    borderColor: '#1E2333',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 18,
     gap: 12,
   },
-  videoPlayCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(91, 79, 207, 0.15)',
-    justifyContent: 'center',
+  batchSelectorText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  heroCard: {
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  videoInfo: {
+  heroTextCol: {
     flex: 1,
   },
-  videoSubject: {
-    color: '#8B80F5',
+  heroTag: {
+    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
-  videoTitle: {
+  heroTitle: {
     color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  heroSubtitle: {
+    color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 13,
-    fontWeight: '700',
-    marginVertical: 2,
+    marginTop: 4,
+    marginBottom: 14,
   },
   progressBarTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#1E2333',
-    marginTop: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: '100%',
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#8B80F5',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
   },
-  classCard: {
-    flexDirection: 'row',
+  progressTimeText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  heroGraphicBox: {
+    width: 80,
+    height: 80,
     alignItems: 'center',
-    backgroundColor: '#0E111A',
-    borderColor: '#1E2333',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    gap: 12,
-  },
-  classTimeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#161926',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  classTimeText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  classInfo: {
-    flex: 1,
-  },
-  classSubject: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  classTeacher: {
-    color: '#94A3B8',
-    fontSize: 11,
-  },
-  classStatusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-  },
-  classStatusText: {
-    color: '#34D399',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  noteCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0E111A',
-    borderColor: '#1E2333',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 8,
-    gap: 12,
-  },
-  noteIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#161926',
     justifyContent: 'center',
+  },
+  orbitalRing: {
+    width: 60,
+    height: 36,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    transform: [{ rotate: '-25deg' }],
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  noteInfo: {
-    flex: 1,
+  orbitalPlanet: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#C4B5FD',
   },
-  noteTitle: {
+  resumeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 12,
+    marginTop: 18,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 24,
+  },
+  resumeButtonText: {
+    color: '#6D4FF0',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  viewAllText: {
+    color: '#8B80F5',
     fontWeight: '700',
+    fontSize: 13,
   },
-  noteMeta: {
-    color: '#64748B',
-    fontSize: 11,
-    marginTop: 2,
+  quickAccessGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  emptyCard: {
-    backgroundColor: '#0E111A',
-    borderColor: '#1E2333',
+  quickCard: {
+    width: '23%',
+    aspectRatio: 0.95,
+  },
+  quickCardGradient: {
+    flex: 1,
+    borderRadius: 18,
     borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: '#1E2135',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  quickIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickCardLabel: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  upcomingTestCard: {
+    backgroundColor: '#111320',
+    borderWidth: 1,
+    borderColor: '#1F2236',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+  },
+  testBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  tomorrowBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tomorrowBadgeText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  testCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  testDateTimeText: {
+    color: '#8A8F9E',
+    fontSize: 13,
+    marginTop: 4,
     marginBottom: 16,
   },
-  emptyText: {
-    color: '#64748B',
+  testFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  testMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  testMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  testMetaText: {
+    color: '#8A8F9E',
     fontSize: 12,
+    fontWeight: '500',
+  },
+  metaDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#262A40',
+  },
+  viewDetailsButton: {
+    borderWidth: 1,
+    borderColor: '#8B80F5',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  viewDetailsText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  prepRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  prepCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111320',
+    borderWidth: 1,
+    borderColor: '#1F2236',
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+  prepIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prepCardTextCol: {
+    flex: 1,
+  },
+  prepLabel: {
+    color: '#8A8F9E',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  prepNumber: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  quoteText: {
+    textAlign: 'center',
+    color: '#555A70',
+    fontSize: 12,
+    marginTop: 8,
   },
 });

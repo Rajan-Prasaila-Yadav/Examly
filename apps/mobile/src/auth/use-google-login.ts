@@ -7,8 +7,8 @@ export function useGoogleLogin() {
     if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
       throw new Error('Google sign-in requires the installed Examly app. Open the Examly development build instead of Expo Go.');
     }
-    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    const webClientId = (process.env as any).EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    const iosClientId = (process.env as any).EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
     if (!webClientId || (Platform.OS === 'ios' && !iosClientId)) {
       throw new Error('Google sign-in is not configured for this app build.');
     }

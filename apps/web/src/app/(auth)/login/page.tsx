@@ -143,9 +143,6 @@ export default function LoginPage() {
         try {
           const batchRes = await api.get('/batches');
           setAvailableBatches(batchRes.data || []);
-          if (batchRes.data?.length > 0 && !user.studentProfile?.batchId) {
-            setOnboardingBatchId(batchRes.data[0].id);
-          }
         } catch {
           // ignore
         }
@@ -182,11 +179,10 @@ export default function LoginPage() {
 
     setIsOnboardingSubmitting(true);
     try {
-      const res = await api.post('/auth/onboarding', {
+      const res = await api.patch('/auth/onboarding', {
         fullName: onboardingFullName,
         phone: onboardingPhone,
         rollNumber: onboardingRollNumber,
-        batchId: onboardingBatchId,
         province: onboardingProvince,
         district: onboardingDistrict,
         municipality: onboardingMunicipality,
@@ -239,13 +235,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (email: string, pass: string) => {
-    setIdentifier(email);
-    setPassword(pass);
-    setError('');
-    setBlockedNotice(null);
   };
 
   return (
@@ -398,31 +387,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* 1-Click Quick Demo Switcher */}
-        <div className="mt-7 pt-5 border-t border-slate-800/80">
-          <p className="text-[11px] font-medium text-slate-400 mb-3 text-center flex items-center justify-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-amber-400" /> 1-Click Fast Accounts:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('rajanprasaila@gmail.com', 'Admin@Examly2026!')}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-750 border border-brand-500/40 hover:border-brand-500 rounded-xl text-[11px] text-slate-300 font-medium text-left transition-all cursor-pointer"
-            >
-              👑 <span className="text-white font-bold">Super Admin</span>
-              <span className="block text-[9px] text-brand-400 truncate font-mono">rajanprasaila@...</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('director@apexmedical.edu.np', 'Admin@Examly2026!')}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700/60 rounded-xl text-[11px] text-slate-300 font-medium text-left hover:border-brand-500/50 transition-all cursor-pointer"
-            >
-              🏫 <span className="text-white font-bold">Institute Admin</span>
-              <span className="block text-[9px] text-slate-400 truncate font-mono">director@apex...</span>
-            </button>
-          </div>
-        </div>
-
         {/* Signup & Support Links */}
         <div className="mt-5 pt-4 border-t border-slate-800/80 flex justify-between text-xs">
           <Link href="/signup" className="text-brand-400 hover:text-brand-300 font-semibold transition-colors">
@@ -515,10 +479,10 @@ export default function LoginPage() {
 
               {/* Batch Selection */}
               <div>
-                <label className="block text-slate-400 font-semibold mb-1">Select Your Batch *</label>
+                <label className="block text-slate-400 font-semibold mb-1">Assigned batch</label>
                 <select
                   value={onboardingBatchId}
-                  onChange={(e) => setOnboardingBatchId(e.target.value)}
+                  disabled
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   {availableBatches.map((b) => (
@@ -527,9 +491,10 @@ export default function LoginPage() {
                     </option>
                   ))}
                   {availableBatches.length === 0 && (
-                    <option value="">General Medical Entrance Batch</option>
+                    <option value="">Not enrolled yet</option>
                   )}
                 </select>
+                <p className="mt-2 text-xs text-slate-400">Your institute administrator manages enrollment. Contact your institute if a batch is missing.</p>
               </div>
 
               {/* Location Details (Nepal) */}

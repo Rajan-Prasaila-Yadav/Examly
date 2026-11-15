@@ -3,15 +3,17 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// For physical Android devices connected over USB/WiFi:
-// In development, you can use your computer's local network IP or port-forwarded localhost (via `adb reverse tcp:4000 tcp:4000`)
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (Platform.OS === 'android' ? 'http://127.0.0.1:4000' : 'http://localhost:4000');
+const FALLBACK_ENDPOINTS = [
+  (process.env as any).EXPO_PUBLIC_API_URL || 'http://127.0.0.1:4000',
+  'http://10.255.75.94:4000',
+  'https://examly-pi.vercel.app',
+];
+
+let currentBaseUrl = FALLBACK_ENDPOINTS[0];
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 15000,
+  baseURL: currentBaseUrl,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -31,10 +33,26 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Interceptor for 401 token expiry handling
+// Interceptor for network fallback and 401 token expiry handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const originalRequest = error.config;
+
+    // If network error occurred (e.g. 127.0.0.1 unreachable because USB cable disconnected)
+    if (!error.response && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const currentIndex = FALLBACK_ENDPOINTS.indexOf(currentBaseUrl);
+      const nextIndex = (currentIndex + 1) % FALLBACK_ENDPOINTS.length;
+      if (nextIndex !== currentIndex) {
+        currentBaseUrl = FALLBACK_ENDPOINTS[nextIndex];
+        apiClient.defaults.baseURL = currentBaseUrl;
+        originalRequest.baseURL = currentBaseUrl;
+        console.log(`[apiClient] Switching base URL to ${currentBaseUrl} and retrying...`);
+        return apiClient(originalRequest);
+      }
+    }
+
     if (error.response?.status === 401) {
       try {
         await SecureStore.deleteItemAsync('examly_token');

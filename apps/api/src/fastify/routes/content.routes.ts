@@ -1,3 +1,4 @@
+import { contentAccess } from './content-access';
 import {FastifyPluginAsync} from 'fastify';
 import {z} from 'zod';
 import {requirePermission} from '../plugins/rbac.plugin';
@@ -12,17 +13,9 @@ const noteSchema=z.object({title:z.string().trim().min(1).max(200),fileUrl:http,
 export const contentRoutes:FastifyPluginAsync=async app=>{
  const db=app.prisma;
  const gate=(resource:string,action='read')=>({preHandler:[app.authenticate,requirePermission(resource,action)]});
- const scope=async(u:any)=>{
-  if(u.roleCode==='STUDENT'){const p=await db.studentProfile.findUnique({where:{userId:u.userId},select:{batchId:true}});return {status:'ACTIVE',batchId:p?.batchId||'__none__',batch:{instituteId:u.instituteId||'__none__',status:'ACTIVE'}};}
-  if(u.roleCode==='TEACHER')return {status:{not:'DELETED'},OR:[{batchId:null,instituteId:u.instituteId||'__none__'},{batch:{instituteId:u.instituteId||'__none__',status:'ACTIVE',faculty:{some:{userId:u.userId}}}}]};
-  return {status:{not:'DELETED'},...(u.roleCode==='SUPER_ADMIN'?{}:{OR:[{instituteId:u.instituteId||'__none__'},{batch:{instituteId:u.instituteId||'__none__',status:{not:'DELETED'}}}]})};
- };
- const subjectAccess=async(id:string,u:any)=>{const s=await db.subject.findFirst({where:{id,...await scope(u)} as any});if(!s)return fail('Subject not found',404);return s;};
- const lessonAccess=async(id:string,u:any)=>{const l=await db.lesson.findFirst({where:{id,status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}}});if(!l)return fail('Lesson not found',404);await subjectAccess(l.subjectId,u);return l;};
- const videoAccess=async(id:string,u:any)=>{const v=await db.video.findFirst({where:{id,status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}}});if(!v)return fail('Video not found',404);await lessonAccess(v.lessonId,u);return v;};
- const noteAccess=async(id:string,u:any)=>{const n=await db.note.findFirst({where:{id,status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}}});if(!n)return fail('Note not found',404);await lessonAccess(n.lessonId,u);return n;};
+ const { scope, subjectAccess, lessonAccess, videoAccess, noteAccess } = contentAccess(db);
  const parse=(schema:any,body:unknown)=>{const p=schema.safeParse(body);if(!p.success)return fail('Check the required fields, URL and file size');return p.data;};
- app.get('/api/v1/content/subjects',gate('subjects'),async request=>db.subject.findMany({where:await scope(request.user) as any,include:{batch:{select:{id:true,name:true}},_count:{select:{lessons:{where:{status:{not:'DELETED'}}}}}},orderBy:{name:'asc'}}));
+ app.get('/api/v1/content/subjects',gate('subjects'),async request=>db.subject.findMany({where:await scope(request.user) as any,include:{batch:{select:{id:true,name:true}},_count:{select:{lessons:{where:{status:request.user!.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}}}}}},orderBy:{name:'asc'}}));
  app.post('/api/v1/content/subjects',gate('subjects','create'),async(request,reply)=>{
   const p=parse(subjectSchema,request.body);const u=request.user!;const instituteId=u.roleCode==='SUPER_ADMIN'?(p.instituteId||u.instituteId):u.instituteId;if(!instituteId)return fail('Choose an institute');
   if(!await db.institute.findFirst({where:{id:instituteId,status:'ACTIVE'}}))return fail('Institute unavailable');
@@ -30,7 +23,7 @@ export const contentRoutes:FastifyPluginAsync=async app=>{
  });
  app.get('/api/v1/content/subjects/:id',gate('subjects'),async request=>{
   const {id}=request.params as any;const s=await subjectAccess(id,request.user);const visible:any={status:request.user!.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}};
-  const [lessons,tests]=await Promise.all([db.lesson.findMany({where:{subjectId:id,...visible},include:{_count:{select:{videos:{where:visible},notes:{where:visible},tests:{where:visible}}}},orderBy:{sortOrder:'asc'}}),db.test.findMany({where:{subjectId:id,...visible,...(request.user!.roleCode==='STUDENT'?{isPublished:true}:{})},select:{id:true,title:true,testType:true,testStatus:true,durationMinutes:true,totalMarks:true,status:true}})]);return {...s,lessons,tests};
+  const [lessons,tests]=await Promise.all([db.lesson.findMany({where:{subjectId:id,...visible},include:{_count:{select:{videos:{where:visible},notes:{where:visible},tests:{where:{...visible,...(request.user!.roleCode==='STUDENT'?{isPublished:true}:{})}}}}},orderBy:{sortOrder:'asc'}}),db.test.findMany({where:{subjectId:id,...visible,...(request.user!.roleCode==='STUDENT'?{isPublished:true}:{})},select:{id:true,title:true,testType:true,testStatus:true,durationMinutes:true,totalMarks:true,status:true}})]);return {...s,lessons,tests};
  });
  app.put('/api/v1/content/subjects/:id',gate('subjects','update'),async request=>{const {id}=request.params as any;await subjectAccess(id,request.user);const p=parse(subjectSchema.omit({instituteId:true}).partial(),request.body);return db.subject.update({where:{id},data:p});});
  app.post('/api/v1/content/subjects/:id/lessons',gate('lessons','create'),async(request,reply)=>{const {id}=request.params as any;await subjectAccess(id,request.user);const p=parse(lessonSchema,request.body);return reply.code(201).send(await db.lesson.create({data:{...p,subjectId:id}}));});

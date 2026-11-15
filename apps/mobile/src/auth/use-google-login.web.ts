@@ -4,11 +4,12 @@ import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 
 export function useGoogleLogin() {
+  const webClientId = (process.env as any).EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'unconfigured';
   const [request, , promptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'unconfigured',
+    webClientId,
   });
   return async () => {
-    if (!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || !request) {
+    if (!webClientId || !request) {
       throw new Error('Google sign-in is not ready. Please try again.');
     }
     const response = await promptAsync();

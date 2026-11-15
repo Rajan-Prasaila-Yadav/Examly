@@ -1,13 +1,46 @@
+import { contentAccess } from './content-access';
+import { hasPermission, requirePermission } from '../plugins/rbac.plugin';
 // apps/api/src/fastify/routes/student-feed.routes.ts
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { resultVisible } from './test-access';
 
 export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  const access = contentAccess(fastify.prisma);
+  const bookmarkSchema = z.object({
+    targetType: z.enum(['NOTE', 'VIDEO', 'LESSON', 'QUESTION']),
+    targetId: z.string().trim().min(1).max(200),
+    title: z.string().trim().max(300).optional(),
+    metadataJson: z.preprocess(value => value && typeof value === 'object' ? JSON.stringify(value) : value, z.string().max(10000).optional()),
+  });
+  const checkBookmark = async (type: string, id: string, user: any) => {
+    const resource = ({ NOTE: 'notes', VIDEO: 'videos', LESSON: 'lessons', QUESTION: 'tests' } as Record<string, string>)[type];
+    if (!resource || !hasPermission(user, resource, 'read')) throw Object.assign(new Error('Content unavailable'), { statusCode: 403 });
+    if (type === 'NOTE') return access.noteAccess(id, user);
+    if (type === 'VIDEO') return access.videoAccess(id, user);
+    if (type === 'LESSON') return access.lessonAccess(id, user);
+    const question = await fastify.prisma.question.findFirst({ where: { id }, select: { section: { select: { test: true } } } });
+    const test = question?.section.test;
+    if (!test || test.status === 'DELETED' || (user.roleCode !== 'SUPER_ADMIN' && test.instituteId !== user.instituteId)) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
+    if (user.roleCode === 'STUDENT') {
+      const profile = await fastify.prisma.studentProfile.findUnique({ where: { userId: user.userId }, include: { batch: true } });
+      if (test.status !== 'ACTIVE' || !test.isPublished || (test.batchId && (profile?.batchId !== test.batchId || profile.batch?.status !== 'ACTIVE' || profile.batch.instituteId !== user.instituteId))) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
+    }
+  };
+  const supportAdmin = async (request: any, reply: any) => {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.roleCode)) return reply.code(403).send({ message: 'Administrator access required' });
+    if (request.user.roleCode !== 'SUPER_ADMIN' && !request.user.instituteId) return reply.code(403).send({ message: 'Institute required' });
+  };
+  const supportScope = async (user: any) => user.roleCode === 'SUPER_ADMIN' ? {} : {
+    userId: { in: (await fastify.prisma.user.findMany({ where: { instituteId: user.instituteId }, select: { id: true } })).map(user => user.id) },
+  };
   // ── 1. AGGREGATED STUDENT HOME FEED ──
   fastify.get(
     '/api/v1/students/home-feed',
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const userId = request.user!.userId;
+      if (request.user!.roleCode !== 'STUDENT') return reply.code(403).send({ message: 'Student access required' });
       const prisma = fastify.prisma as any;
 
       // Get user's enrolled batch
@@ -21,6 +54,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
               code: true,
               imageUrl: true,
               status: true,
+              instituteId: true,
               subjects: {
                 where: { status: 'ACTIVE' },
                 select: {
@@ -35,7 +69,13 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
         },
       });
 
-      const batchId = studentProfile?.batchId;
+      const batch = studentProfile?.batch;
+      const batchId = batch?.status === 'ACTIVE' && batch.instituteId === request.user!.instituteId ? batch.id : null;
+      if (!batchId) return { success: true, data: {
+        enrolledBatch: null, liveTests: [], continueWatching: null, recentNotes: [], todayClasses: [],
+        stats: { testsTaken: 0, averagePercentage: 0 },
+      } };
+      const lessonScope = { status: 'ACTIVE', subject: { status: 'ACTIVE', batchId, batch: { status: 'ACTIVE', instituteId: request.user!.instituteId } } };
 
       // A. Live or Upcoming Tests for this batch / global
       const now = new Date();
@@ -44,7 +84,8 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           isPublished: true,
           status: 'ACTIVE',
           testStatus: 'LIVE',
-          ...(batchId ? { batchId } : {}),
+          instituteId: request.user!.instituteId,
+          batchId,
           startDateTime: { lte: now },
           endDateTime: { gte: now },
         },
@@ -66,6 +107,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
         where: {
           userId,
           isCompleted: false,
+          video: { status: 'ACTIVE', lesson: lessonScope },
         },
         orderBy: { lastWatchedAt: 'desc' },
         include: {
@@ -90,9 +132,8 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       // C. Recent Notes & Handouts
       const recentNotes = await prisma.note.findMany({
         where: {
-          lesson: {
-            subject: batchId ? { batchId } : undefined,
-          },
+          status: 'ACTIVE',
+          lesson: lessonScope,
         },
         select: {
           id: true,
@@ -111,9 +152,13 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       });
 
       // D. Today's Scheduled Classes
+      // Calendar day in Nepal (UTC+05:45), independent of server timezone.
+      const offset = 345 * 60 * 1000;
+      const dayStart = new Date(Math.floor((now.getTime() + offset) / 86400000) * 86400000 - offset);
       const todayClasses = await prisma.batchClass.findMany({
         where: {
-          ...(batchId ? { batchId } : {}),
+          batchId,
+          date: { gte: dayStart, lt: new Date(dayStart.getTime() + 86400000) },
         },
         select: {
           id: true,
@@ -136,21 +181,20 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           submittedAt: { not: null },
         },
         select: {
+          test: { include: { config: true } },
           result: {
             select: {
               totalScore: true,
               percentage: true,
+              publishedAt: true,
             },
           },
         },
       });
 
       const testsTaken = attempts.length;
-      let totalPct = 0;
-      attempts.forEach((att: any) => {
-        totalPct += Number(att.result?.percentage || 0);
-      });
-      const avgScore = testsTaken > 0 ? Math.round(totalPct / testsTaken) : 0;
+      const released = attempts.filter((att: any) => att.result && resultVisible(att.test, !!att.result.publishedAt));
+      const avgScore = released.length ? Math.round(released.reduce((sum: number, att: any) => sum + Number(att.result.percentage), 0) / released.length) : 0;
 
       return {
         success: true,
@@ -180,10 +224,11 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
   // ── 2. PDF NOTE ANNOTATIONS ──
   fastify.get(
     '/api/v1/notes/:id/annotations',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: [fastify.authenticate, requirePermission('notes', 'read')] },
     async (request, reply) => {
       const userId = request.user!.userId;
       const { id: noteId } = request.params as { id: string };
+      await access.noteAccess(noteId, request.user);
 
       const annotations = await (fastify.prisma as any).pdfAnnotation.findMany({
         where: {
@@ -199,17 +244,19 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
 
   fastify.post(
     '/api/v1/notes/:id/annotations',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: [fastify.authenticate, requirePermission('notes', 'read')] },
     async (request, reply) => {
       const userId = request.user!.userId;
       const { id: noteId } = request.params as { id: string };
-      const { pageNumber, type, color, content, geometryJson } = request.body as {
-        pageNumber: number;
-        type: string;
-        color?: string;
-        content?: string;
-        geometryJson?: string;
-      };
+      await access.noteAccess(noteId, request.user);
+      const parsed = z.object({
+        pageNumber: z.number().int().positive(),
+        type: z.enum(['HIGHLIGHT', 'DRAWING', 'STICKY', 'TEXT']),
+        color: z.string().max(40).optional(), content: z.string().max(10000).optional(),
+        geometryJson: z.preprocess(value => value && typeof value === 'object' ? JSON.stringify(value) : value, z.string().max(100000).optional()),
+      }).safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ message: 'Invalid annotation' });
+      const { pageNumber, type, color, content, geometryJson } = parsed.data;
 
       const annotation = await (fastify.prisma as any).pdfAnnotation.create({
         data: {
@@ -229,7 +276,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
 
   fastify.delete(
     '/api/v1/notes/annotations/:annotationId',
-    { preHandler: [fastify.authenticate] },
+    { preHandler: [fastify.authenticate, requirePermission('notes', 'read')] },
     async (request, reply) => {
       const userId = request.user!.userId;
       const { annotationId } = request.params as { annotationId: string };
@@ -253,17 +300,20 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       orderBy: { createdAt: 'desc' },
     });
 
-    return { success: true, data: bookmarks };
+    const visible = [];
+    for (const bookmark of bookmarks) {
+      try { await checkBookmark(bookmark.targetType, bookmark.targetId, request.user); visible.push(bookmark); }
+      catch (error: any) { if (![403, 404].includes(error.statusCode)) throw error; }
+    }
+    return { success: true, data: visible };
   });
 
   fastify.post('/api/v1/bookmarks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const userId = request.user!.userId;
-    const { targetType, targetId, title, metadataJson } = request.body as {
-      targetType: string;
-      targetId: string;
-      title?: string;
-      metadataJson?: any;
-    };
+    const parsed = bookmarkSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: 'Invalid bookmark' });
+    const { targetType, targetId, title, metadataJson } = parsed.data;
+    await checkBookmark(targetType, targetId, request.user);
 
     const bookmark = await (fastify.prisma as any).bookmark.upsert({
       where: {
@@ -336,8 +386,9 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
   });
 
   // Admin view & reply to support tickets
-  fastify.get('/api/v1/support/admin/all', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/api/v1/support/admin/all', { preHandler: [fastify.authenticate, supportAdmin] }, async (request, reply) => {
     const tickets = await (fastify.prisma as any).supportTicket.findMany({
+      where: await supportScope(request.user),
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -345,12 +396,13 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
     return { success: true, data: tickets };
   });
 
-  fastify.put('/api/v1/support/admin/:id/reply', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/api/v1/support/admin/:id/reply', { preHandler: [fastify.authenticate, supportAdmin] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { reply: replyText, status } = request.body as { reply: string; status?: string };
-
-    const ticket = await (fastify.prisma as any).supportTicket.update({
-      where: { id },
+    const parsed = z.object({ reply: z.string().trim().min(1).max(10000), status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED']).default('RESOLVED') }).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: 'A reply and valid ticket status are required' });
+    const { reply: replyText, status } = parsed.data;
+    const updated = await fastify.prisma.supportTicket.updateMany({
+      where: { id, ...await supportScope(request.user) },
       data: {
         reply: replyText,
         repliedAt: new Date(),
@@ -358,6 +410,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       },
     });
 
-    return { success: true, data: ticket };
+    if (!updated.count) return reply.code(404).send({ message: 'Ticket not found' });
+    return { success: true };
   });
 };

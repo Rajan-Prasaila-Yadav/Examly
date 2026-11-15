@@ -30,10 +30,10 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
   const [studentBatches, setStudentBatches] = useState<{ id: string; name: string; code?: string }[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [file, setFile] = useState<File | null>(null), [subtitle, setSubtitle] = useState<File | null>(null), [progress, setProgress] = useState(0); const uploadRef = useRef<XMLHttpRequest | null>(null); const version = useRef(0);
-  const load = async () => {
+  const load = async (fresh = false) => {
     const v = ++version.current; setError('');
     try {
-      const r = await api.get(path, config);
+      const r = await api.get(path, { ...config, bypassCache: fresh } as any);
       if (v !== version.current) return;
       const list = Array.isArray(r.data) ? r.data : [];
       if (Array.isArray(r.data)) setRows(list); else setData(r.data);
@@ -48,6 +48,8 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
           if (bList.length > 0) {
             setStudentBatches(bList);
             setSelectedBatchId(prev => prev || bList[0].id);
+          } else if (list.length === 0) {
+            setStudentBatches([]); setSelectedBatchId('');
           } else if (list.length > 0) {
             const derived = Array.from(new Map(list.filter((x: R) => x.batch?.id).map((x: R) => [x.batch.id, { id: x.batch.id, name: cleanBatchName(x.batch.name), code: x.batch.code }])).values());
             setStudentBatches(derived as any);
@@ -61,9 +63,17 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
           }
         }
       }
-    } catch (e) { if (v === version.current && !rows.length && !data) setError(message(e)); } finally { if (v === version.current) setLoading(false); }
+    } catch (e: any) { if (v === version.current) { if ([401, 403, 404].includes(e.response?.status)) { setRows([]); setData(null); setStudentBatches([]); setSelectedBatchId(''); } setError(message(e)); } } finally { if (v === version.current) setLoading(false); }
   };
   useEffect(() => { const cached = api.getCached<any>(path); if (cached) { if (Array.isArray(cached)) setRows(cached); else setData(cached); setLoading(false); } else setLoading(true); setTab(view === 'lesson' ? 'Videos' : 'Lessons'); if (isStudent) setScope('batch'); load(); const changed = () => { invalidateApiCache(path); void load(); }; window.addEventListener('examly-data-changed', changed); return () => { version.current++; window.removeEventListener('examly-data-changed', changed); }; }, [id, view, user?.id]);
+  useEffect(() => {
+    // Re-read real API data while viewing; do not interrupt an open editor.
+    const refresh = () => { if (document.visibilityState === 'visible' && !modal && !busy) void load(true); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [path, user?.id, modal, busy]);
   const close = () => { if (!busy) setModal(null); };
   const open = async (kind: string, record: R = {}) => {
     setFormError(''); setFile(null); setSubtitle(null); setProgress(0); setModal({ kind, record }); setForm({ name: '', code: '', description: '', iconUrl: '📚', title: '', videoUrl: '', fileUrl: '', provider: 'YOUTUBE', allowDownload: false, watermark: true, status: 'ACTIVE', subjectId: view === 'subject' ? id : view === 'lesson' ? data?.subjectId : '', lessonId: view === 'lesson' ? id : '', ...record });
@@ -162,7 +172,7 @@ export default function ContentLibrary({ view }: { view: 'subjects' | 'subject' 
       </div>
       {manage && ['subjects', 'videos', 'notes'].includes(view) && <button className="ex-btn" onClick={() => open(view)}>{view === 'subjects' ? <Plus size={17} /> : <Upload size={17} />} {view === 'subjects' ? 'Add subject' : view === 'videos' ? 'Upload video' : 'Upload notes'}</button>}
     </header>
-    {notice && <p role="status" className="ex-notice">{notice}</p>}{error && <p role="alert" className="ex-error">{error}<button className="ex-btn ghost" onClick={load}>Retry</button></p>}
+    {notice && <p role="status" className="ex-notice">{notice}</p>}{error && <p role="alert" className="ex-error">{error}<button className="ex-btn ghost" onClick={() => void load(true)}>Retry</button></p>}
     {loading ? <div className="ex-card ex-empty" role="status">Loading content…</div> : <>
       {view === 'subjects' && <>
         {isStudent ? (
