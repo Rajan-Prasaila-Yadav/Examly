@@ -1,5 +1,5 @@
 // apps/mobile/src/screens/auth/LoginScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,10 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { useGoogleLogin } from '../../auth/use-google-login';
 import { useAuth } from '../../auth/auth-context';
 import { Mail, Lock, Eye, EyeOff, GraduationCap, ArrowRight } from 'lucide-react-native';
 
-WebBrowser.maybeCompleteAuthSession();
 
 export function LoginScreen({ onForgotPassword }: { onForgotPassword?: () => void }) {
   const { login, loginWithGoogle } = useAuth();
@@ -28,38 +26,21 @@ export function LoginScreen({ onForgotPassword }: { onForgotPassword?: () => voi
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication, params } = response;
-      const idToken = authentication?.idToken || (params as any)?.id_token;
-      const accessToken = authentication?.accessToken || (params as any)?.access_token;
-
-      if (idToken || accessToken) {
-        setGoogleLoading(true);
-        loginWithGoogle({ idToken, accessToken }).then((res) => {
-          setGoogleLoading(false);
-          if (!res.success && res.error) {
-            setErrorMessage(res.error);
-          }
-        });
-      }
-    } else if (response?.type === 'error') {
-      setErrorMessage(response.error?.message || 'Google authentication failed.');
-    }
-  }, [response]);
+  const startGoogleLogin = useGoogleLogin();
 
   const handleGoogleLogin = async () => {
+    if (googleLoading) return;
+    setGoogleLoading(true);
+    setErrorMessage('');
     try {
-      setErrorMessage('');
-      await promptAsync();
-    } catch (e: any) {
-      setErrorMessage(e.message || 'Unable to start Google Sign-In.');
+      const credentials = await startGoogleLogin();
+      if (!credentials) return; // The account picker was cancelled.
+      const result = await loginWithGoogle(credentials);
+      if (!result.success) setErrorMessage(result.error || 'Google authentication failed.');
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to start Google Sign-In.');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 

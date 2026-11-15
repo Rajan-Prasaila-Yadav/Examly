@@ -62,3 +62,7 @@ scripts/verify-test-hierarchy.cjs
 
 .expo/
 apps/mobile/.expo/
+
+# Native projects are generated from the mobile Expo config.
+apps/mobile/android/
+apps/mobile/ios/

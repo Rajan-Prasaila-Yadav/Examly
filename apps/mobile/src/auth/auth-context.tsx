@@ -99,18 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Invalid Google response from server' };
       }
 
-      setToken(receivedToken);
-      setUser(receivedUser);
-
       await SecureStore.setItemAsync('examly_token', receivedToken);
       await SecureStore.setItemAsync('examly_user', JSON.stringify(receivedUser));
+
+      setToken(receivedToken);
+      setUser(receivedUser);
 
       return { success: true };
     } catch (err: any) {
       const errorMsg =
-        err.response?.data?.error ||
         err.response?.data?.message ||
-        'Google authentication failed.';
+        err.response?.data?.error ||
+        (err.request ? 'Cannot reach the Examly server. Check your connection and the mobile API URL.' : 'Google authentication failed.');
       return { success: false, error: errorMsg };
     }
   };

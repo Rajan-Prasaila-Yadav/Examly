@@ -265,19 +265,16 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
           process.env.GOOGLE_ANDROID_CLIENT_ID,
         ].filter(Boolean) as string[];
 
+        if (allowedAudiences.length === 0) {
+          return reply.status(503).send({ statusCode: 503, message: 'Google sign-in is not configured on the server' });
+        }
         const ticket = await googleClient.verifyIdToken({
           idToken: parsed.data.idToken,
-          audience: allowedAudiences.length > 0 ? allowedAudiences : undefined,
+          audience: allowedAudiences,
         });
         payload = ticket.getPayload();
       } catch (err: any) {
-        // Fallback: decode JWT for developer / mobile environments
-        const decoded = jwt.decode(parsed.data.idToken) as any;
-        if (decoded && decoded.email && (decoded.iss?.includes('accounts.google.com') || decoded.iss?.includes('google'))) {
-          payload = decoded;
-        } else {
-          payload = null;
-        }
+        return reply.status(401).send({ statusCode: 401, message: 'Google token verification failed' });
       }
     }
 
@@ -294,7 +291,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    if (!payload || !payload.email) {
+    if (!payload || !payload.sub || !payload.email || !payload.email_verified) {
       return reply.status(401).send({ statusCode: 401, message: 'Google authentication failed or signature invalid' });
     }
 
