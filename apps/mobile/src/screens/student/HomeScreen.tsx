@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Image,
+  Platform,
 } from 'react-native';
 import { apiClient } from '../../api/client';
 import { useAuth } from '../../auth/auth-context';
