@@ -78,7 +78,7 @@ export function HomeScreen({
   }
 
   const student = feed?.student || user;
-  const batch = student?.batch;
+  const batch = feed?.enrolledBatch || feed?.batch || student?.batch || student?.studentProfile?.batch;
   const liveTest = feed?.liveTests?.[0];
   const continueVideo = feed?.continueWatching;
   const recentNotes = feed?.recentNotes || [];

@@ -11,9 +11,12 @@ export function BatchesScreen() {
   useEffect(() => {
     apiClient.get('/api/v1/batches?status=ACTIVE')
       .then((res) => {
-        if (res.data?.data) setBatches(res.data.data);
+        const data = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
+        setBatches(data);
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('Failed to load batches:', err);
+      })
       .finally(() => setLoading(false));
   }, []);
 

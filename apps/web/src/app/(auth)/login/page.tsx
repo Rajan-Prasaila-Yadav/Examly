@@ -23,7 +23,7 @@ import {
 
 const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  '718018327158-br3d94rjnl5vcfdcp66teotjcrjnmn6e.apps.googleusercontent.com';
+  '498807838723-du64vvg5lh66u9ma0tub7jbnpmfdbbd8.apps.googleusercontent.com';
 
 export default function LoginPage() {
   const router = useRouter();
