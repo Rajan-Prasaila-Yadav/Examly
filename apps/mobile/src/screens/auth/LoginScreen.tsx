@@ -1,5 +1,5 @@
 // apps/mobile/src/screens/auth/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,56 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../../auth/auth-context';
 import { Mail, Lock, Eye, EyeOff, GraduationCap, ArrowRight } from 'lucide-react-native';
 
+WebBrowser.maybeCompleteAuthSession();
+
 export function LoginScreen({ onForgotPassword }: { onForgotPassword?: () => void }) {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication, params } = response;
+      const idToken = authentication?.idToken || (params as any)?.id_token;
+      const accessToken = authentication?.accessToken || (params as any)?.access_token;
+
+      if (idToken || accessToken) {
+        setGoogleLoading(true);
+        loginWithGoogle({ idToken, accessToken }).then((res) => {
+          setGoogleLoading(false);
+          if (!res.success && res.error) {
+            setErrorMessage(res.error);
+          }
+        });
+      }
+    } else if (response?.type === 'error') {
+      setErrorMessage(response.error?.message || 'Google authentication failed.');
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      setErrorMessage('');
+      await promptAsync();
+    } catch (e: any) {
+      setErrorMessage(e.message || 'Unable to start Google Sign-In.');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -133,25 +173,18 @@ export function LoginScreen({ onForgotPassword }: { onForgotPassword?: () => voi
 
           {/* Google Sign In Button */}
           <TouchableOpacity
-            style={styles.googleButton}
-            onPress={() => {
-              setErrorMessage('Android Google Client ID is being registered in Console. Use Quick Demo Student below to test instantly!');
-            }}
+            style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={googleLoading}
           >
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          {/* Quick Demo Fill Button */}
-          <TouchableOpacity
-            style={styles.demoButton}
-            onPress={() => {
-              setEmail('developerajan@gmail.com');
-              setPassword('Rajan123@');
-              setErrorMessage('');
-            }}
-          >
-            <Text style={styles.demoButtonText}>⚡ Auto-Fill Student (Rajan)</Text>
+            {googleLoading ? (
+              <ActivityIndicator color="#4285F4" size="small" />
+            ) : (
+              <>
+                <Text style={styles.googleIcon}>G</Text>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 

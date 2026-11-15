@@ -16,6 +16,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (payload: { idToken?: string; accessToken?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   isLoading: true,
   login: async () => ({ success: false }),
+  loginWithGoogle: async () => ({ success: false }),
   logout: async () => {},
 });
 
@@ -85,6 +87,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (payload: { idToken?: string; accessToken?: string }) => {
+    try {
+      const response = await apiClient.post('/api/v1/auth/google', payload);
+      const data = response.data;
+
+      const receivedToken = data.token || data.accessToken || data.data?.token;
+      const receivedUser = data.user || data.data?.user;
+
+      if (!receivedToken || !receivedUser) {
+        return { success: false, error: 'Invalid Google response from server' };
+      }
+
+      setToken(receivedToken);
+      setUser(receivedUser);
+
+      await SecureStore.setItemAsync('examly_token', receivedToken);
+      await SecureStore.setItemAsync('examly_user', JSON.stringify(receivedUser));
+
+      return { success: true };
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Google authentication failed.';
+      return { success: false, error: errorMsg };
+    }
+  };
+
   const logout = async () => {
     try {
       await apiClient.post('/api/v1/auth/logout', {}).catch(() => {});
@@ -97,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
