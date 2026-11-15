@@ -53,7 +53,7 @@ export default function TeachersPage() {
   const [batches, setBatches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list'); // Default to list view as requested
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid/card view
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State (Create & Edit)

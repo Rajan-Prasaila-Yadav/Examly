@@ -20,7 +20,7 @@ export function Modal({title,children,onClose}:{title:string;children:React.Reac
  return <dialog ref={ref} className="ex-modal" onCancel={e=>{e.preventDefault();onClose();}}><div className="ex-modal-head"><h2>{title}</h2><IconButton title="Close dialog" onClick={onClose}><X size={20}/></IconButton></div>{children}</dialog>;
 }
 export function DataTable({rows,columns,placeholder='Search…',onOpen,actions,onExport}:{rows:Row[];columns:Column[];placeholder?:string;onOpen?:(r:Row)=>void;actions?:(r:Row)=>React.ReactNode;onExport?:(format:string,ids:string[])=>Promise<void>}){
- const [q,setQ]=useState(''),[filter,setFilter]=useState(''),[filters,setFilters]=useState(false),[sort,setSort]=useState('asc'),[cards,setCards]=useState(false),[page,setPage]=useState(1),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [q,setQ]=useState(''),[filter,setFilter]=useState(''),[filters,setFilters]=useState(false),[sort,setSort]=useState('asc'),[cards,setCards]=useState(true),[page,setPage]=useState(1),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const filtered=rows.filter(r=>(!q||[label(r),r.email,r.phone,r.code,r.subject?.name,r.teacher?.fullName,r.date].join(' ').toLowerCase().includes(q.toLowerCase()))&&(!filter||r.status===filter)).sort((a,b)=>label(a).localeCompare(label(b))*(sort==='asc'?1:-1));
  const pages=Math.max(1,Math.ceil(filtered.length/10)),current=Math.min(page,pages),shown=filtered.slice((current-1)*10,current*10);
  const toggle=(id:string,on:boolean)=>setSelected(s=>on?[...new Set([...s,id])]:s.filter(v=>v!==id));
