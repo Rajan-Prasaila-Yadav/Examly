@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Examly",
+    "slug": "examly-student",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#060709"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.examly.student"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#060709"
+      },
+      "package": "com.examly.student"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

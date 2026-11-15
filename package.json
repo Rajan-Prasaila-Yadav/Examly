@@ -10,6 +10,8 @@
   "scripts": {
     "dev:api": "npm run dev --workspace=@examly/api",
     "dev:web": "npm run dev --workspace=@examly/web",
+    "dev:mobile": "npm run start --workspace=@examly/mobile",
+    "android": "npm run android --workspace=@examly/mobile",
     "build:api": "tsc -p apps/api/tsconfig.json",
     "build:web": "npm run build --workspace=@examly/web",
     "build": "npm run build:api && npm run build:web",
