@@ -66,6 +66,11 @@ export function HomeScreen({
 
   useEffect(() => {
     fetchFeed();
+    // Auto-sync with web backend every 10 seconds for real-time updates
+    const timer = setInterval(() => {
+      fetchFeed(true);
+    }, 10000);
+    return () => clearInterval(timer);
   }, [fetchFeed]);
 
   if (loading) {

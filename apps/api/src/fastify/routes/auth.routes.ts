@@ -260,9 +260,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     let payload: any = null;
     if (parsed.data.idToken) {
       try {
+        const allowedAudiences = [
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_ANDROID_CLIENT_ID,
+        ].filter(Boolean) as string[];
+
         const ticket = await googleClient.verifyIdToken({
           idToken: parsed.data.idToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: allowedAudiences.length > 0 ? allowedAudiences : undefined,
         });
         payload = ticket.getPayload();
       } catch (err: any) {

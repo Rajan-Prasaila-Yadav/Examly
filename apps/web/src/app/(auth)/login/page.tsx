@@ -21,9 +21,7 @@ import {
   Building,
 } from 'lucide-react';
 
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  '498807838723-du64vvg5lh66u9ma0tub7jbnpmfdbbd8.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 export default function LoginPage() {
   const router = useRouter();
