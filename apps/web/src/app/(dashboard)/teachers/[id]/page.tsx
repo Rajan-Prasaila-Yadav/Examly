@@ -130,7 +130,7 @@ export default function TeacherDetailPage() {
       </Link>
 
       {/* Profile Card */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div className="flex items-center gap-4">
             {teacher.avatarUrl ? (
@@ -146,7 +146,7 @@ export default function TeacherDetailPage() {
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-extrabold text-slate-900">{teacher.fullName}</h1>
+                <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">{teacher.fullName}</h1>
                 <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-mono text-xs font-bold border border-purple-200">
                   {teacher.teacherProfile?.facultyCode || (teacher.identifier && !teacher.identifier.includes('@') ? teacher.identifier : '-')}
                 </span>
@@ -171,46 +171,46 @@ export default function TeacherDetailPage() {
         </div>
 
         {/* Stats KPI Row */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100">
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-white/10">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/10">
             <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
               <Layers className="w-4 h-4 text-brand-600" />
               <span>Assigned Batches</span>
             </div>
-            <p className="text-xl font-black text-slate-900 mt-1">
+            <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
               {data360?.assignedBatches?.length || 0}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/10">
             <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
               <Calendar className="w-4 h-4 text-emerald-600" />
               <span>Classes Scheduled</span>
             </div>
-            <p className="text-xl font-black text-slate-900 mt-1">
+            <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
               {data360?.teachingClassesCount || 0}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/10">
             <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
               <FileCheck2 className="w-4 h-4 text-purple-600" />
               <span>Tests Managed</span>
             </div>
-            <p className="text-xl font-black text-slate-900 mt-1">
+            <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
               {data360?.testsCreatedCount || 0}
             </p>
           </div>
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-white/10 text-xs">
           <div className="space-y-1.5">
             <span className="text-[10px] text-slate-400 font-medium block">Contact Info</span>
-            <div className="flex items-center gap-2 text-slate-700 font-mono">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-mono">
               <Phone className="w-3.5 h-3.5 text-slate-400" /> {teacher.phone || '-'}
             </div>
-            <div className="flex items-center gap-2 text-slate-700">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
               <Mail className="w-3.5 h-3.5 text-slate-400" /> {teacher.email || '-'}
             </div>
           </div>
@@ -218,8 +218,8 @@ export default function TeacherDetailPage() {
           <div className="space-y-1.5">
             <span className="text-[10px] text-slate-400 font-medium block">Specialization Areas</span>
             <div className="flex flex-wrap gap-1.5">
-              {(teacher.teacherProfile?.specialization || ['Curriculum Expert', 'Mock Evaluation']).map((s: string) => (
-                <span key={s} className="px-2.5 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-medium rounded-md">
+              {(Array.isArray(teacher.teacherProfile?.specialization) ? teacher.teacherProfile.specialization : typeof teacher.teacherProfile?.specialization === 'string' ? teacher.teacherProfile.specialization.split(',').map((s: string) => s.trim()) : ['Curriculum Expert', 'Mock Evaluation']).filter(Boolean).map((s: string) => (
+                <span key={s} className="px-2.5 py-0.5 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[11px] font-medium rounded-md">
                   {s}
                 </span>
               ))}
@@ -229,8 +229,8 @@ export default function TeacherDetailPage() {
       </div>
 
       {/* Assigned Batches List */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 p-6 shadow-sm space-y-3">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Layers className="w-4 h-4 text-brand-600" /> Assigned Batches
         </h2>
         {(!data360?.assignedBatches || data360.assignedBatches.length === 0) ? (
@@ -243,11 +243,11 @@ export default function TeacherDetailPage() {
                 className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between"
               >
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">{batch.name}</h4>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">{batch.name}</h4>
                   <span className="text-[10px] text-slate-500 font-mono">{batch.code}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                  {batch._count?.students || 0} students
+                  {batch._count?.students || 0} {(batch._count?.students || 0) === 1 ? 'student' : 'students'}
                 </span>
               </div>
             ))}
@@ -256,13 +256,13 @@ export default function TeacherDetailPage() {
       </div>
 
       {/* Granular Permission Overrides Card */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-brand-600" /> Per-Teacher Permission Overrides
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Override base role rights specifically for {teacher.fullName}.
             </p>
           </div>
@@ -290,8 +290,8 @@ export default function TeacherDetailPage() {
               key={perm.key}
               className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
                 permissions[perm.key]
-                  ? 'bg-brand-50/50 border-brand-200'
-                  : 'bg-slate-50 border-slate-200 opacity-70'
+                  ? 'bg-brand-50/50 dark:bg-brand-950/30 border-brand-200 dark:border-brand-500/30'
+                  : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 opacity-75'
               }`}
             >
               <input
@@ -301,8 +301,8 @@ export default function TeacherDetailPage() {
                 className="mt-0.5 w-4 h-4 rounded text-brand-600"
               />
               <div className="min-w-0">
-                <span className="text-xs font-bold text-slate-900 block">{perm.label}</span>
-                <span className="text-[10px] text-slate-500">{perm.desc}</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">{perm.label}</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">{perm.desc}</span>
               </div>
             </label>
           ))}

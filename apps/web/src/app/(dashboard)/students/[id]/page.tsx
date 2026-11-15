@@ -168,7 +168,7 @@ export default function StudentDetailPage() {
       </Link>
 
       {/* Profile Card */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 shadow-sm">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 p-5 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-3.5 sm:gap-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-indigo text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden shrink-0">
@@ -180,13 +180,13 @@ export default function StudentDetailPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">{user.fullName}</h1>
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">{user.fullName}</h1>
                 <span className="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 font-mono text-[11px] font-bold border border-brand-200">
                   {rollNumber}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Enrolled in <span className="font-semibold text-brand-600">{batchName}</span>
                 </p>
                 {!isStudent && (
@@ -216,33 +216,33 @@ export default function StudentDetailPage() {
         </div>
 
         {/* 360 Degree Metrics Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-white/10 text-xs">
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/10">
             <span className="text-[10px] text-slate-400 block font-medium">Total Tests Taken</span>
-            <span className="text-base sm:text-lg font-extrabold text-slate-900 font-mono">{metrics.totalAttempts}</span>
+            <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-mono">{metrics.totalAttempts}</span>
           </div>
-          <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+          <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-500/20">
             <span className="text-[10px] text-emerald-600 block font-medium">Best Score</span>
             <span className="text-base sm:text-lg font-extrabold text-emerald-700 font-mono">{metrics.bestPercentage}%</span>
           </div>
-          <div className="p-3 rounded-2xl bg-brand-50/60 border border-brand-100">
+          <div className="p-3 rounded-2xl bg-brand-50/60 dark:bg-brand-950/20 border border-brand-100 dark:border-brand-500/20">
             <span className="text-[10px] text-brand-600 block font-medium">Average Score</span>
             <span className="text-base sm:text-lg font-extrabold text-brand-700 font-mono">{metrics.avgPercentage}%</span>
           </div>
-          <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
+          <div className="p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-500/20">
             <span className="text-[10px] text-purple-600 block font-medium">Pass Rate</span>
             <span className="text-base sm:text-lg font-extrabold text-purple-700 font-mono">{metrics.passRate}%</span>
           </div>
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-white/10 text-xs">
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-medium block">Contact Info</span>
-            <div className="flex items-center gap-1.5 text-slate-700 font-mono">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-mono">
               <Phone className="w-3.5 h-3.5 text-slate-400" /> {user.phone || '-'}
             </div>
-            <div className="flex items-center gap-1.5 text-slate-700 truncate">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 truncate">
               <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {user.email || '-'}
             </div>
             {studentProfile?.parentPhone && (
@@ -254,7 +254,7 @@ export default function StudentDetailPage() {
 
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-medium block">Address Location</span>
-            <div className="flex items-center gap-1.5 text-slate-700">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>
                 {studentProfile?.municipality
@@ -271,7 +271,7 @@ export default function StudentDetailPage() {
 
           <div className="space-y-1">
             <span className="text-[10px] text-slate-400 font-medium block">Activity & Logins</span>
-            <div className="flex items-center gap-1.5 text-slate-700">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>Last Active: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Active Today'}</span>
             </div>
@@ -356,8 +356,8 @@ export default function StudentDetailPage() {
       )}
 
       {/* Examination History & Scorecards */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+      <div className="bg-white dark:bg-[#0c0e17] rounded-3xl border border-slate-200 dark:border-white/10 p-5 sm:p-6 shadow-sm space-y-4">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Award className="w-4 h-4 text-brand-600" /> Live Examination History & Scorecards ({attempts.length})
         </h2>
 
@@ -427,7 +427,7 @@ export default function StudentDetailPage() {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <tr className="border-b border-slate-200 dark:border-white/10 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="pb-3">Test Title</th>
                 <th className="pb-3 text-center">Score</th>
                 <th className="pb-3 text-center">Percentage</th>
@@ -436,13 +436,13 @@ export default function StudentDetailPage() {
                 <th className="pb-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-700 dark:text-slate-300">
               {attempts.map((att: any) => {
                 const targetTestId = att.testId || att.test?.id;
                 const isPass = att.isPassed || att.status === 'PASSED' || (att.percentage || 0) >= 50;
                 return (
-                  <tr key={att.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 font-bold text-slate-900">
+                  <tr key={att.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3.5 font-bold text-slate-900 dark:text-white">
                       <Link href={`/tests/${targetTestId}`} className="hover:text-brand-600">
                         {att.testTitle || att.test?.title || 'Examination Test'}
                       </Link>

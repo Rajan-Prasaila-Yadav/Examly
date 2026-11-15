@@ -763,36 +763,41 @@ export default function DashboardOverviewPage() {
                   href={`/batches/${b.id}`}
                   className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 bg-slate-50/40 dark:bg-white/[0.02] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all group"
                 >
-                  <div className="flex items-center gap-3 min-w-0 pr-2">
+                  <div className="flex items-center gap-3.5 min-w-0 pr-2">
                     {b.imageUrl ? (
                       <img
                         src={b.imageUrl}
                         alt=""
-                        className="w-11 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                        className="w-14 h-9.5 rounded-xl object-cover border border-slate-200/80 dark:border-white/10 shrink-0 shadow-2xs"
                       />
                     ) : (
-                      <div className="w-11 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-700 flex items-center justify-center text-white shrink-0 shadow-2xs">
-                        <GraduationCap className="w-4 h-4 opacity-85" />
+                      <div className="w-14 h-9.5 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-2xs border border-white/10">
+                        <GraduationCap className="w-4 h-4 opacity-90" />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                         {isStudent ? b.name?.replace(/🎓\s*/g, '') : b.name}
                       </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
-                        {enrolled} students · {testCount} tests
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                        {enrolled} {enrolled === 1 ? 'student' : 'students'} · {testCount} {testCount === 1 ? 'test' : 'tests'}
                       </p>
                     </div>
                   </div>
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 border ${
                       isAct
-                        ? 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                         : isDrf
-                        ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]'
-                        : 'bg-[#F3E8FF] text-[#9333EA] dark:bg-[#2E1065]/60 dark:text-[#C084FC]'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
                     }`}
                   >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isAct ? 'bg-emerald-500' : isDrf ? 'bg-amber-500' : 'bg-purple-500'
+                      }`}
+                    />
                     {b.status === 'DRAFT' ? 'Draft' : b.status === 'ARCHIVED' ? 'Archived' : 'Active'}
                   </span>
                 </Link>
@@ -1058,6 +1063,9 @@ export default function DashboardOverviewPage() {
                   ? 'Blocked'
                   : 'Active';
 
+                const isBlocked = s.status === 'BLOCKED' || feeLabel === 'Blocked';
+                const isGood = isPaid || feeLabel === 'Active';
+
                 return (
                   <Link
                     key={s.id}
@@ -1069,33 +1077,42 @@ export default function DashboardOverviewPage() {
                         <img
                           src={s.avatarUrl}
                           alt={s.fullName}
-                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 dark:border-white/10 shadow-2xs"
+                          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-slate-100 dark:ring-white/10 shadow-2xs"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs ring-2 ring-slate-100 dark:ring-white/10">
                           {s.fullName?.[0]?.toUpperCase() || 'S'}
                         </div>
                       )}
 
                       <div className="min-w-0">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                           {s.fullName}
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                           Joined {formatTimeAgo(s.createdAt)} · {s.studentProfile?.batch?.name || 'No batch'}
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
-                        isPaid || feeLabel === 'Active'
-                          ? 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]'
-                          : isOverdue || feeLabel === 'Blocked'
-                          ? 'bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]'
-                          : 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#451A03]/60 dark:text-[#FBBF24]'
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 border ${
+                        isGood
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : isBlocked || isOverdue
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                       }`}
                     >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isGood
+                            ? 'bg-emerald-500'
+                            : isBlocked || isOverdue
+                            ? 'bg-rose-500'
+                            : 'bg-amber-500'
+                        }`}
+                      />
                       {feeLabel}
                     </span>
                   </Link>
@@ -1128,8 +1145,14 @@ export default function DashboardOverviewPage() {
             <div className="space-y-2.5">
               {recentTeachers.slice(0, 5).map((t) => {
                 const isBlocked = t.status === 'BLOCKED';
+                const rawSpec = t.teacherProfile?.specialization;
+                const specText = Array.isArray(rawSpec)
+                  ? rawSpec.filter(Boolean).join(', ')
+                  : typeof rawSpec === 'string'
+                  ? rawSpec
+                  : '';
                 const subjects =
-                  t.teacherProfile?.specialization ||
+                  specText ||
                   t.subjects?.map((sub: any) => sub.name).join(', ') ||
                   'Faculty';
 
@@ -1144,31 +1167,36 @@ export default function DashboardOverviewPage() {
                         <img
                           src={t.avatarUrl}
                           alt={t.fullName}
-                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200 dark:border-white/10 shadow-2xs"
+                          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-slate-100 dark:ring-white/10 shadow-2xs"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-[#8B5CF6] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-purple-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs ring-2 ring-slate-100 dark:ring-white/10">
                           {t.fullName?.[0]?.toUpperCase() || 'T'}
                         </div>
                       )}
 
                       <div className="min-w-0">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                           {t.fullName}
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                           {subjects} · joined {formatTimeAgo(t.createdAt)}
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 border ${
                         isBlocked
-                          ? 'bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/60 dark:text-[#FCA5A5]'
-                          : 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#064E3B]/60 dark:text-[#34D399]'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                       }`}
                     >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isBlocked ? 'bg-rose-500' : 'bg-emerald-500'
+                        }`}
+                      />
                       {isBlocked ? 'Blocked' : 'Active'}
                     </span>
                   </Link>
