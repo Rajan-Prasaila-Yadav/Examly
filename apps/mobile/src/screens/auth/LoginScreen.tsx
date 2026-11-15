@@ -123,6 +123,36 @@ export function LoginScreen({ onForgotPassword }: { onForgotPassword?: () => voi
               </>
             )}
           </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign In Button */}
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={() => {
+              setErrorMessage('Android Google Client ID is being registered in Console. Use Quick Demo Student below to test instantly!');
+            }}
+          >
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* Quick Demo Fill Button */}
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={() => {
+              setEmail('developerajan@gmail.com');
+              setPassword('Rajan123@');
+              setErrorMessage('');
+            }}
+          >
+            <Text style={styles.demoButtonText}>⚡ Auto-Fill Student (Rajan)</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.footerHelp}>
@@ -264,6 +294,58 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#1E2333',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#161B29',
+    borderColor: '#252C42',
+    borderWidth: 1,
+    borderRadius: 14,
+    height: 48,
+    gap: 10,
+  },
+  googleIcon: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  demoButton: {
+    marginTop: 12,
+    backgroundColor: 'rgba(91, 79, 207, 0.12)',
+    borderColor: 'rgba(91, 79, 207, 0.4)',
+    borderWidth: 1,
+    borderRadius: 14,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  demoButtonText: {
+    color: '#A594FD',
+    fontSize: 13,
     fontWeight: '700',
   },
   footerHelp: {
