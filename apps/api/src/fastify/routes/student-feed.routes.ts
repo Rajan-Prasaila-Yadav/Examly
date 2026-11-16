@@ -24,7 +24,18 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
     if (!test || test.status === 'DELETED' || (user.roleCode !== 'SUPER_ADMIN' && test.instituteId !== user.instituteId)) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
     if (user.roleCode === 'STUDENT') {
       const profile = await fastify.prisma.studentProfile.findUnique({ where: { userId: user.userId }, include: { batch: true } });
-      if (test.status !== 'ACTIVE' || !test.isPublished || (test.batchId && (profile?.batchId !== test.batchId || profile.batch?.status !== 'ACTIVE' || profile.batch.instituteId !== user.instituteId))) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
+      if (test.status !== 'ACTIVE' || !test.isPublished || !profile?.batchId || profile.batch?.status !== 'ACTIVE' || profile.batch.instituteId !== user.instituteId) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
+      // A published library test must still be part of the student's copied
+      // curriculum. Bookmarks must not become a route to another batch's
+      // question or answer material.
+      if (test.batchId !== profile?.batchId) {
+        const match = await fastify.prisma.subject.findFirst({ where: { batchId: profile?.batchId || '__none__', OR: [
+          { id: test.subjectId || '__none__' },
+          { copiedFromId: test.subjectId || '__none__' },
+          { lessons: { some: { OR: [{ id: test.lessonId || '__none__' }, { copiedFromId: test.lessonId || '__none__' }] } } },
+        ] } });
+        if (!match) throw Object.assign(new Error('Content unavailable'), { statusCode: 404 });
+      }
     }
   };
   const supportAdmin = async (request: any, reply: any) => {

@@ -157,6 +157,39 @@ test('students cannot open standalone tests outside their copied curriculum', as
   finally { await app.close(); }
 });
 
+test('students cannot bookmark questions from an unrelated published test', async () => {
+  const db = {
+    question: { findFirst: async () => ({ section: { test: { id: 'outside-test', status: 'ACTIVE', isPublished: true, batchId: null, subjectId: 'outside-subject', lessonId: null, instituteId: 'institute-a' } } }) },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    subject: { findFirst: async () => null },
+  };
+  const app = await appFor(studentFeedRoutes, db, { ...student, permissions: ['tests.read'] });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/bookmarks', payload: { targetType: 'QUESTION', targetId: 'outside-question' } });
+    assert.equal(response.statusCode, 404);
+  } finally { await app.close(); }
+});
+
+test('students can bookmark questions inherited through a copied lesson', async () => {
+  let stored = false;
+  const db = {
+    question: { findFirst: async () => ({ section: { test: { id: 'source-test', status: 'ACTIVE', isPublished: true, batchId: null, subjectId: null, lessonId: 'source-lesson', instituteId: 'institute-a' } } }) },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    subject: { findFirst: async ({ where }) => {
+      assert.equal(where.batchId, 'batch');
+      assert.equal(where.OR[2].lessons.some.OR[1].copiedFromId, 'source-lesson');
+      return { id: 'copied-subject' };
+    } },
+    bookmark: { upsert: async ({ create }) => { stored = true; return create; } },
+  };
+  const app = await appFor(studentFeedRoutes, db, { ...student, permissions: ['tests.read'] });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/bookmarks', payload: { targetType: 'QUESTION', targetId: 'source-question' } });
+    assert.equal(response.statusCode, 200);
+    assert.equal(stored, true);
+  } finally { await app.close(); }
+});
+
 test('answer keys remain hidden until a student result is released', async () => {
   const db = {
     test: {
