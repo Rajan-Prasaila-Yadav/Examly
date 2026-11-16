@@ -142,6 +142,38 @@ test('batch tests reject students without active enrollment', async () => {
   finally { await app.close(); }
 });
 
+test('students cannot open standalone tests outside their copied curriculum', async () => {
+  const plugin = async app => {
+    installTestAccess(app);
+    app.get('/api/v1/tests/:id', { preHandler: [app.authenticate] }, async () => ({ secret: true }));
+  };
+  const app = await appFor(plugin, {
+    test: { findFirst: async () => ({ id: 'test', batchId: null, subjectId: 'outside-subject', lessonId: null, isPublished: true, status: 'ACTIVE' }) },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    subject: { findFirst: async () => null },
+  });
+  try { assert.equal((await app.inject('/api/v1/tests/test')).statusCode, 404); }
+  finally { await app.close(); }
+});
+
+test('students can open tests inherited through a copied lesson', async () => {
+  const plugin = async app => {
+    installTestAccess(app);
+    app.get('/api/v1/tests/:id', { preHandler: [app.authenticate] }, async () => ({ available: true }));
+  };
+  const app = await appFor(plugin, {
+    test: { findFirst: async () => ({ id: 'test', batchId: null, subjectId: null, lessonId: 'source-lesson', isPublished: true, status: 'ACTIVE' }) },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    subject: { findFirst: async ({ where }) => {
+      assert.equal(where.batchId, 'batch');
+      assert.equal(where.OR[2].lessons.some.OR[1].copiedFromId, 'source-lesson');
+      return { id: 'copied-subject' };
+    } },
+  });
+  try { assert.equal((await app.inject('/api/v1/tests/test')).statusCode, 200); }
+  finally { await app.close(); }
+});
+
 test('password login, registration and Google login all persist refresh sessions', async () => {
   const bcrypt = require('bcrypt');
   const { OAuth2Client } = require('google-auth-library');
