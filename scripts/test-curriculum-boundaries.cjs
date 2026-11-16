@@ -61,3 +61,24 @@ test('student batch list queries only the assigned batch', async () => {
   try { assert.deepEqual((await app.inject('/api/v1/batches')).json(), []); }
   finally { await app.close(); }
 });
+
+test('deleting a batch detaches enrolled students in the same transaction', async () => {
+  const writes = [];
+  const app = Fastify();
+  app.decorate('authenticate', async request => { request.user = { userId: 'admin', roleCode: 'ADMIN', instituteId: 'institute', permissions: ['batches.delete'] }; });
+  app.decorate('prisma', {
+    batch: {
+      findUnique: async () => ({ id: 'batch', instituteId: 'institute', status: 'ACTIVE' }),
+      update: async ({ data }) => { writes.push(['batch', data]); return { id: 'batch' }; },
+    },
+    studentProfile: { updateMany: async ({ where, data }) => { writes.push(['students', where, data]); return { count: 1 }; } },
+    $transaction: async jobs => Promise.all(jobs),
+  });
+  await app.register(batchesRoutes);
+  try {
+    assert.equal((await app.inject({ method: 'DELETE', url: '/api/v1/batches/batch' })).statusCode, 200);
+    assert.deepEqual(writes[0], ['students', { batchId: 'batch' }, { batchId: null }]);
+    assert.equal(writes[1][0], 'batch');
+    assert.equal(writes[1][1].status, 'DELETED');
+  } finally { await app.close(); }
+});

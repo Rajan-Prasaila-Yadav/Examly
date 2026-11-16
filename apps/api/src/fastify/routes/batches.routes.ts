@@ -366,10 +366,16 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      await fastify.prisma.batch.update({
-        where: { id },
-        data: { status: RecordStatus.DELETED, deletedAt: new Date() },
-      });
+      // StudentProfile has no separate enrollment-history model. Detach active
+      // students in the same transaction so a soft-deleted batch cannot leave
+      // a student with a broken, invisible course reference.
+      await fastify.prisma.$transaction([
+        fastify.prisma.studentProfile.updateMany({ where: { batchId: id }, data: { batchId: null } }),
+        fastify.prisma.batch.update({
+          where: { id },
+          data: { status: RecordStatus.DELETED, deletedAt: new Date() },
+        }),
+      ]);
 
       return { message: 'Batch deleted successfully' };
     },
