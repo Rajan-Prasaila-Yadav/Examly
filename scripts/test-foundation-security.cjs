@@ -73,6 +73,44 @@ test('registration and onboarding cannot grant a student enrollment', async () =
     for (const batchId of ['other', null]) assert.equal((await app.inject({ method: 'PATCH', url: '/api/v1/auth/onboarding', payload: { batchId } })).statusCode, 403);
   } finally { await app.close(); }
 });
+
+test('onboarding reports a duplicate phone without updating the account', async () => {
+  let updateCalled = false;
+  const app = await appFor(authRoutes, {
+    user: {
+      findFirst: async () => ({ id: 'other-user' }),
+      update: async () => { updateCalled = true; },
+    },
+  });
+  try {
+    const response = await app.inject({ method: 'PATCH', url: '/api/v1/auth/onboarding', payload: { phone: '9800000000' } });
+    assert.equal(response.statusCode, 409);
+    assert.match(response.json().message, /already used/i);
+    assert.equal(updateCalled, false);
+  } finally { await app.close(); }
+});
+
+test('onboarding returns a public user shape without credentials', async () => {
+  const profile = {
+    id: 'student', fullName: 'Student', email: 'student@example.com', phone: '9800000000', identifier: 'S1', avatarUrl: null,
+    passwordHash: 'must-not-leave-server', role: { code: 'STUDENT' }, instituteId: 'institute-a', institute: { name: 'Institute A' },
+    studentProfile: null, teacherProfile: null,
+  };
+  const app = await appFor(authRoutes, {
+    user: {
+      findFirst: async () => null,
+      update: async () => profile,
+      findUnique: async () => profile,
+    },
+    studentProfile: { upsert: async () => ({}) },
+  });
+  try {
+    const response = await app.inject({ method: 'PATCH', url: '/api/v1/auth/onboarding', payload: { phone: '9800000000' } });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().user.passwordHash, undefined);
+    assert.equal(response.json().user.email, 'student@example.com');
+  } finally { await app.close(); }
+});
 test('refresh rotates an active session and rejects replay and revocation', async () => {
   const token = jwt.sign({ sub: 'student' }, process.env.JWT_REFRESH_SECRET || 'examly_local_development_refresh_secret_change_me', { expiresIn: '1h' });
   let session = { id: 'session', isActive: true, refreshTokenHash: crypto.createHash('sha256').update(token).digest('hex') };

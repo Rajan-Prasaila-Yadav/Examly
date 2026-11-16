@@ -48,6 +48,7 @@ export default function LoginPage() {
   const [onboardingWard, setOnboardingWard] = useState('04');
   const [availableBatches, setAvailableBatches] = useState<any[]>([]);
   const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+  const [onboardingError, setOnboardingError] = useState('');
 
   // Initialize Google Identity Services
   useEffect(() => {
@@ -173,10 +174,11 @@ export default function LoginPage() {
   const handleOnboardingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!onboardingPhone) {
-      alert('Please enter a valid contact phone number.');
+      setOnboardingError('Please enter a valid contact phone number.');
       return;
     }
 
+    setOnboardingError('');
     setIsOnboardingSubmitting(true);
     try {
       const res = await api.patch('/auth/onboarding', {
@@ -200,7 +202,7 @@ export default function LoginPage() {
       setShowOnboarding(false);
       router.push('/');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to complete profile onboarding');
+      setOnboardingError(err.response?.data?.message || 'Failed to complete profile onboarding');
     } finally {
       setIsOnboardingSubmitting(false);
     }
@@ -421,6 +423,11 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleOnboardingSubmit} className="space-y-4 text-xs">
+              {onboardingError && (
+                <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-rose-200">
+                  {onboardingError}
+                </div>
+              )}
               {/* Role & Institute Badge */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
                 <div className="flex items-center gap-2">
@@ -428,7 +435,7 @@ export default function LoginPage() {
                   <span className="text-slate-300 font-medium">Assigned Institute:</span>
                 </div>
                 <span className="px-2.5 py-1 rounded-lg bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30">
-                  Apex Medical Academy
+                  {onboardingAuthData?.user?.instituteName || 'Your assigned institute'}
                 </span>
               </div>
 

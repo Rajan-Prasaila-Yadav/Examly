@@ -101,6 +101,22 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     };
   }
 
+  // Keep authentication responses intentional. Prisma user records include
+  // credential fields and must never be returned directly to a browser.
+  const publicUser = (user: any) => ({
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone,
+    identifier: user.identifier,
+    avatarUrl: user.avatarUrl,
+    role: user.role?.code,
+    instituteId: user.instituteId,
+    instituteName: user.institute?.name,
+    studentProfile: user.studentProfile,
+    teacherProfile: user.teacherProfile,
+  });
+
   // ── 1. LOGIN ──
   const saveSession = async (userId: string, refreshToken: string, request: any) => {
     await fastify.prisma.userSession.create({ data: {
@@ -154,19 +170,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     await saveSession(user.id, tokens.refreshToken, request);
 
     return {
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-        identifier: user.identifier,
-        avatarUrl: user.avatarUrl,
-        role: user.role.code,
-        instituteId: user.instituteId,
-        instituteName: user.institute?.name,
-        studentProfile: user.studentProfile,
-        teacherProfile: user.teacherProfile,
-      },
+      user: publicUser(user),
       ...tokens,
     };
   });
@@ -596,13 +600,32 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      await fastify.prisma.user.update({
-        where: { id: user.userId },
-        data: {
-          fullName: dto.fullName?.trim() || undefined,
-          phone: dto.phone?.trim() || undefined,
-        },
-      });
+      const phone = dto.phone?.trim();
+      if (phone) {
+        const phoneOwner = await fastify.prisma.user.findFirst({
+          where: { phone, id: { not: user.userId } },
+          select: { id: true },
+        });
+        if (phoneOwner) {
+          return reply.code(409).send({ message: 'This phone number is already used by another account. Please use a different number.' });
+        }
+      }
+
+      try {
+        await fastify.prisma.user.update({
+          where: { id: user.userId },
+          data: {
+            fullName: dto.fullName?.trim() || undefined,
+            phone: phone || undefined,
+          },
+        });
+      } catch (error: any) {
+        // A concurrent request can claim the number after the availability check.
+        if (error?.code === 'P2002') {
+          return reply.code(409).send({ message: 'This phone number is already used by another account. Please use a different number.' });
+        }
+        throw error;
+      }
 
       if (user.roleCode === RoleType.STUDENT) {
         await fastify.prisma.studentProfile.upsert({
@@ -640,7 +663,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       return {
         message: 'Onboarding completed successfully',
-        user: updated,
+        user: publicUser(updated),
       };
     },
   );
