@@ -2,6 +2,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { RecordStatus, ReactionType } from '@prisma/client';
+import { contentAccess } from './content-access';
 
 const CreateCommentSchema = z.object({
   content: z.string().min(1).max(2000),
@@ -13,6 +14,14 @@ const ToggleReactionSchema = z.object({
 });
 
 export const videosRoutes: FastifyPluginAsync = async (fastify) => {
+  const access = contentAccess(fastify.prisma);
+  const assertVideoAccess = (videoId: string, user: any) => access.videoAccess(videoId, user);
+  const findAccessibleComment = async (commentId: string, user: any) => {
+    const comment = await fastify.prisma.videoComment.findUnique({ where: { id: commentId } });
+    if (!comment) return null;
+    await assertVideoAccess(comment.videoId, user);
+    return comment;
+  };
   // GET /api/v1/videos/:id
   fastify.get(
     '/api/v1/videos/:id',
@@ -22,6 +31,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
+      await assertVideoAccess(id, user);
 
       const cacheKey = `video:detail:${id}`;
 
@@ -81,6 +91,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      await assertVideoAccess(id, request.user!);
       const cacheKey = `video:comments:${id}`;
 
       return fastify.cache.getOrSet(
@@ -117,6 +128,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
+      await assertVideoAccess(id, user);
       const parsed = CreateCommentSchema.safeParse(request.body);
 
       if (!parsed.success) {
@@ -125,6 +137,9 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
           message: 'Invalid comment content',
           errors: parsed.error.format(),
         });
+      }
+      if (parsed.data.parentId && !await fastify.prisma.videoComment.findFirst({ where: { id: parsed.data.parentId, videoId: id } })) {
+        return reply.status(400).send({ statusCode: 400, message: 'Reply target does not belong to this video' });
       }
 
       const comment = await fastify.prisma.videoComment.create({
@@ -153,6 +168,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
+      await assertVideoAccess(id, user);
 
       const reactions = await fastify.prisma.videoReaction.findMany({
         where: { videoId: id },
@@ -192,6 +208,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
+      await assertVideoAccess(id, user);
       const parsed = ToggleReactionSchema.safeParse(request.body || {});
       const reactionType = parsed.success ? parsed.data.reactionType : ReactionType.LIKE;
 
@@ -244,7 +261,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ statusCode: 400, message: 'Content is required' });
       }
 
-      const comment = await fastify.prisma.videoComment.findUnique({ where: { id: commentId } });
+      const comment = await findAccessibleComment(commentId, user);
       if (!comment) {
         return reply.status(404).send({ statusCode: 404, message: 'Comment not found' });
       }
@@ -274,7 +291,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
       const { commentId } = request.params as { commentId: string };
       const user = request.user!;
 
-      const comment = await fastify.prisma.videoComment.findUnique({ where: { id: commentId } });
+      const comment = await findAccessibleComment(commentId, user);
       if (!comment) {
         return reply.status(404).send({ statusCode: 404, message: 'Comment not found' });
       }
@@ -308,7 +325,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(403).send({ statusCode: 403, message: 'Only faculty and admins can pin comments' });
       }
 
-      const comment = await fastify.prisma.videoComment.findUnique({ where: { id: commentId } });
+      const comment = await findAccessibleComment(commentId, user);
       if (!comment) {
         return reply.status(404).send({ statusCode: 404, message: 'Comment not found' });
       }
@@ -333,6 +350,8 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
       const { commentId } = request.params as { commentId: string };
       const user = request.user!;
       const { reactionType = 'LIKE' } = (request.body || {}) as { reactionType?: string };
+      const comment = await findAccessibleComment(commentId, user);
+      if (!comment) return reply.status(404).send({ statusCode: 404, message: 'Comment not found' });
 
       const existing = await fastify.prisma.commentReaction.findUnique({
         where: { commentId_userId: { commentId, userId: user.userId } },
@@ -361,10 +380,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
         hasReacted = true;
       }
 
-      const comment = await fastify.prisma.videoComment.findUnique({ where: { id: commentId } });
-      if (comment) {
-        fastify.cache.invalidateTag(`video:${comment.videoId}:comments`);
-      }
+      fastify.cache.invalidateTag(`video:${comment.videoId}:comments`);
 
       return { success: true, hasReacted };
     },
@@ -379,10 +395,13 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
-      const { progressSeconds = 0, durationSeconds = 0 } = (request.body || {}) as {
-        progressSeconds?: number;
-        durationSeconds?: number;
-      };
+      await assertVideoAccess(id, user);
+      const parsed = z.object({
+        progressSeconds: z.coerce.number().finite().min(0).max(31_536_000),
+        durationSeconds: z.coerce.number().finite().positive().max(31_536_000),
+      }).safeParse(request.body);
+      if (!parsed.success) return reply.status(400).send({ statusCode: 400, message: 'Invalid progress payload' });
+      const { progressSeconds, durationSeconds } = parsed.data;
 
       const isCompleted = durationSeconds > 0 ? progressSeconds / durationSeconds >= 0.9 : false;
 
@@ -423,12 +442,16 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = request.user!;
       const cacheKey = `user:history:${user.userId}`;
+      const subjectScope = await access.scope(user);
 
       return fastify.cache.getOrSet(
         cacheKey,
         async () => {
           return (fastify.prisma as any).videoWatchProgress.findMany({
-            where: { userId: user.userId },
+            where: {
+              userId: user.userId,
+              video: { status: user.roleCode === 'STUDENT' ? 'ACTIVE' : { not: RecordStatus.DELETED }, lesson: { status: user.roleCode === 'STUDENT' ? 'ACTIVE' : { not: RecordStatus.DELETED }, subject: subjectScope } },
+            },
             include: {
               video: {
                 select: {
@@ -464,6 +487,7 @@ export const videosRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      await assertVideoAccess(id, request.user!);
       const cacheKey = `video:recommendations:${id}`;
 
       return fastify.cache.getOrSet(

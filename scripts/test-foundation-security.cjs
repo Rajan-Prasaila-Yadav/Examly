@@ -10,12 +10,22 @@ const { authRoutes } = require('../apps/api/src/fastify/routes/auth.routes.ts');
 const { studentFeedRoutes } = require('../apps/api/src/fastify/routes/student-feed.routes.ts');
 const { installTestAccess } = require('../apps/api/src/fastify/routes/test-access.ts');
 const { testsRoutes } = require('../apps/api/src/fastify/routes/tests.routes.ts');
+const { videosRoutes } = require('../apps/api/src/fastify/routes/videos.routes.ts');
 const student = { userId: 'student', roleCode: 'STUDENT', instituteId: 'institute-a' };
 async function appFor(plugin, db, user = student) {
   const app = Fastify();
   app.decorate('prisma', db);
   app.decorate('authenticate', async request => { request.user = user; });
   await app.register(plugin);
+  return app;
+}
+
+async function videoApp(db) {
+  const app = Fastify();
+  app.decorate('prisma', db);
+  app.decorate('authenticate', async request => { request.user = student; });
+  app.decorate('cache', { getOrSet: async (_key, fn) => fn(), invalidate: () => {}, invalidateTag: () => {} });
+  await app.register(videosRoutes);
   return app;
 }
 
@@ -168,6 +178,33 @@ test('students cannot bookmark questions from an unrelated published test', asyn
     const response = await app.inject({ method: 'POST', url: '/api/v1/bookmarks', payload: { targetType: 'QUESTION', targetId: 'outside-question' } });
     assert.equal(response.statusCode, 404);
   } finally { await app.close(); }
+});
+
+test('legacy video progress cannot be saved for inaccessible content', async () => {
+  let writes = 0;
+  const app = await videoApp({
+    video: { findFirst: async () => null },
+    videoWatchProgress: { upsert: async () => { writes++; } },
+  });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/videos/other-video/progress', payload: { progressSeconds: 5, durationSeconds: 10 } });
+    assert.equal(response.statusCode, 404);
+    assert.equal(writes, 0);
+  } finally { await app.close(); }
+});
+
+test('legacy video history is filtered to the student active batch', async () => {
+  const app = await videoApp({
+    studentProfile: { findUnique: async () => ({ batchId: 'batch' }) },
+    videoWatchProgress: { findMany: async ({ where }) => {
+      assert.equal(where.userId, 'student');
+      assert.equal(where.video.lesson.subject.batchId, 'batch');
+      assert.equal(where.video.lesson.subject.batch.status, 'ACTIVE');
+      return [];
+    } },
+  });
+  try { assert.equal((await app.inject('/api/v1/videos/history')).statusCode, 200); }
+  finally { await app.close(); }
 });
 
 test('students can bookmark questions inherited through a copied lesson', async () => {
