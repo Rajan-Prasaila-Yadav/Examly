@@ -162,6 +162,20 @@ test('batch tests reject students without active enrollment', async () => {
   finally { await app.close(); }
 });
 
+test('support ticket creation is student-only and validates bounded input', async () => {
+  let writes = 0;
+  const db = { supportTicket: { create: async () => { writes++; return { id: 'ticket' }; } } };
+  const studentApp = await appFor(studentFeedRoutes, db);
+  const adminApp = await appFor(studentFeedRoutes, db, { ...student, roleCode: 'ADMIN' });
+  try {
+    assert.equal((await adminApp.inject({ method: 'POST', url: '/api/v1/support', payload: { subject: 'Help', message: 'Need assistance' } })).statusCode, 403);
+    assert.equal((await studentApp.inject({ method: 'POST', url: '/api/v1/support', payload: { subject: 'Help', message: '', priority: 'URGENT' } })).statusCode, 400);
+    assert.equal(writes, 0);
+    assert.equal((await studentApp.inject({ method: 'POST', url: '/api/v1/support', payload: { subject: 'Help', message: 'Need assistance', priority: 'HIGH' } })).statusCode, 200);
+    assert.equal(writes, 1);
+  } finally { await studentApp.close(); await adminApp.close(); }
+});
+
 test('students cannot open standalone tests outside their copied curriculum', async () => {
   const plugin = async app => {
     installTestAccess(app);

@@ -13,6 +13,11 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
     title: z.string().trim().max(300).optional(),
     metadataJson: z.preprocess(value => value && typeof value === 'object' ? JSON.stringify(value) : value, z.string().max(10000).optional()),
   });
+  const supportTicketSchema = z.object({
+    subject: z.string().trim().min(1).max(200),
+    message: z.string().trim().min(1).max(10_000),
+    priority: z.enum(['LOW', 'NORMAL', 'HIGH']).default('NORMAL'),
+  });
   const checkBookmark = async (type: string, id: string, user: any) => {
     const resource = ({ NOTE: 'notes', VIDEO: 'videos', LESSON: 'lessons', QUESTION: 'tests' } as Record<string, string>)[type];
     if (!resource || !hasPermission(user, resource, 'read')) throw Object.assign(new Error('Content unavailable'), { statusCode: 403 });
@@ -41,6 +46,9 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
   const supportAdmin = async (request: any, reply: any) => {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.roleCode)) return reply.code(403).send({ message: 'Administrator access required' });
     if (request.user.roleCode !== 'SUPER_ADMIN' && !request.user.instituteId) return reply.code(403).send({ message: 'Institute required' });
+  };
+  const supportStudent = async (request: any, reply: any) => {
+    if (request.user.roleCode !== 'STUDENT') return reply.code(403).send({ message: 'Student access required' });
   };
   const supportScope = async (user: any) => user.roleCode === 'SUPER_ADMIN' ? {} : {
     userId: { in: (await fastify.prisma.user.findMany({ where: { instituteId: user.instituteId }, select: { id: true } })).map(user => user.id) },
@@ -540,7 +548,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
   });
 
   // ── 4. STUDENT SUPPORT TICKETS ──
-  fastify.get('/api/v1/support', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/api/v1/support', { preHandler: [fastify.authenticate, supportStudent] }, async (request, reply) => {
     const userId = request.user!.userId;
     const tickets = await (fastify.prisma as any).supportTicket.findMany({
       where: { userId },
@@ -550,24 +558,18 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
     return { success: true, data: tickets };
   });
 
-  fastify.post('/api/v1/support', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/api/v1/support', { preHandler: [fastify.authenticate, supportStudent], config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (request, reply) => {
     const userId = request.user!.userId;
-    const { subject, message, priority } = request.body as {
-      subject: string;
-      message: string;
-      priority?: string;
-    };
-
-    if (!subject || !message) {
-      return reply.code(400).send({ error: 'Subject and message are required' });
-    }
+    const parsed = supportTicketSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ message: 'Enter a subject, message, and valid priority' });
+    const { subject, message, priority } = parsed.data;
 
     const ticket = await (fastify.prisma as any).supportTicket.create({
       data: {
         userId,
         subject,
         message,
-        priority: priority || 'NORMAL',
+        priority,
       },
     });
 
