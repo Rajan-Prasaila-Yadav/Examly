@@ -10,6 +10,8 @@ const db = new PrismaClient();
     const activeInvalidEnrollments = await tx.$queryRaw`SELECT count(*)::int AS count FROM "StudentProfile" p JOIN "User" u ON u.id=p."userId" JOIN "Batch" b ON b.id=p."batchId" WHERE b.status = 'ACTIVE' AND u."instituteId" IS DISTINCT FROM b."instituteId"`;
     const deletedBatchEnrollments = await tx.$queryRaw`SELECT count(*)::int AS count FROM "StudentProfile" p JOIN "Batch" b ON b.id=p."batchId" WHERE b.status = 'DELETED'`;
     const inactiveBatchEnrollments = await tx.$queryRaw`SELECT count(*)::int AS count FROM "StudentProfile" p JOIN "Batch" b ON b.id=p."batchId" WHERE b.status <> 'ACTIVE'`;
+    const activeStudentProfiles = await tx.$queryRaw`SELECT count(*)::int AS count FROM "StudentProfile" p JOIN "User" u ON u.id=p."userId" JOIN "Batch" b ON b.id=p."batchId" WHERE u.status = 'ACTIVE' AND b.status = 'ACTIVE'`;
+    const activeStudentsWithoutSubjects = await tx.$queryRaw`SELECT count(*)::int AS count FROM "StudentProfile" p JOIN "User" u ON u.id=p."userId" JOIN "Batch" b ON b.id=p."batchId" WHERE u.status = 'ACTIVE' AND b.status = 'ACTIVE' AND NOT EXISTS (SELECT 1 FROM "Subject" s WHERE s."batchId" = b.id AND s.status = 'ACTIVE')`;
     const invalidFolders = await tx.$queryRaw`SELECT count(*)::int AS count FROM "ResourceNode" child JOIN "ResourceNode" parent ON parent.id=child."parentId" WHERE child."lessonId" <> parent."lessonId" OR parent."isFolder" = false`;
     return {
       invalidResourceFolders: invalidFolders[0].count,
@@ -18,6 +20,8 @@ const db = new PrismaClient();
       activeCrossInstituteEnrollments: activeInvalidEnrollments[0].count,
       deletedBatchEnrollments: deletedBatchEnrollments[0].count,
       inactiveBatchEnrollments: inactiveBatchEnrollments[0].count,
+      activeStudentProfiles: activeStudentProfiles[0].count,
+      activeStudentsWithoutSubjects: activeStudentsWithoutSubjects[0].count,
     };
   }, { timeout: 15000 });
   console.log(JSON.stringify(report, null, 2));
