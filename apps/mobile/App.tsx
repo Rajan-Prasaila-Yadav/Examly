@@ -63,15 +63,15 @@ function MainApp() {
           <HomeScreen
             onNavigateTab={(tab) => setCurrentTab(tab)}
             onOpenTest={() => setCurrentTab('tests')}
-            onOpenVideo={(vId) => setActiveVideoId(vId || 'cmwif1bjy000n14fgqjk7veuo')}
-            onOpenNote={(nId) => setActiveNoteId(nId || 'cmwif27ox0007pgn7jcorfwc6')}
+            onOpenVideo={(vId) => setActiveVideoId(vId ?? null)}
+            onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
             onOpenBatch={() => setCurrentTab('learn')}
           />
         )}
         {currentTab === 'learn' && (
           <LearnScreen
-            onOpenVideo={(vId) => setActiveVideoId(vId || 'cmwif1bjy000n14fgqjk7veuo')}
-            onOpenNote={(nId) => setActiveNoteId(nId || 'cmwif27ox0007pgn7jcorfwc6')}
+            onOpenVideo={(vId) => setActiveVideoId(vId ?? null)}
+            onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
             onOpenTest={() => setCurrentTab('tests')}
           />
         )}
@@ -79,14 +79,14 @@ function MainApp() {
         {currentTab === 'activity' && (
           <ActivityScreen
             onOpenTest={() => setCurrentTab('tests')}
-            onOpenVideo={(vId) => setActiveVideoId(vId || 'cmwif1bjy000n14fgqjk7veuo')}
-            onOpenNote={(nId) => setActiveNoteId(nId || 'cmwif27ox0007pgn7jcorfwc6')}
+            onOpenVideo={(vId) => setActiveVideoId(vId ?? null)}
+            onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
           />
         )}
         {currentTab === 'profile' && (
           <ProfileScreen
             onOpenTest={() => setCurrentTab('tests')}
-            onOpenNote={(nId) => setActiveNoteId(nId || 'cmwif27ox0007pgn7jcorfwc6')}
+            onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
           />
         )}
       </View>

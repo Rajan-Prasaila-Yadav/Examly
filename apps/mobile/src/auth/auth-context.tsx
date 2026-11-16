@@ -1,7 +1,7 @@
 // apps/mobile/src/auth/auth-context.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { apiClient } from '../api/client';
+import { apiClient, refreshAccessToken } from '../api/client';
 
 export interface User {
   id: string;
@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: string;
   avatarUrl?: string;
+  instituteId?: string | null;
 }
 
 interface AuthContextType {
@@ -38,12 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Restore session from SecureStore on startup
     const restoreSession = async () => {
       try {
-        const storedToken = await SecureStore.getItemAsync('examly_token');
         const storedUser = await SecureStore.getItemAsync('examly_user');
-
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken && storedUser) {
+          const restoredUser = JSON.parse(storedUser) as User;
+          if (restoredUser.role === 'STUDENT') {
+            setToken(refreshedToken);
+            setUser(restoredUser);
+          }
         }
       } catch (e) {
         console.warn('Failed to restore auth session:', e);
@@ -67,14 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const receivedToken = data.token || data.accessToken || data.data?.token;
       const receivedUser = data.user || data.data?.user;
 
-      if (!receivedToken || !receivedUser) {
+      const refreshToken = data.refreshToken || data.data?.refreshToken;
+      if (!receivedToken || !refreshToken || !receivedUser) {
         return { success: false, error: 'Invalid response from server' };
       }
+      if (receivedUser.role !== 'STUDENT') return { success: false, error: 'This is the Student app. Please sign in with a student account.' };
 
       setToken(receivedToken);
       setUser(receivedUser);
 
       await SecureStore.setItemAsync('examly_token', receivedToken);
+      await SecureStore.setItemAsync('examly_refresh_token', refreshToken);
       await SecureStore.setItemAsync('examly_user', JSON.stringify(receivedUser));
 
       return { success: true };
@@ -95,11 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const receivedToken = data.token || data.accessToken || data.data?.token;
       const receivedUser = data.user || data.data?.user;
 
-      if (!receivedToken || !receivedUser) {
+      const refreshToken = data.refreshToken || data.data?.refreshToken;
+      if (!receivedToken || !refreshToken || !receivedUser) {
         return { success: false, error: 'Invalid Google response from server' };
       }
+      if (receivedUser.role !== 'STUDENT') return { success: false, error: 'This is the Student app. Please sign in with a student account.' };
 
       await SecureStore.setItemAsync('examly_token', receivedToken);
+      await SecureStore.setItemAsync('examly_refresh_token', refreshToken);
       await SecureStore.setItemAsync('examly_user', JSON.stringify(receivedUser));
 
       setToken(receivedToken);
@@ -122,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(null);
       setUser(null);
       await SecureStore.deleteItemAsync('examly_token');
+      await SecureStore.deleteItemAsync('examly_refresh_token');
       await SecureStore.deleteItemAsync('examly_user');
     }
   };

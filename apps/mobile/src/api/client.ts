@@ -1,16 +1,45 @@
 // apps/mobile/src/api/client.ts
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
 
-const FALLBACK_ENDPOINTS = [
-  (process.env as any).EXPO_PUBLIC_API_URL || 'https://examly-pi.vercel.app',
-  'https://examly-pi.vercel.app',
-  'http://10.255.75.94:4000',
-  'http://127.0.0.1:4000',
-];
+const configuredApiUrl = (process.env as any).EXPO_PUBLIC_API_URL || 'https://examly-pi.vercel.app';
+if (!/^https?:\/\//i.test(configuredApiUrl)) {
+  throw new Error('EXPO_PUBLIC_API_URL must be an HTTP or HTTPS API URL.');
+}
+const currentBaseUrl = configuredApiUrl.replace(/\/$/, '');
+let refreshInFlight: Promise<string | null> | null = null;
 
-let currentBaseUrl = FALLBACK_ENDPOINTS[0];
+const clearSession = async () => {
+  await Promise.all([
+    SecureStore.deleteItemAsync('examly_token'),
+    SecureStore.deleteItemAsync('examly_refresh_token'),
+    SecureStore.deleteItemAsync('examly_user'),
+  ]);
+};
+
+export const refreshAccessToken = async (): Promise<string | null> => {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const refreshToken = await SecureStore.getItemAsync('examly_refresh_token');
+      if (!refreshToken) return null;
+      try {
+        const response = await axios.post(`${currentBaseUrl}/api/v1/auth/refresh`, { refreshToken }, { timeout: 10_000 });
+        const accessToken = response.data?.accessToken || response.data?.token;
+        const rotatedRefreshToken = response.data?.refreshToken;
+        if (!accessToken || !rotatedRefreshToken) throw new Error('Invalid refresh response');
+        await SecureStore.setItemAsync('examly_token', accessToken);
+        await SecureStore.setItemAsync('examly_refresh_token', rotatedRefreshToken);
+        return accessToken as string;
+      } catch {
+        await clearSession();
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+};
 
 export const apiClient = axios.create({
   baseURL: currentBaseUrl,
@@ -34,31 +63,22 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Interceptor for network fallback and 401 token expiry handling
+// Refresh expired short-lived access tokens once, then retry the original API call.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
-    // If network error occurred (e.g. 127.0.0.1 unreachable because USB cable disconnected)
-    if (!error.response && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !String(originalRequest.url).includes('/auth/refresh')) {
       originalRequest._retry = true;
-      const currentIndex = FALLBACK_ENDPOINTS.indexOf(currentBaseUrl);
-      const nextIndex = (currentIndex + 1) % FALLBACK_ENDPOINTS.length;
-      if (nextIndex !== currentIndex) {
-        currentBaseUrl = FALLBACK_ENDPOINTS[nextIndex];
-        apiClient.defaults.baseURL = currentBaseUrl;
-        originalRequest.baseURL = currentBaseUrl;
-        console.log(`[apiClient] Switching base URL to ${currentBaseUrl} and retrying...`);
+      const accessToken = await refreshAccessToken();
+      if (accessToken) {
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       }
     }
-
     if (error.response?.status === 401) {
-      try {
-        await SecureStore.deleteItemAsync('examly_token');
-        await SecureStore.deleteItemAsync('examly_user');
-      } catch {}
+      await clearSession();
     }
     return Promise.reject(error);
   }
