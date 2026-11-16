@@ -11,6 +11,7 @@ const { studentFeedRoutes } = require('../apps/api/src/fastify/routes/student-fe
 const { installTestAccess } = require('../apps/api/src/fastify/routes/test-access.ts');
 const { testsRoutes } = require('../apps/api/src/fastify/routes/tests.routes.ts');
 const { videosRoutes } = require('../apps/api/src/fastify/routes/videos.routes.ts');
+const { communityRoutes } = require('../apps/api/src/fastify/routes/community.routes.ts');
 const student = { userId: 'student', roleCode: 'STUDENT', instituteId: 'institute-a' };
 async function appFor(plugin, db, user = student) {
   const app = Fastify();
@@ -26,6 +27,14 @@ async function videoApp(db) {
   app.decorate('authenticate', async request => { request.user = student; });
   app.decorate('cache', { getOrSet: async (_key, fn) => fn(), invalidate: () => {}, invalidateTag: () => {} });
   await app.register(videosRoutes);
+  return app;
+}
+
+async function communityApp(db, user = student) {
+  const app = Fastify();
+  app.decorate('prisma', db);
+  app.decorate('authenticate', async request => { request.user = user; });
+  await app.register(communityRoutes);
   return app;
 }
 
@@ -205,6 +214,47 @@ test('legacy video history is filtered to the student active batch', async () =>
   });
   try { assert.equal((await app.inject('/api/v1/videos/history')).statusCode, 200); }
   finally { await app.close(); }
+});
+
+test('students cannot react to community posts outside their active batch', async () => {
+  let reactionReads = 0;
+  const app = await communityApp({
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { id: 'batch', status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    communityPost: { findFirst: async ({ where }) => {
+      assert.equal(where.instituteId, 'institute-a');
+      assert.deepEqual(where.OR, [{ batchId: null }, { batchId: 'batch' }]);
+      return null;
+    } },
+    postReaction: { findUnique: async () => { reactionReads++; } },
+  });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/community/posts/outside/react', payload: { reactionType: 'LIKE' } });
+    assert.equal(response.statusCode, 404);
+    assert.equal(reactionReads, 0);
+  } finally { await app.close(); }
+});
+
+test('unenrolled students receive no community feed', async () => {
+  const app = await communityApp({
+    studentProfile: { findUnique: async () => ({ batchId: null, batch: null }) },
+    communityPost: { findMany: async ({ where }) => { assert.equal(where.id, '__none__'); return []; } },
+  });
+  try { assert.deepEqual((await app.inject('/api/v1/community/feed')).json(), []); }
+  finally { await app.close(); }
+});
+
+test('community replies must belong to the addressed post', async () => {
+  let writes = 0;
+  const app = await communityApp({
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { id: 'batch', status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    communityPost: { findFirst: async () => ({ id: 'post', allowComments: true }) },
+    postComment: { findFirst: async () => null, create: async () => { writes++; } },
+  });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/community/posts/post/comments', payload: { content: 'Reply', parentId: 'other-post-comment' } });
+    assert.equal(response.statusCode, 400);
+    assert.equal(writes, 0);
+  } finally { await app.close(); }
 });
 
 test('students can bookmark questions inherited through a copied lesson', async () => {

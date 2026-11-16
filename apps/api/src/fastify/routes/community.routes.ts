@@ -30,6 +30,24 @@ const CreateCommentSchema = z.object({
 });
 
 export const communityRoutes: FastifyPluginAsync = async (fastify) => {
+  const studentBatch = async (user: any) => {
+    if (user.roleCode !== RoleType.STUDENT) return null;
+    const profile = await fastify.prisma.studentProfile.findUnique({
+      where: { userId: user.userId },
+      include: { batch: { select: { id: true, status: true, instituteId: true } } },
+    });
+    return profile?.batchId && profile.batch?.status === 'ACTIVE' && profile.batch.instituteId === user.instituteId ? profile.batch : null;
+  };
+  const postScope = async (user: any) => {
+    if (user.roleCode === RoleType.SUPER_ADMIN) return {};
+    if (!user.instituteId) return { id: '__none__' };
+    if (user.roleCode !== RoleType.STUDENT) return { instituteId: user.instituteId };
+    const batch = await studentBatch(user);
+    return batch ? { instituteId: user.instituteId, OR: [{ batchId: null }, { batchId: batch.id }] } : { id: '__none__' };
+  };
+  const findVisiblePost = async (id: string, user: any, select: any = { id: true }) =>
+    fastify.prisma.communityPost.findFirst({ where: { id, ...(await postScope(user)) }, select });
+
   // GET /api/v1/community/feed
   fastify.get(
     '/api/v1/community/feed',
@@ -39,27 +57,7 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = request.user!;
 
-      // Determine batchId if user is student
-      let studentBatchId: string | undefined = undefined;
-      if (user.roleCode === RoleType.STUDENT) {
-        const profile = await fastify.prisma.studentProfile.findUnique({
-          where: { userId: user.userId },
-          select: { batchId: true },
-        });
-        if (profile?.batchId) {
-          studentBatchId = profile.batchId;
-        }
-      }
-
-      const where: any = {};
-      if (user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN) {
-        where.instituteId = user.instituteId;
-      }
-
-      // If student, see all-institute posts (batchId: null) OR posts for their batch
-      if (studentBatchId) {
-        where.OR = [{ batchId: null }, { batchId: studentBatchId }];
-      }
+      const where = await postScope(user);
 
       const posts = await fastify.prisma.communityPost.findMany({
         where,
@@ -116,13 +114,23 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
       if (!instituteId) {
         return reply.status(400).send({ statusCode: 400, message: 'Institute context required' });
       }
+      const enrolledBatch = await studentBatch(user);
+      if (user.roleCode === RoleType.STUDENT && !enrolledBatch) {
+        return reply.status(403).send({ statusCode: 403, message: 'An active batch enrollment is required to post' });
+      }
+      let batchId = body.batchId || null;
+      if (user.roleCode === RoleType.STUDENT) batchId = enrolledBatch!.id;
+      if (batchId) {
+        const batch = await fastify.prisma.batch.findFirst({ where: { id: batchId, instituteId, status: 'ACTIVE' }, select: { id: true } });
+        if (!batch) return reply.status(404).send({ statusCode: 404, message: 'Batch not found' });
+      }
 
       const post = await fastify.prisma.communityPost.create({
         data: {
           title: body.title,
           contentHtml: body.contentHtml,
           isPinned: isPrivileged ? body.isPinned : false,
-          batchId: body.batchId || null,
+          batchId,
           authorId: user.userId,
           instituteId,
           ...(body.poll
@@ -173,10 +181,7 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
       const body = ReactSchema.parse(request.body);
 
       // Check if post exists
-      const post = await fastify.prisma.communityPost.findUnique({
-        where: { id },
-        select: { id: true },
-      });
+      const post = await findVisiblePost(id, user);
 
       if (!post) {
         return reply.status(404).send({ statusCode: 404, message: 'Post not found' });
@@ -230,6 +235,8 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
       const user = request.user!;
       const body = VotePollSchema.parse(request.body);
 
+      const poll = await fastify.prisma.batchPoll.findUnique({ where: { id: pollId }, select: { postId: true } });
+      if (!poll || !await findVisiblePost(poll.postId, user)) return reply.status(404).send({ statusCode: 404, message: 'Poll not found' });
       // Verify option belongs to poll
       const option = await fastify.prisma.pollOption.findFirst({
         where: { id: body.optionId, pollId },
@@ -273,6 +280,7 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      if (!await findVisiblePost(id, request.user!)) return reply.status(404).send({ statusCode: 404, message: 'Post not found' });
 
       const comments = await fastify.prisma.postComment.findMany({
         where: { postId: id, parentId: null },
@@ -307,10 +315,7 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
       const user = request.user!;
       const body = CreateCommentSchema.parse(request.body);
 
-      const post = await fastify.prisma.communityPost.findUnique({
-        where: { id },
-        select: { id: true, allowComments: true },
-      });
+      const post = await findVisiblePost(id, user, { id: true, allowComments: true });
 
       if (!post) {
         return reply.status(404).send({ statusCode: 404, message: 'Post not found' });
@@ -318,6 +323,9 @@ export const communityRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!post.allowComments) {
         return reply.status(400).send({ statusCode: 400, message: 'Comments are disabled on this post' });
+      }
+      if (body.parentId && !await fastify.prisma.postComment.findFirst({ where: { id: body.parentId, postId: id } })) {
+        return reply.status(400).send({ statusCode: 400, message: 'Reply target does not belong to this post' });
       }
 
       const comment = await fastify.prisma.postComment.create({
