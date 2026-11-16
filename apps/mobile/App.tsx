@@ -85,7 +85,6 @@ function MainApp() {
         )}
         {currentTab === 'profile' && (
           <ProfileScreen
-            onOpenTest={() => setCurrentTab('tests')}
             onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
           />
         )}
