@@ -22,6 +22,14 @@ Work order: finish shared database/API/security and the corresponding website wo
 
 ## Remaining sequence
 
+### Password form and recovery repair
+
+- Deployed frontend contains the public-auth 401 bypass. Added protection against background session checks reloading login/recovery forms; form submission now reads actual input values to support browser/password-manager autofill. Recovery errors/successes and loading actions are announced, and reset success stays visible until the user returns to login.
+- Removed password recovery's Redis dependency. Email sending is awaited during the HTTP request. Added Gmail App Password sending for development without a custom domain, alongside Resend with a verified sender. Configuration guide: `docs/password-recovery-setup.md`.
+- Reset token consumption, password update, invalidation of other reset links and refresh-session revocation now share an interactive transaction with a conditional token claim. Rate limits apply to recovery/reset routes.
+- Real authorized Resend test was rejected (403); current sender is the shared resend.dev test domain and the account has no verified domain. Failed new token invalidated; no password changed. Gmail credentials and live receipt/reset/sign-in remain pending.
+- API/web TypeScript checks and 35 isolated regressions passed. Tests send no live emails or reset real passwords.
+
 ### Signed-in walkthrough and background-job security — November 16
 
 - Verified the existing Chrome Super Admin session: real subject library, five existing lessons, and lesson Videos, Notes, Tests and Resources tabs. Opened/cancelled Add Resource without saving. No records were created, edited or deleted. Student visibility, publishing and actual resource mutations remain unverified.

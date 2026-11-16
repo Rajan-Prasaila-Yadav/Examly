@@ -208,14 +208,15 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const fields = new FormData(e.currentTarget as HTMLFormElement);
     setError('');
     setBlockedNotice(null);
     setIsLoading(true);
 
     try {
       const res = await api.post('/auth/login', {
-        identifier,
-        password,
+        identifier: String(fields.get('identifier') || '').trim(),
+        password: String(fields.get('password') || ''),
         deviceInfo: 'Examly Web Admin Desktop',
       });
 
@@ -340,6 +341,8 @@ export default function LoginPage() {
               <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                name="identifier"
+                autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="rajanprasaila@gmail.com"
@@ -363,6 +366,8 @@ export default function LoginPage() {
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
+                name="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"

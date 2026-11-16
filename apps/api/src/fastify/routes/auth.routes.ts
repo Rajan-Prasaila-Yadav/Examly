@@ -6,7 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { RecordStatus, RoleType } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
-import { Resend } from 'resend';
+import { recoveryConfiguration, sendPasswordRecovery } from './password-recovery';
 
 const LoginSchema = z
   .object({
@@ -44,7 +44,7 @@ const RefreshTokenSchema = z.object({
 });
 
 const ForgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
 });
 
 const ResetPasswordSchema = z.object({
@@ -81,7 +81,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   };
 
   const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-  const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 
   function generateTokens(user: { id: string; instituteId?: string | null; role: { code: string } }) {
     const payload = {
@@ -445,81 +445,30 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // ── 6. FORGOT PASSWORD ──
-  fastify.post('/api/v1/auth/forgot-password', async (request, reply) => {
-    // Check delivery availability before looking up an email address, so an
-    // outage cannot reveal whether an account exists or consume reset tokens.
-    if (fastify.backgroundJobsAvailable === false || !process.env.RESEND_API_KEY || !fastify.queues?.notificationsQueue) {
+  fastify.post('/api/v1/auth/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    const config = recoveryConfiguration();
+    if (!config) {
+      fastify.log.error({ event: 'PASSWORD_RECOVERY_CONFIGURATION_MISSING' }, 'Check FRONTEND_URL and the selected email provider credentials/sender');
       return reply.code(503).send({ message: 'Password recovery is temporarily unavailable. Please try again later.' });
     }
     const parsed = ForgotPasswordSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return { message: 'If an account exists, a password reset email will be sent.' };
-    }
-
-    const cleanEmail = parsed.data.email.trim().toLowerCase();
+    if (!parsed.success) return reply.code(400).send({ message: 'Enter a valid email address.' });
     const user = await fastify.prisma.user.findFirst({
-      where: { email: cleanEmail, status: RecordStatus.ACTIVE },
+      where: { email: parsed.data.email.trim().toLowerCase(), status: RecordStatus.ACTIVE },
     });
-
     if (user) {
-      // 1. Generate high-entropy 32-byte cryptographic random token
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-      // 2. Invalidate previous unused reset tokens for this user
-      await fastify.prisma.passwordResetToken.updateMany({
-        where: { userId: user.id, isConsumed: false },
-        data: { isConsumed: true, consumedAt: new Date() },
-      });
-
-      // 3. Persist hashed token with 1-hour expiration
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-      await fastify.prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-          ipAddress: request.ip || '127.0.0.1',
-        },
-      });
-
-      // 4. Enqueue email job to BullMQ notification queue
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const resetLink = `${frontendUrl}/forgot-password?token=${rawToken}`;
-      const correlationId = `pwreset_${user.id}_${Date.now()}`;
-
-      if (fastify.queues?.notificationsQueue) {
-        await fastify.queues.notificationsQueue.add('send-email', {
-          to: user.email,
-          subject: 'Reset Your Examly Password',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
-              <h2 style="color: #0284c7;">Examly Password Reset</h2>
-              <p>Hello <strong>${user.fullName}</strong>,</p>
-              <p>We received a request to reset your Examly password. Click the button below to set a new password:</p>
-              <p style="margin: 24px 0;">
-                <a href="${resetLink}" style="background-color: #0284c7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
-              </p>
-              <p style="color: #64748b; font-size: 12px;">This link is single-use and expires in 60 minutes. If you did not request this, please ignore this email.</p>
-            </div>
-          `,
-          text: `Hello ${user.fullName}, reset your Examly password here: ${resetLink} (Expires in 60 minutes)`,
-          correlationId,
-          type: 'PASSWORD_RESET',
-        });
+      try {
+        await sendPasswordRecovery(fastify, user, config, request.ip);
+      } catch {
+        fastify.log.error({ event: 'PASSWORD_RESET_DELIVERY_FAILED' }, 'Password reset delivery failed; inspect provider configuration and delivery logs');
+        // Keep account-specific delivery failures private to prevent enumeration.
       }
-
-      fastify.log.info(
-        { event: 'PASSWORD_RESET_TOKEN_CREATED', userId: user.id, correlationId },
-        'Password reset token generated and notification job enqueued',
-      );
     }
-
-    return { message: 'If an account exists, a password reset email will be sent.' };
+    return { message: 'If this email belongs to an active account, you will receive a password reset link. Check your inbox and spam folder.' };
   });
 
   // ── 7. RESET PASSWORD ──
-  fastify.post('/api/v1/auth/reset-password', async (request, reply) => {
+  fastify.post('/api/v1/auth/reset-password', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const parsed = ResetPasswordSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({ statusCode: 400, message: 'Invalid reset password payload' });
@@ -563,20 +512,22 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
     // 5. Transactional execution: update password + consume token + revoke active sessions
-    await fastify.prisma.$transaction([
-      fastify.prisma.user.update({
-        where: { id: tokenRecord.userId },
-        data: { passwordHash },
-      }),
-      fastify.prisma.passwordResetToken.update({
-        where: { id: tokenRecord.id },
-        data: { isConsumed: true, consumedAt: new Date() },
-      }),
-      fastify.prisma.userSession.updateMany({
-        where: { userId: tokenRecord.userId, isActive: true },
-        data: { isActive: false },
-      }),
-    ]);
+    try {
+      await fastify.prisma.$transaction(async (tx) => {
+        // Lock the user row first so resets using different links serialize.
+        const updated = await tx.user.updateMany({ where: { id: tokenRecord.userId, status: RecordStatus.ACTIVE }, data: { passwordHash } });
+        const claimed = await tx.passwordResetToken.updateMany({
+          where: { id: tokenRecord.id, isConsumed: false, expiresAt: { gt: new Date() } },
+          data: { isConsumed: true, consumedAt: new Date() },
+        });
+        if (updated.count !== 1 || claimed.count !== 1) throw Object.assign(new Error('Reset link has expired or already been used. Please request a new link.'), { statusCode: 400 });
+        await tx.passwordResetToken.updateMany({ where: { userId: tokenRecord.userId, isConsumed: false }, data: { isConsumed: true, consumedAt: new Date() } });
+        await tx.userSession.updateMany({ where: { userId: tokenRecord.userId, isActive: true }, data: { isActive: false } });
+      });
+    } catch (error: any) {
+      if (error.statusCode === 400) return reply.code(400).send({ message: error.message });
+      throw error;
+    }
 
     fastify.log.info(
       { event: 'PASSWORD_RESET_SUCCESS', userId: tokenRecord.userId },

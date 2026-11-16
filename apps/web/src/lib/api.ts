@@ -109,6 +109,17 @@ function isPublicAuthRequest(url?: string): boolean {
   return /\/auth\/(login|google|register|forgot-password|reset-password|refresh)$/.test(path);
 }
 
+function clearExpiredSession() {
+  localStorage.removeItem('examly_access_token');
+  localStorage.removeItem('examly_refresh_token');
+  localStorage.removeItem('examly_user');
+  invalidateApiCache();
+  // Background /auth/me checks must not reload a form and erase its feedback.
+  if (!['/login', '/forgot-password', '/signup'].includes(window.location.pathname)) {
+    window.location.href = '/login';
+  }
+}
+
 axiosInstance.interceptors.request.use((config) => {
   if (typeof window !== 'undefined' && !isPublicAuthRequest(config.url)) {
     const token = localStorage.getItem('examly_access_token');
@@ -124,6 +135,7 @@ axiosInstance.interceptors.request.use((config) => {
 
 axiosInstance.interceptors.response.use(
   (response) => {
+    if (isPublicAuthRequest(response.config.url)) return response;
     // Invalidate cache on mutations
     const method = response.config.method?.toUpperCase();
     if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -158,14 +170,10 @@ axiosInstance.interceptors.response.use(
             invalidateApiCache();
             return axiosInstance(originalRequest);
           } catch (refreshErr) {
-            localStorage.removeItem('examly_access_token');
-            localStorage.removeItem('examly_refresh_token');
-            invalidateApiCache();
-            window.location.href = '/login';
+            clearExpiredSession();
           }
         } else {
-          invalidateApiCache();
-          window.location.href = '/login';
+          clearExpiredSession();
         }
       }
     }

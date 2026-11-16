@@ -38,3 +38,15 @@ test('protected requests still renew session and retry after 401',async()=>{
  assert.deepEqual(s.counts(),{refreshCalls:1,retries:1});
  assert.equal(s.stored.get('examly_access_token'),'new-access');
 });
+
+test('expired background sessions do not reload login or password recovery forms',async()=>{
+ for(const pathname of ['/login','/forgot-password','/signup']){
+  const s=setup(null);s.window.location.pathname=pathname;s.window.location.href=pathname+'?keep=form';
+  const error={config:{url:'/auth/me',headers:{}},response:{status:401}};
+  await assert.rejects(s.handlers.fail(error),e=>e===error);
+  assert.equal(s.window.location.href,pathname+'?keep=form');
+ }
+ const s=setup(null);s.window.location.pathname='/';s.window.location.href='/';
+ await assert.rejects(s.handlers.fail({config:{url:'/auth/me',headers:{}},response:{status:401}}));
+ assert.equal(s.window.location.href,'/login');
+});
