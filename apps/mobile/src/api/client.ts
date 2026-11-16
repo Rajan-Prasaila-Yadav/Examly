@@ -2,7 +2,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const configuredApiUrl = (process.env as any).EXPO_PUBLIC_API_URL || 'https://examly-pi.vercel.app';
+// Expo replaces direct EXPO_PUBLIC_* references while creating the native bundle.
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://examly-pi.vercel.app';
 if (!/^https?:\/\//i.test(configuredApiUrl)) {
   throw new Error('EXPO_PUBLIC_API_URL must be an HTTP or HTTPS API URL.');
 }

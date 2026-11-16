@@ -68,20 +68,10 @@ export function TestsScreen() {
   // Active Test State
   const [selectedTest, setSelectedTest] = useState<any | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(6); // Default to Q7 like mockup
-  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({
-    0: 'opt-a',
-    1: 'opt-b',
-    2: 'opt-c',
-    3: 'opt-d',
-    4: 'opt-a',
-    5: 'opt-c',
-  });
-  const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({
-    2: true,
-    5: true,
-  });
-  const [secondsRemaining, setSecondsRemaining] = useState(1458); // 24m 18s
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
   const [isNavigatorVisible, setIsNavigatorVisible] = useState(false);
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false);
 
@@ -159,24 +149,31 @@ export function TestsScreen() {
           }
         }
       }
-      if (allQuestions.length > 0) {
-        setQuestions(allQuestions);
+      if (allQuestions.length === 0) {
+        Alert.alert('Assessment unavailable', 'This assessment does not have any published questions yet.');
+        return;
       }
+      setQuestions(allQuestions);
+      setCurrentQuestionIndex(0);
+      setUserAnswers({});
+      setMarkedForReview({});
       setSelectedTest(testData);
       setSecondsRemaining((testData.durationMinutes || 30) * 60);
       setMode('instructions');
     } catch (err) {
       console.warn('Failed to load test details:', err);
-      // Fallback if network offline
-      setMode('instructions');
+      Alert.alert('Unable to open assessment', 'Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleBeginExam = () => {
-    // Focus on Q7 (index 6) if 20 questions available to match reference mockup, or index 0
-    setCurrentQuestionIndex(questions.length > 6 ? 6 : 0);
+    if (questions.length === 0) {
+      Alert.alert('Assessment unavailable', 'No published questions are available for this assessment.');
+      return;
+    }
+    setCurrentQuestionIndex(0);
     setMode('exam');
   };
 
