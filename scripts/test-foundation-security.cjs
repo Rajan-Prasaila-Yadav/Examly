@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { authRoutes } = require('../apps/api/src/fastify/routes/auth.routes.ts');
 const { studentFeedRoutes } = require('../apps/api/src/fastify/routes/student-feed.routes.ts');
 const { installTestAccess } = require('../apps/api/src/fastify/routes/test-access.ts');
+const { testsRoutes } = require('../apps/api/src/fastify/routes/tests.routes.ts');
 const student = { userId: 'student', roleCode: 'STUDENT', instituteId: 'institute-a' };
 async function appFor(plugin, db, user = student) {
   const app = Fastify();
@@ -153,6 +154,34 @@ test('students cannot open standalone tests outside their copied curriculum', as
     subject: { findFirst: async () => null },
   });
   try { assert.equal((await app.inject('/api/v1/tests/test')).statusCode, 404); }
+  finally { await app.close(); }
+});
+
+test('answer keys remain hidden until a student result is released', async () => {
+  const db = {
+    test: {
+      findFirst: async () => ({ id: 'test', batchId: 'batch', isPublished: true, status: 'ACTIVE', config: { publishMode: 'MANUAL_BY_ADMIN' }, _count: { attempts: 0 } }),
+      findUnique: async () => ({ id: 'test', config: { publishMode: 'MANUAL_BY_ADMIN' }, sections: [] }),
+    },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    testAttempt: { findFirst: async () => ({ id: 'attempt', studentId: 'student', answers: [], result: { publishedAt: null } }) },
+  };
+  const app = await appFor(testsRoutes, db);
+  try { assert.equal((await app.inject('/api/v1/tests/test/answer-key')).statusCode, 403); }
+  finally { await app.close(); }
+});
+
+test('answer keys are available to the owning student after release', async () => {
+  const db = {
+    test: {
+      findFirst: async () => ({ id: 'test', batchId: 'batch', isPublished: true, status: 'ACTIVE', config: { publishMode: 'MANUAL_BY_ADMIN' }, _count: { attempts: 0 } }),
+      findUnique: async () => ({ id: 'test', config: { publishMode: 'MANUAL_BY_ADMIN' }, sections: [] }),
+    },
+    studentProfile: { findUnique: async () => ({ batchId: 'batch', batch: { status: 'ACTIVE', instituteId: 'institute-a' } }) },
+    testAttempt: { findFirst: async () => ({ id: 'attempt', studentId: 'student', answers: [], result: { publishedAt: new Date() } }) },
+  };
+  const app = await appFor(testsRoutes, db);
+  try { assert.equal((await app.inject('/api/v1/tests/test/answer-key')).statusCode, 200); }
   finally { await app.close(); }
 });
 

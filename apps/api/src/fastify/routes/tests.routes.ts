@@ -1107,6 +1107,7 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
       const test = await fastify.prisma.test.findUnique({
         where: { id },
         include: {
+          config: true,
           sections: {
             include: {
               questions: {
@@ -1132,6 +1133,15 @@ export const testsRoutes: FastifyPluginAsync = async (fastify) => {
           include: { answers: true, result: true },
           orderBy: { submittedAt: 'desc' },
         });
+      }
+
+      // The answer key contains the correct options and solutions. A student
+      // must be viewing their own completed attempt and its result must be
+      // released according to the test configuration before it is exposed.
+      if (user.roleCode === RoleType.STUDENT) {
+        if (!attempt || attempt.studentId !== user.userId || !attempt.result || !resultVisible(test, !!attempt.result.publishedAt)) {
+          return reply.status(403).send({ statusCode: 403, message: 'Results have not been released yet' });
+        }
       }
 
       const answerMap = new Map<string, any>((attempt?.answers || []).map((a: any) => [a.questionId, a]));
