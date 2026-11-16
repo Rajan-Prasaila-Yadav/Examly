@@ -173,7 +173,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
               activeOpacity={0.8}
             >
               <Text style={[styles.filterPillText, activeTabFilter === 'active' && styles.filterPillTextActive]}>
-                Active ({batches.length || 2})
+                Active ({batches.filter((b) => b.status === 'ACTIVE').length})
               </Text>
             </TouchableOpacity>
 
@@ -183,7 +183,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
               activeOpacity={0.8}
             >
               <Text style={[styles.filterPillText, activeTabFilter === 'completed' && styles.filterPillTextActive]}>
-                Completed (1)
+                Completed ({batches.filter((b) => b.status === 'COMPLETED').length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -191,18 +191,33 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
           {/* My Batches Section */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>My batches</Text>
-            <Text style={styles.batchCountText}>{batches.length || 2} active</Text>
+            <Text style={styles.batchCountText}>
+              {batches.filter((b) => b.status === 'ACTIVE').length} active
+            </Text>
           </View>
 
           {loading ? (
             <ActivityIndicator size="large" color="#8B80F5" style={{ marginTop: 40 }} />
+          ) : batches.length === 0 ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <Text style={{ color: '#8A8F9E', fontSize: 15 }}>No batches available.</Text>
+            </View>
           ) : (
             batches
-              .filter((b) => !searchQuery || b.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter((b) => {
+                if (activeTabFilter === 'active' && b.status !== 'ACTIVE') return false;
+                if (activeTabFilter === 'completed' && b.status !== 'COMPLETED') return false;
+                if (searchQuery && !b.name?.toLowerCase().includes(searchQuery.toLowerCase()) && !b.code?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                return true;
+              })
               .map((b, idx) => {
-                const isCEE = b.name?.toLowerCase().includes('cee');
+                const isCEE = b.name?.toLowerCase().includes('cee') || b.code?.toLowerCase().includes('cee');
                 const bannerColors = isCEE ? ['#2D1F6E', '#4B35A6', '#6D4FF0'] : ['#0F3854', '#155E75', '#0E7490'];
                 const category = isCEE ? 'MEDICAL ENTRANCE' : 'ENGINEERING ENTRANCE';
+                const totalLessons = b.subjects?.reduce((sum: number, s: any) => sum + (s._count?.lessons || 0), 0) || 0;
+                const completedLessons = b.completedLessons || 0;
+                const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
                 return (
                   <View key={b.id || idx} style={styles.batchCard}>
                     <LinearGradient
@@ -214,7 +229,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
                       <Text style={styles.batchCategory}>{category}</Text>
                       <Text style={styles.batchCardName}>{b.name}</Text>
                       <Text style={styles.batchCardOrg}>
-                        {b.code ? `${b.code} • Regular batch` : 'U-ThinkCrazy • Regular batch'}
+                        {b.code ? `${b.code} • Regular batch` : 'Regular batch'}
                       </Text>
                     </LinearGradient>
 
@@ -225,47 +240,49 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
                           <Text style={styles.activeStatusText}>Active</Text>
                         </View>
                         <Text style={styles.subjectCountText}>
-                          {b._count?.subjects || b.subjects?.length || 4} subjects
+                          {b.subjects?.length || 0} subjects
                         </Text>
                       </View>
 
                       {/* Subject Icons Row */}
                       <View style={styles.subjectTilesRow}>
-                        <View style={styles.subjectTile}>
-                          <Atom size={24} color="#A78BFA" />
-                          <Text style={styles.subjectTileLabel}>Physics</Text>
-                        </View>
-                        <View style={styles.subjectTile}>
-                          <FlaskConical size={24} color="#60A5FA" />
-                          <Text style={styles.subjectTileLabel}>Chemistry</Text>
-                        </View>
-                        <View style={styles.subjectTile}>
-                          <Sprout size={24} color="#34D399" />
-                          <Text style={styles.subjectTileLabel}>Botany</Text>
-                        </View>
-                        <View style={styles.subjectTile}>
-                          <PawPrint size={24} color="#F87171" />
-                          <Text style={styles.subjectTileLabel}>Zoology</Text>
-                        </View>
+                        {b.subjects && b.subjects.length > 0 ? (
+                          b.subjects.map((sub: any) => (
+                            <View key={sub.id} style={styles.subjectTile}>
+                              {renderSubjectIcon(sub.name, 24)}
+                              <Text style={styles.subjectTileLabel} numberOfLines={1}>
+                                {sub.name}
+                              </Text>
+                            </View>
+                          ))
+                        ) : (
+                          <Text style={{ color: '#8A8F9E', fontSize: 13, fontStyle: 'italic', paddingVertical: 8 }}>
+                            Subjects being scheduled
+                          </Text>
+                        )}
                       </View>
 
                       {/* Progress Line */}
                       <View style={styles.progressRow}>
                         <Text style={styles.progressLabel}>Learning progress</Text>
-                        <Text style={styles.progressPercent}>36%</Text>
+                        <Text style={styles.progressPercent}>{progressPercent}%</Text>
                       </View>
                       <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: '36%' }]} />
+                        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
                       </View>
-                      <Text style={styles.progressSub}>Interactive Syllabus</Text>
+                      <Text style={styles.progressSub}>
+                        {totalLessons > 0 ? `${completedLessons} of ${totalLessons} lessons completed` : 'Interactive Syllabus'}
+                      </Text>
 
                       <TouchableOpacity
-                        style={styles.continueBatchBtn}
+                        style={b.isEnrolled ? styles.continueBatchBtn : styles.openBatchBtn}
                         onPress={() => handleOpenBatch(b)}
                         activeOpacity={0.85}
                       >
-                        <Text style={styles.continueBatchBtnText}>Continue learning</Text>
-                        <ArrowRight size={16} color="#FFFFFF" />
+                        <Text style={b.isEnrolled ? styles.continueBatchBtnText : styles.openBatchBtnText}>
+                          {b.isEnrolled ? 'Continue learning' : 'Open batch'}
+                        </Text>
+                        <ArrowRight size={16} color={b.isEnrolled ? '#FFFFFF' : '#8B80F5'} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -298,23 +315,38 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             colors={['#2D1F6E', '#4B35A6', '#6D4FF0']}
             style={styles.detailHeroBanner}
           >
-            <Text style={styles.batchCategory}>MEDICAL ENTRANCE</Text>
-            <Text style={styles.detailHeroTitle}>{selectedBatch?.name || 'CEE Preparation 2027'}</Text>
-            <Text style={styles.detailHeroSub}>U-ThinkCrazy • Regular batch</Text>
+            <Text style={styles.batchCategory}>
+              {selectedBatch?.name?.toLowerCase().includes('cee') ? 'MEDICAL ENTRANCE' : 'ENGINEERING ENTRANCE'}
+            </Text>
+            <Text style={styles.detailHeroTitle}>{selectedBatch?.name || 'Batch Details'}</Text>
+            <Text style={styles.detailHeroSub}>
+              {selectedBatch?.code ? `${selectedBatch.code} • Regular batch` : 'Regular batch'}
+            </Text>
 
             <View style={styles.detailActiveBadge}>
               <View style={styles.greenDot} />
               <Text style={styles.activeStatusText}>Active</Text>
             </View>
 
-            <View style={styles.detailProgressRow}>
-              <Text style={styles.detailProgressLabel}>Overall progress</Text>
-              <Text style={styles.detailProgressPercent}>36%</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: '36%' }]} />
-            </View>
-            <Text style={styles.progressSubWhite}>18 of 50 lessons completed</Text>
+            {(() => {
+              const totalLessons = subjects.reduce((sum: number, s: any) => sum + (s._count?.lessons || s.lessons?.length || 0), 0);
+              const completedLessons = 0;
+              const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+              return (
+                <>
+                  <View style={styles.detailProgressRow}>
+                    <Text style={styles.detailProgressLabel}>Overall progress</Text>
+                    <Text style={styles.detailProgressPercent}>{progressPercent}%</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                  </View>
+                  <Text style={styles.progressSubWhite}>
+                    {totalLessons > 0 ? `${completedLessons} of ${totalLessons} lessons completed` : 'Interactive Syllabus'}
+                  </Text>
+                </>
+              );
+            })()}
           </LinearGradient>
 
           {/* Sub Tabs */}
@@ -339,46 +371,19 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             </TouchableOpacity>
           </View>
 
-          {/* Continue Learning Strip */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Continue learning</Text>
-          </View>
-          <View style={styles.continueLearningStrip}>
-            <View style={styles.continueIconCircle}>
-              <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
-            </View>
-            <View style={styles.continueTextCol}>
-              <Text style={styles.continueStripTitle}>Electric Charges & Fields</Text>
-              <Text style={styles.continueStripSub}>Physics • 18 min left</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.resumeStripBtn}
-              onPress={() => onOpenVideo?.()}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.resumeStripBtnText}>Resume</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Your Subjects List */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Your subjects</Text>
-            <Text style={styles.batchCountText}>{subjects.length || 4} subjects</Text>
+            <Text style={styles.batchCountText}>{subjects.length} subjects</Text>
           </View>
           <Text style={styles.sectionSubtitle}>Choose a subject to explore its lessons.</Text>
 
           {subLoading ? (
             <ActivityIndicator size="small" color="#8B80F5" style={{ marginVertical: 24 }} />
-          ) : (
-            (subjects.length > 0 ? subjects : [
-              { id: 'cmwif17tb000314fgolz2yznu', name: 'Physics', _count: { lessons: 5 } },
-              { id: 'cmwif186s000514fgd7s3kd54', name: 'Chemistry', _count: { lessons: 0 } },
-              { id: 'cmwif18kn000714fg94j8mm1b', name: 'Botany', _count: { lessons: 0 } },
-              { id: 'cmwif18yk000914fg0no8trrv', name: 'Zoology', _count: { lessons: 0 } },
-            ]).map((sub, idx) => {
+          ) : subjects.length > 0 ? (
+            subjects.map((sub, idx) => {
               const lessonCount = sub._count?.lessons ?? sub.lessons?.length ?? 0;
               const completedText = `${lessonCount} lessons available`;
-              const progressPct = sub.name === 'Physics' ? '50%' : '25%';
               return (
                 <TouchableOpacity
                   key={sub.id || idx}
@@ -393,19 +398,19 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
                     <View style={styles.subjectRowTextCol}>
                       <Text style={styles.subjectRowName}>{sub.name}</Text>
                       <Text style={styles.subjectRowSub}>{completedText}</Text>
-                      <View style={styles.smallProgressTrack}>
-                        <View style={[styles.progressFill, { width: progressPct as any }]} />
-                      </View>
                     </View>
                   </View>
 
                   <View style={styles.subjectCardRight}>
-                    <Text style={styles.subjectPercentText}>{progressPct}</Text>
                     <ChevronRight size={18} color="#8A8F9E" />
                   </View>
                 </TouchableOpacity>
               );
             })
+          ) : (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={{ color: '#8A8F9E', fontSize: 14 }}>No subjects in this batch yet.</Text>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -429,7 +434,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.breadcrumbText}>CEE Preparation 2027 &gt;</Text>
+          <Text style={styles.breadcrumbText}>{selectedBatch?.name || 'Batch'} &gt;</Text>
 
           {/* Subject Header Card */}
           <LinearGradient
@@ -437,19 +442,19 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             style={styles.subjectHeaderCard}
           >
             <View style={styles.subjectHeaderTop}>
-              <Atom size={44} color="#FFFFFF" />
+              {renderSubjectIcon(selectedSubject?.name, 44)}
               <View style={{ flex: 1, marginLeft: 16 }}>
-                <Text style={styles.subjectHeaderTitle}>{selectedSubject?.name || 'Physics'}</Text>
+                <Text style={styles.subjectHeaderTitle}>{selectedSubject?.name || 'Subject'}</Text>
                 <Text style={styles.subjectHeaderSub}>Build concepts. Practice confidently.</Text>
               </View>
             </View>
 
             <View style={styles.detailProgressRow}>
-              <Text style={styles.progressSubWhite}>6 of 12 lessons completed</Text>
-              <Text style={styles.detailProgressPercent}>50%</Text>
+              <Text style={styles.progressSubWhite}>{lessons.length} lessons available</Text>
+              <Text style={styles.detailProgressPercent}>100%</Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: '50%' }]} />
+              <View style={[styles.progressFill, { width: '100%' }]} />
             </View>
           </LinearGradient>
 
@@ -466,56 +471,61 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
           {/* Segmented Filter */}
           <View style={styles.lessonFilterTrack}>
             <View style={[styles.filterPill, styles.filterPillActive]}>
-              <Text style={styles.filterPillTextActive}>All (12)</Text>
-            </View>
-            <View style={styles.filterPill}>
-              <Text style={styles.filterPillText}>In progress (1)</Text>
-            </View>
-            <View style={styles.filterPill}>
-              <Text style={styles.filterPillText}>Completed (6)</Text>
+              <Text style={styles.filterPillTextActive}>All ({lessons.length})</Text>
             </View>
           </View>
 
           {/* Active Lesson Hero */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Continue learning</Text>
-          </View>
+          {(() => {
+            const heroLesson = lessons.find((l) => (l._count?.videos || l.videos?.length || 0) > 0) || lessons[0];
+            if (!heroLesson) return null;
+            const vCount = heroLesson._count?.videos ?? heroLesson.videos?.length ?? 0;
+            const nCount = heroLesson._count?.notes ?? heroLesson.notes?.length ?? 0;
+            const tCount = heroLesson._count?.tests ?? heroLesson.tests?.length ?? 0;
 
-          <TouchableOpacity
-            style={styles.continueLessonHero}
-            onPress={() => {
-              setSelectedLesson({ name: 'Electric Charges & Fields' });
-              setViewState('lesson_details');
-            }}
-            activeOpacity={0.85}
-          >
-            <View style={styles.inProgressBadge}>
-              <Text style={styles.inProgressBadgeText}>IN PROGRESS</Text>
-            </View>
-            <View style={styles.continueLessonRow}>
-              <View style={styles.lessonAtomBox}>
-                <Atom size={32} color="#A78BFA" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.continueLessonTitle}>Electric Charges & Fields</Text>
-                <Text style={styles.continueLessonMeta}>▷ 4 videos  |  🗎 2 notes  |  ✔ 1 test</Text>
-              </View>
-            </View>
+            return (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Continue learning</Text>
+                </View>
 
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: '40%' }]} />
-            </View>
+                <TouchableOpacity
+                  style={styles.continueLessonHero}
+                  onPress={() => handleOpenLesson(heroLesson)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.inProgressBadge}>
+                    <Text style={styles.inProgressBadgeText}>IN PROGRESS</Text>
+                  </View>
+                  <View style={styles.continueLessonRow}>
+                    <View style={styles.lessonAtomBox}>
+                      {renderSubjectIcon(selectedSubject?.name, 32)}
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                      <Text style={styles.continueLessonTitle}>{heroLesson.name || heroLesson.title}</Text>
+                      <Text style={styles.continueLessonMeta}>
+                        ▷ {vCount} videos  |  🗎 {nCount} notes  |  ✔ {tCount} test
+                      </Text>
+                    </View>
+                  </View>
 
-            <View style={styles.continueFooterRow}>
-              <Text style={styles.videoTimeLeft}>Current video • 18 min left</Text>
-              <TouchableOpacity
-                style={styles.heroResumeBtn}
-                onPress={() => onOpenVideo?.()}
-              >
-                <Text style={styles.heroResumeBtnText}>Resume</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: '50%' }]} />
+                  </View>
+
+                  <View style={styles.continueFooterRow}>
+                    <Text style={styles.videoTimeLeft}>Study materials ready</Text>
+                    <TouchableOpacity
+                      style={styles.heroResumeBtn}
+                      onPress={() => handleOpenLesson(heroLesson)}
+                    >
+                      <Text style={styles.heroResumeBtnText}>Explore</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              </>
+            );
+          })()}
 
           {/* All Lessons List */}
           <View style={styles.sectionHeaderRow}>
@@ -525,14 +535,8 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
 
           {subLoading ? (
             <ActivityIndicator size="small" color="#8B80F5" style={{ marginVertical: 24 }} />
-          ) : (
-            (lessons.length > 0 ? lessons : [
-              { id: 'cmwif19co000b14fgul0kjtsa', sortOrder: 1, name: '01 Units & Measurements', _count: { videos: 0, notes: 0, tests: 0 } },
-              { id: 'cmwif19r4000d14fgsusy39y1', sortOrder: 2, name: '02 Vectors & Motion', _count: { videos: 0, notes: 0, tests: 0 } },
-              { id: 'cmwif1a41000f14fgamggev7h', sortOrder: 3, name: '03 Laws of Motion', _count: { videos: 0, notes: 0, tests: 0 } },
-              { id: 'cmwif1agt000h14fgh5jl6blx', sortOrder: 4, name: '04 Work, Energy & Power', _count: { videos: 0, notes: 0, tests: 0 } },
-              { id: 'cmwif1asw000j14fgkx2zgrmx', sortOrder: 5, name: '05 Electric Charges & Fields', _count: { videos: 4, notes: 1, tests: 1 } },
-            ]).map((l, idx) => {
+          ) : lessons.length > 0 ? (
+            lessons.map((l, idx) => {
               const numStr = String(l.sortOrder || idx + 1).padStart(2, '0');
               const videoCount = l._count?.videos ?? l.videos?.length ?? 0;
               const noteCount = l._count?.notes ?? l.notes?.length ?? 0;
@@ -549,17 +553,17 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
                     <Text style={styles.lessonNumText}>{numStr}</Text>
                   </View>
                   <View style={styles.lessonItemTextCol}>
-                    <Text style={styles.lessonItemTitle}>{l.name}</Text>
+                    <Text style={styles.lessonItemTitle}>{l.name || l.title}</Text>
                     <Text style={styles.lessonItemMeta}>{metaStr}</Text>
                   </View>
-                  <View style={styles.completedBadgeRow}>
-                    <CheckCircle2 size={16} color="#10B981" />
-                    <Text style={styles.completedBadgeText}>Available</Text>
-                    <ChevronRight size={18} color="#8A8F9E" />
-                  </View>
+                  <ChevronRight size={18} color="#8A8F9E" />
                 </TouchableOpacity>
               );
             })
+          ) : (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={{ color: '#8A8F9E', fontSize: 14 }}>No lessons published for this subject yet.</Text>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -582,18 +586,24 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.breadcrumbText}>CEE Preparation 2027 / Physics</Text>
+        <Text style={styles.breadcrumbText}>
+          {selectedBatch?.name || 'Batch'} / {selectedSubject?.name || 'Subject'}
+        </Text>
 
         {/* Lesson Header */}
         <View style={styles.lessonDetailHeaderRow}>
           <View style={styles.lessonDetailIconBox}>
-            <Atom size={40} color="#A78BFA" />
+            {renderSubjectIcon(selectedSubject?.name, 40)}
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.lessonDetailTitle}>Electric Charges & Fields</Text>
-            <Text style={styles.lessonDetailDesc}>Charge, force and electric field concepts.</Text>
+            <Text style={styles.lessonDetailTitle}>
+              {lessonDetails?.name || selectedLesson?.name || 'Lesson'}
+            </Text>
+            <Text style={styles.lessonDetailDesc}>
+              {lessonDetails?.description || 'Study videos, notes, and practice tests.'}
+            </Text>
             <View style={styles.inProgressPillSmall}>
-              <Text style={styles.inProgressPillTextSmall}>IN PROGRESS</Text>
+              <Text style={styles.inProgressPillTextSmall}>ACTIVE</Text>
             </View>
           </View>
         </View>
@@ -605,7 +615,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             onPress={() => setLessonContentTab('videos')}
           >
             <Text style={[styles.lessonTabPillText, lessonContentTab === 'videos' && styles.lessonTabPillTextActive]}>
-              Videos (4)
+              Videos ({lessonDetails?.videos?.length || 0})
             </Text>
           </TouchableOpacity>
 
@@ -614,7 +624,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             onPress={() => setLessonContentTab('notes')}
           >
             <Text style={[styles.lessonTabPillText, lessonContentTab === 'notes' && styles.lessonTabPillTextActive]}>
-              Notes (2)
+              Notes ({lessonDetails?.notes?.length || 0})
             </Text>
           </TouchableOpacity>
 
@@ -623,7 +633,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             onPress={() => setLessonContentTab('tests')}
           >
             <Text style={[styles.lessonTabPillText, lessonContentTab === 'tests' && styles.lessonTabPillTextActive]}>
-              Tests (1)
+              Tests ({lessonDetails?.tests?.length || 0})
             </Text>
           </TouchableOpacity>
 
@@ -640,165 +650,177 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
         {/* Tab 1: Videos */}
         {lessonContentTab === 'videos' && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.heroTagDark}>CONTINUE WATCHING</Text>
-            </View>
+            {lessonDetails?.videos && lessonDetails.videos.length > 0 ? (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.heroTagDark}>CONTINUE WATCHING</Text>
+                </View>
 
-            {/* Video Hero Preview */}
-            <View style={styles.videoHeroCard}>
-              <LinearGradient
-                colors={['#1F164D', '#342082']}
-                style={styles.videoThumbnailBox}
-              >
-                <TouchableOpacity
-                  style={styles.bigPlayButton}
-                  onPress={() => onOpenVideo?.(lessonDetails?.videos?.[0]?.id)}
-                  activeOpacity={0.85}
-                >
-                  <Play size={26} color="#6D4FF0" fill="#6D4FF0" />
-                </TouchableOpacity>
-                <View style={styles.durationBadge}>
-                  <Text style={styles.durationBadgeText}>
-                    {lessonDetails?.videos?.[0]
-                      ? `${Math.round((lessonDetails.videos[0].durationSeconds || 1800) / 60)}:00`
-                      : '30:00'}
+                {/* Video Hero Preview */}
+                <View style={styles.videoHeroCard}>
+                  <LinearGradient
+                    colors={['#1F164D', '#342082']}
+                    style={styles.videoThumbnailBox}
+                  >
+                    <TouchableOpacity
+                      style={styles.bigPlayButton}
+                      onPress={() => onOpenVideo?.(lessonDetails.videos[0].id)}
+                      activeOpacity={0.85}
+                    >
+                      <Play size={26} color="#6D4FF0" fill="#6D4FF0" />
+                    </TouchableOpacity>
+                    <View style={styles.durationBadge}>
+                      <Text style={styles.durationBadgeText}>
+                        {`${Math.round((lessonDetails.videos[0].durationSeconds || 1800) / 60)}:00`}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+
+                  <View style={styles.videoHeroInfo}>
+                    <Text style={styles.videoHeroTitle}>
+                      {lessonDetails.videos[0].title}
+                    </Text>
+                    <Text style={styles.videoHeroSub}>
+                      Video 1 of {lessonDetails.videos.length}
+                    </Text>
+
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: '0%' }]} />
+                    </View>
+
+                    <View style={styles.videoHeroTimeRow}>
+                      <Text style={styles.videoHeroTime}>
+                        0:00 / {Math.round((lessonDetails.videos[0].durationSeconds || 1800) / 60)}:00
+                      </Text>
+                      <Text style={styles.videoHeroTime}>
+                        {Math.round((lessonDetails.videos[0].durationSeconds || 1800) / 60)} min
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.fullResumeVideoBtn}
+                      onPress={() => onOpenVideo?.(lessonDetails.videos[0].id)}
+                      activeOpacity={0.9}
+                    >
+                      <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                      <Text style={styles.fullResumeVideoBtnText}>Watch video</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Lesson Videos List */}
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeading}>Lesson videos</Text>
+                  <Text style={styles.batchCountText}>
+                    {lessonDetails.videos.length} available
                   </Text>
                 </View>
-              </LinearGradient>
 
-              <View style={styles.videoHeroInfo}>
-                <Text style={styles.videoHeroTitle}>
-                  {lessonDetails?.videos?.[0]?.title || 'Coulomb’s Law'}
+                {lessonDetails.videos.map((v: any, idx: number) => {
+                  const mins = Math.round((v.durationSeconds || 1500) / 60);
+                  return (
+                    <TouchableOpacity
+                      key={v.id || idx}
+                      style={styles.videoRowItem}
+                      onPress={() => onOpenVideo?.(v.id)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.videoRowThumb}>
+                        <Play size={16} color="#A78BFA" fill="#A78BFA" />
+                      </View>
+                      <View style={styles.videoRowInfo}>
+                        <Text style={styles.videoRowTitle}>{v.title}</Text>
+                        <View style={styles.videoRowMeta}>
+                          <Text style={styles.videoMetaText}>▷ {mins} min</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity style={styles.downloadIconBtn}>
+                        <Download size={18} color="#8A8F9E" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            ) : (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: '#8A8F9E', fontSize: 14 }}>
+                  No videos available for this lesson yet.
                 </Text>
-                <Text style={styles.videoHeroSub}>Video 1 of {lessonDetails?.videos?.length || 4}</Text>
-
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: '40%' }]} />
-                </View>
-
-                <View style={styles.videoHeroTimeRow}>
-                  <Text style={styles.videoHeroTime}>12:00 / 30:00</Text>
-                  <Text style={styles.videoHeroTime}>18 min left</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.fullResumeVideoBtn}
-                  onPress={() => onOpenVideo?.(lessonDetails?.videos?.[0]?.id)}
-                  activeOpacity={0.9}
-                >
-                  <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
-                  <Text style={styles.fullResumeVideoBtnText}>Resume video</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-
-            {/* Lesson Videos List */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeading}>Lesson videos</Text>
-              <Text style={styles.batchCountText}>
-                {lessonDetails?.videos?.length || 4} available
-              </Text>
-            </View>
-
-            {(lessonDetails?.videos?.length > 0 ? lessonDetails.videos : [
-              { id: 'cmwif1b5p000l14fg7m43jsw5', title: 'Electric Charge Basics', durationSeconds: 1440 },
-              { id: 'cmwif1bjy000n14fgqjk7veuo', title: "Coulomb's Law", durationSeconds: 1800 },
-              { id: 'cmwif1bwq000p14fgb2g3v2s6', title: 'Electric Field & Field Lines', durationSeconds: 1680 },
-              { id: 'cmwif1ca7000r14fg5bnlnj86', title: 'Electric Dipole', durationSeconds: 1560 },
-            ]).map((v: any, idx: number) => {
-              const mins = Math.round((v.durationSeconds || 1500) / 60);
-              return (
-                <TouchableOpacity
-                  key={v.id || idx}
-                  style={styles.videoRowItem}
-                  onPress={() => onOpenVideo?.(v.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.videoRowThumb}>
-                    <Play size={16} color="#A78BFA" fill="#A78BFA" />
-                  </View>
-                  <View style={styles.videoRowInfo}>
-                    <Text style={styles.videoRowTitle}>{v.title}</Text>
-                    <View style={styles.videoRowMeta}>
-                      <Text style={styles.videoMetaText}>▷ {mins} min</Text>
-                      {idx === 0 && (
-                        <View style={styles.statusCompletedBadge}>
-                          <CheckCircle2 size={12} color="#10B981" />
-                          <Text style={styles.statusCompletedText}>Completed</Text>
-                        </View>
-                      )}
-                      {idx === 1 && (
-                        <View style={styles.statusProgressBadge}>
-                          <Text style={styles.statusProgressText}>In progress</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <TouchableOpacity style={styles.downloadIconBtn}>
-                    <Download size={18} color="#8A8F9E" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              );
-            })}
+            )}
           </>
         )}
 
         {/* Tab 2: Notes */}
         {lessonContentTab === 'notes' && (
           <View style={{ marginTop: 12 }}>
-            {(lessonDetails?.notes?.length > 0 ? lessonDetails.notes : [
-              { id: 'cmwif27ox0007pgn7jcorfwc6', title: 'Coulomb’s Law — Notes', fileSizeBytes: 358400 }
-            ]).map((note: any, idx: number) => (
-              <TouchableOpacity
-                key={note.id || idx}
-                style={styles.noteItemCard}
-                onPress={() => onOpenNote?.(note.id)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.pdfIconBadge}>
-                  <Text style={styles.pdfIconText}>PDF</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={styles.noteItemTitle}>{note.title}</Text>
-                  <Text style={styles.noteItemMeta}>
-                    PDF • 8 pages • {Math.round((note.fileSizeBytes || 358400) / 1024)} KB
-                  </Text>
-                </View>
-                <TouchableOpacity style={styles.openNoteBtn} onPress={() => onOpenNote?.(note.id)}>
-                  <Text style={styles.openNoteBtnText}>Open</Text>
+            {lessonDetails?.notes && lessonDetails.notes.length > 0 ? (
+              lessonDetails.notes.map((note: any, idx: number) => (
+                <TouchableOpacity
+                  key={note.id || idx}
+                  style={styles.noteItemCard}
+                  onPress={() => onOpenNote?.(note.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.pdfIconBadge}>
+                    <Text style={styles.pdfIconText}>PDF</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={styles.noteItemTitle}>{note.title}</Text>
+                    <Text style={styles.noteItemMeta}>
+                      PDF Document • Study Notes
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.openNoteBtn} onPress={() => onOpenNote?.(note.id)}>
+                    <Text style={styles.openNoteBtnText}>Open</Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              ))
+            ) : (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: '#8A8F9E', fontSize: 14 }}>
+                  No notes uploaded for this lesson yet.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
         {/* Tab 3: Tests */}
         {lessonContentTab === 'tests' && (
           <View style={{ marginTop: 12 }}>
-            {(lessonDetails?.tests?.length > 0 ? lessonDetails.tests : [
-              { id: 'cmwif3f8l0007w8av2oubk2r7', title: 'Electric Charges & Fields — Practice Test', durationMinutes: 30, totalMarks: 20 }
-            ]).map((test: any, idx: number) => (
-              <TouchableOpacity
-                key={test.id || idx}
-                style={styles.practiceTestCard}
-                onPress={() => onOpenTest?.(test.id)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.practiceTestIcon}>
-                  <Atom size={28} color="#A78BFA" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={styles.practiceTestTitle}>{test.title}</Text>
-                  <Text style={styles.practiceTestMeta}>
-                    20 questions • {test.durationMinutes || 30} min • +1 / -0.25
-                  </Text>
-                  <View style={styles.testAttemptNotice}>
-                    <CheckCircle2 size={14} color="#10B981" />
-                    <Text style={styles.testAttemptNoticeText}>Ready to attempt • {test.totalMarks || 20} Marks</Text>
+            {lessonDetails?.tests && lessonDetails.tests.length > 0 ? (
+              lessonDetails.tests.map((test: any, idx: number) => (
+                <TouchableOpacity
+                  key={test.id || idx}
+                  style={styles.practiceTestCard}
+                  onPress={() => onOpenTest?.(test.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.practiceTestIcon}>
+                    {renderSubjectIcon(selectedSubject?.name, 28)}
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={styles.practiceTestTitle}>{test.title}</Text>
+                    <Text style={styles.practiceTestMeta}>
+                      {test.totalQuestions || 20} questions • {test.durationMinutes || 30} min
+                    </Text>
+                    <View style={styles.testAttemptNotice}>
+                      <CheckCircle2 size={14} color="#10B981" />
+                      <Text style={styles.testAttemptNoticeText}>
+                        Ready to attempt • {test.totalMarks || 20} Marks
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: '#8A8F9E', fontSize: 14 }}>
+                  No practice tests available for this lesson yet.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 

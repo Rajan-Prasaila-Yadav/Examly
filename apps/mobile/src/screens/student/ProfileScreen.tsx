@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../auth/auth-context';
+import { apiClient } from '../../api/client';
 import {
   User,
   Mail,

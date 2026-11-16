@@ -103,8 +103,14 @@ const axiosInstance = axios.create({
   timeout: 30000,
 });
 
+// Credential failures belong to the form, not the session-renewal flow.
+function isPublicAuthRequest(url?: string): boolean {
+  const path = (url || '').split(/[?#]/)[0].replace(/\/+$/, '');
+  return /\/auth\/(login|google|register|forgot-password|reset-password|refresh)$/.test(path);
+}
+
 axiosInstance.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && !isPublicAuthRequest(config.url)) {
     const token = localStorage.getItem('examly_access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -135,7 +141,10 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    if (!originalRequest || isPublicAuthRequest(originalRequest.url)) {
+      return Promise.reject(error);
+    }
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       if (typeof window !== 'undefined') {
         const refreshToken = localStorage.getItem('examly_refresh_token');

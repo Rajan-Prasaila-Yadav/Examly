@@ -59,6 +59,14 @@ scratch_*
 _patch_*
 scripts/verify-test-hierarchy.cjs
 
+# Local browser artifacts and account-specific diagnostic scripts
+.playwright-cli/
+scripts/check-password.cjs
+scripts/set-user-pwd.cjs
+scripts/test-feed-endpoint.cjs
+scripts/test-feed-token.cjs
+scripts/update-student-batch.cjs
+
 
 .expo/
 apps/mobile/.expo/

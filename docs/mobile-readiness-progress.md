@@ -30,6 +30,8 @@ Work order: finish shared database/API/security and the corresponding website wo
 - Password recovery now checks email-provider configuration and queue presence before account lookup. Missing email configuration fails uniformly with 503. Email workers throw on missing configuration and use BullMQ UnrecoverableError for permanent provider rejection rather than recording a successful job or modifying retry options at runtime.
 - Added isolated job-security tests for tenant-role denial, sensitive-field omission and missing-provider recovery. API type check and the four focused queue/security tests passed. No emails were sent and no live Redis jobs were inserted.
 - Existing import/export worker processors are placeholders and analytics has no worker here. Restoring Redis alone does not make these modules complete; implement/verify them before exposing queued workflows.
+- The broader regression run caught a newer home-feed fallback allowing unenrolled students to preview an arbitrary active batch. Restored mandatory active same-institute enrollment for students, retaining administrator-only preview with tenant restrictions. Updated the isolated video fixture to cover the newer first-video fallback and its enrollment scope.
+- Final combined security regression suite: 23 passed; API TypeScript passed. Restarted the local API to load these fixes. Redis DNS remains unavailable.
 
 ### Curriculum access update
 

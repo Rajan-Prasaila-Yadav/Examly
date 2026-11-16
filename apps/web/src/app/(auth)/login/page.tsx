@@ -284,7 +284,7 @@ export default function LoginPage() {
 
         {/* Standard Error Notice */}
         {error && !blockedNotice && (
-          <div className="mb-6 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2.5">
+          <div role="alert" className="mb-6 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>

@@ -297,13 +297,13 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       });
 
       // D. Today's Scheduled Classes
-      // Calendar day in Nepal (UTC+05:45), independent of server timezone.
+      // Calendar day in Nepal (UTC+05:45), format as YYYY-MM-DD string
       const offset = 345 * 60 * 1000;
-      const dayStart = new Date(Math.floor((now.getTime() + offset) / 86400000) * 86400000 - offset);
+      const todayStr = new Date(now.getTime() + offset).toISOString().split('T')[0];
       const todayClasses = await prisma.batchClass.findMany({
         where: {
           batchId,
-          date: { gte: dayStart, lt: new Date(dayStart.getTime() + 86400000) },
+          date: todayStr,
         },
         select: {
           id: true,

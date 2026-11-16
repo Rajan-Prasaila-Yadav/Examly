@@ -33,9 +33,13 @@ test('enrolled feed scopes content and hides unreleased scores', async () => {
   const db = {
     studentProfile: { findUnique: async () => ({ batch: { id: 'batch', status: 'ACTIVE', instituteId: 'institute-a' } }) },
     test: { findMany: async ({ where }) => { assert.equal(where.batchId, 'batch'); assert.equal(where.instituteId, 'institute-a'); return []; } },
-    videoWatchProgress: { findFirst: async ({ where }) => { assert.equal(where.video.lesson.subject.batchId, 'batch'); return null; } },
+    videoWatchProgress: {
+      findFirst: async ({ where }) => { assert.equal(where.video.lesson.subject.batchId, 'batch'); return null; },
+      findMany: async ({ where }) => { assert.equal(where.userId, student.userId); return []; },
+    },
+    video: { findFirst: async ({ where }) => { assert.equal(where.lesson.subject.batchId, 'batch'); assert.equal(where.lesson.subject.batch.instituteId, 'institute-a'); return null; } },
     note: { findMany: async ({ where }) => { assert.equal(where.status, 'ACTIVE'); assert.equal(where.lesson.status, 'ACTIVE'); return []; } },
-    batchClass: { findMany: async ({ where }) => { assert.equal(where.batchId, 'batch'); assert.equal(+where.date.lt - +where.date.gte, 86400000); return []; } },
+    batchClass: { findMany: async ({ where }) => { assert.equal(where.batchId, 'batch'); assert.equal(where.date, new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())); return []; } },
     testAttempt: { findMany: async () => [{ test: { config: { publishMode: 'MANUAL_BY_ADMIN' } }, result: { percentage: 100, publishedAt: null } }] },
   };
   const app = await appFor(studentFeedRoutes, db);

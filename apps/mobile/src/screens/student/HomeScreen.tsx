@@ -73,19 +73,11 @@ export function HomeScreen({
   }, [fetchFeed]);
 
   const student = feed?.student || user;
-  const firstName = student?.fullName?.split(' ')[0] || 'Rajan';
-  const batch = feed?.enrolledBatch || { name: 'CEE Preparation 2027' };
-  const continueVideo = feed?.continueWatching?.video || {
-    title: 'Coulomb’s Law',
-    lesson: { name: 'Electric Charges & Fields', subject: { name: 'Physics' } },
-  };
-  const liveTest = feed?.liveTests?.[0] || {
-    id: 'test-cee-06',
-    title: 'CEE Full Mock Test 06',
-    durationMinutes: 180,
-    questionsCount: 180,
-    formattedDate: '16 Nov • 7:00 AM',
-  };
+  const firstName = user?.fullName?.split(' ')[0] || student?.fullName?.split(' ')[0] || 'Student';
+  const batch = feed?.enrolledBatch;
+  const continueProgress = feed?.continueWatching;
+  const continueVideo = continueProgress?.video;
+  const liveTest = feed?.liveTests?.[0];
 
   // Greeting based on time of day
   const hour = new Date().getHours();
@@ -162,52 +154,95 @@ export function HomeScreen({
         >
           <View style={styles.batchSelectorLeft}>
             <GraduationCap size={22} color="#8B80F5" />
-            <Text style={styles.batchSelectorText}>{batch.name || 'CEE Preparation 2027'}</Text>
+            <Text style={styles.batchSelectorText}>{batch?.name || 'Select Batch'}</Text>
           </View>
           <ChevronRight size={18} color="#8A8F9E" />
         </TouchableOpacity>
 
         {/* Continue Learning Hero Card */}
-        <LinearGradient
-          colors={['#322278', '#4F33BA', '#6D4FF0']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroTop}>
-            <View style={styles.heroTextCol}>
-              <Text style={styles.heroTag}>CONTINUE LEARNING</Text>
-              <Text style={styles.heroTitle} numberOfLines={1}>
-                {continueVideo.lesson?.name || 'Electric Charges & Fields'}
-              </Text>
-              <Text style={styles.heroSubtitle}>
-                {continueVideo.lesson?.subject?.name || 'Physics'} • Lesson 4 of 12
-              </Text>
-
-              {/* Progress Line */}
-              <View style={styles.progressBarTrack}>
-                <View style={[styles.progressBarFill, { width: '40%' }]} />
-              </View>
-              <Text style={styles.progressTimeText}>18 min left</Text>
-            </View>
-
-            {/* Illustration / Graphic right */}
-            <View style={styles.heroGraphicBox}>
-              <View style={styles.orbitalRing}>
-                <View style={styles.orbitalPlanet} />
-              </View>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.resumeButton}
-            onPress={() => onOpenVideo?.(continueVideo.id)}
-            activeOpacity={0.9}
+        {continueVideo ? (
+          <LinearGradient
+            colors={['#322278', '#4F33BA', '#6D4FF0']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
           >
-            <Play size={16} color="#6D4FF0" fill="#6D4FF0" />
-            <Text style={styles.resumeButtonText}>Resume</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+            <View style={styles.heroTop}>
+              <View style={styles.heroTextCol}>
+                <Text style={styles.heroTag}>CONTINUE LEARNING</Text>
+                <Text style={styles.heroTitle} numberOfLines={1}>
+                  {continueVideo.lesson?.name || continueVideo.title}
+                </Text>
+                <Text style={styles.heroSubtitle} numberOfLines={1}>
+                  {continueVideo.lesson?.subject?.name ? `${continueVideo.lesson.subject.name} • ` : ''}
+                  {continueVideo.title}
+                </Text>
+
+                {/* Progress Line */}
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${Math.min(100, Math.max(0, continueProgress.percentage || 0))}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressTimeText}>
+                  {continueProgress.minutesLeft ?? 18} min left
+                </Text>
+              </View>
+
+              {/* Illustration / Graphic right */}
+              <View style={styles.heroGraphicBox}>
+                <View style={styles.orbitalRing}>
+                  <View style={styles.orbitalPlanet} />
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.resumeButton}
+              onPress={() => onOpenVideo?.(continueVideo.id)}
+              activeOpacity={0.9}
+            >
+              <Play size={16} color="#6D4FF0" fill="#6D4FF0" />
+              <Text style={styles.resumeButtonText}>Resume</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        ) : (
+          <LinearGradient
+            colors={['#1E1B4B', '#2E1065', '#3B0764']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroTop}>
+              <View style={styles.heroTextCol}>
+                <Text style={styles.heroTag}>START LEARNING</Text>
+                <Text style={styles.heroTitle} numberOfLines={1}>
+                  {batch?.name || 'Explore Your Syllabus'}
+                </Text>
+                <Text style={styles.heroSubtitle}>
+                  Choose a subject to watch lectures and solve problems.
+                </Text>
+              </View>
+              <View style={styles.heroGraphicBox}>
+                <View style={styles.orbitalRing}>
+                  <View style={styles.orbitalPlanet} />
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.resumeButton}
+              onPress={() => onNavigateTab?.('learn')}
+              activeOpacity={0.9}
+            >
+              <Play size={16} color="#6D4FF0" fill="#6D4FF0" />
+              <Text style={styles.resumeButtonText}>Start Learning</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        )}
 
         {/* Quick Access Section */}
         <View style={styles.sectionHeader}>
@@ -292,46 +327,64 @@ export function HomeScreen({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.upcomingTestCard}>
-          <View style={styles.testBadgeRow}>
-            <View style={styles.tomorrowBadge}>
-              <Text style={styles.tomorrowBadgeText}>TOMORROW</Text>
-            </View>
-          </View>
-
-          <Text style={styles.testCardTitle}>
-            {liveTest.title || 'CEE Full Mock Test 06'}
-          </Text>
-          <Text style={styles.testDateTimeText}>
-            {liveTest.formattedDate || '16 Nov • 7:00 AM'}
-          </Text>
-
-          <View style={styles.testFooterRow}>
-            <View style={styles.testMetaLeft}>
-              <View style={styles.testMetaItem}>
-                <ClipboardCheck size={16} color="#8A8F9E" />
-                <Text style={styles.testMetaText}>
-                  {liveTest.questionsCount || 180} questions
-                </Text>
-              </View>
-              <View style={styles.metaDivider} />
-              <View style={styles.testMetaItem}>
-                <Clock size={16} color="#8A8F9E" />
-                <Text style={styles.testMetaText}>
-                  {Math.round((liveTest.durationMinutes || 180) / 60)} hours
-                </Text>
+        {liveTest ? (
+          <View style={styles.upcomingTestCard}>
+            <View style={styles.testBadgeRow}>
+              <View style={styles.tomorrowBadge}>
+                <Text style={styles.tomorrowBadgeText}>{liveTest.badge || 'UPCOMING'}</Text>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.viewDetailsButton}
-              onPress={() => onOpenTest?.(liveTest.id)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.viewDetailsText}>View details</Text>
-            </TouchableOpacity>
+            <Text style={styles.testCardTitle}>
+              {liveTest.title}
+            </Text>
+            <Text style={styles.testDateTimeText}>
+              {liveTest.formattedDate || 'Upcoming Schedule'}
+            </Text>
+
+            <View style={styles.testFooterRow}>
+              <View style={styles.testMetaLeft}>
+                <View style={styles.testMetaItem}>
+                  <ClipboardCheck size={16} color="#8A8F9E" />
+                  <Text style={styles.testMetaText}>
+                    {liveTest.questionsCount || 20} questions
+                  </Text>
+                </View>
+                <View style={styles.metaDivider} />
+                <View style={styles.testMetaItem}>
+                  <Clock size={16} color="#8A8F9E" />
+                  <Text style={styles.testMetaText}>
+                    {liveTest.durationMinutes >= 60
+                      ? `${Math.round(liveTest.durationMinutes / 60)} hours`
+                      : `${liveTest.durationMinutes} mins`}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => onOpenTest?.(liveTest.id)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.viewDetailsText}>View details</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.upcomingTestCard}>
+            <Text style={styles.testCardTitle}>No upcoming tests scheduled</Text>
+            <Text style={styles.testDateTimeText}>All current tests are up to date.</Text>
+            <View style={styles.testFooterRow}>
+              <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => onNavigateTab?.('tests')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.viewDetailsText}>View all tests</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Your Preparation Section */}
         <View style={styles.sectionHeader}>
@@ -346,7 +399,7 @@ export function HomeScreen({
             </View>
             <View style={styles.prepCardTextCol}>
               <Text style={styles.prepLabel}>Tests completed</Text>
-              <Text style={styles.prepNumber}>{feed?.stats?.testsTaken || 12}</Text>
+              <Text style={styles.prepNumber}>{feed?.stats?.testsTaken ?? 0}</Text>
             </View>
           </View>
 
@@ -357,7 +410,9 @@ export function HomeScreen({
             </View>
             <View style={styles.prepCardTextCol}>
               <Text style={styles.prepLabel}>Study streak</Text>
-              <Text style={styles.prepNumber}>5 days</Text>
+              <Text style={styles.prepNumber}>
+                {feed?.stats?.streakDays ?? (feed?.stats?.testsTaken > 0 ? 1 : 0)} days
+              </Text>
             </View>
           </View>
         </View>
