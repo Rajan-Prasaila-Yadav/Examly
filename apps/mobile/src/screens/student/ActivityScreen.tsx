@@ -3,7 +3,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, StyleSheet, T
 import { Award, Bookmark, FileText, Play } from 'lucide-react-native';
 import { apiClient } from '../../api/client';
 
-interface ActivityScreenProps { onOpenVideo?: (videoId?: string) => void; onOpenNote?: (noteId?: string) => void; }
+interface ActivityScreenProps { onOpenTest?: () => void; onOpenVideo?: (videoId?: string) => void; onOpenNote?: (noteId?: string) => void; }
 type Filter = 'all' | 'videos' | 'notes' | 'bookmarks';
 const when = (value?: string) => value ? new Date(value).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : '';
 
