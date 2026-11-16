@@ -18,4 +18,4 @@ Run `npm run typecheck` and `node --test scripts/test-google-login.cjs` for loca
 
 Reference: https://docs.expo.dev/guides/google-authentication/
 
-The local debug keystore generated during this fix has SHA-1 `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`. This is only the development certificate; recheck the certificate for any distributed build.
+The current local debug/release build has SHA-1 `FE:89:D4:93:F2:67:EB:8C:BA:11:F2:DF:8B:02:42:C3:AF:1A:5E:38` for package `com.examly.student`. Register this exact pair in the Android OAuth client used for local USB builds. This is not a Play Store certificate; create and register the Play App Signing SHA-1 separately before publishing.
