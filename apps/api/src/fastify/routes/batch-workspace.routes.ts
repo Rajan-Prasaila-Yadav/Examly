@@ -54,7 +54,10 @@ export const batchWorkspaceRoutes: FastifyPluginAsync = async app => {
   if(kind==='teachers')return db.user.findMany({where:{instituteId:b.instituteId,status:'ACTIVE',role:{code:'TEACHER'},batchFaculty:{none:{batchId:b.id}}},select:{...person,teacherProfile:true}});
   // Existing student access throughout Examly is based on a single primary batch.
   // Do not silently transfer students away from an existing enrollment.
-  if(kind==='students')return db.user.findMany({where:{instituteId:b.instituteId,status:'ACTIVE',role:{code:'STUDENT'},studentProfile:{is:{batchId:null}}},select:person});
+  // A deleted batch is no longer an enrollment. Older deletions may predate the
+  // cleanup that nulls batchId, so make those students available without allowing
+  // transfers out of an active or archived batch.
+  if(kind==='students')return db.user.findMany({where:{instituteId:b.instituteId,status:'ACTIVE',role:{code:'STUDENT'},studentProfile:{is:{OR:[{batchId:null},{batch:{status:'DELETED'}}]}}},select:person});
   if(kind==='subjects')return db.subject.findMany({where:{status:'ACTIVE',OR:[{batchId:null,instituteId:b.instituteId},{batch:{instituteId:b.instituteId,status:{not:'DELETED'}},batchId:{not:b.id}}]},include:{batch:{select:{name:true}},_count:{select:{lessons:true}}}});
   if(kind==='tests')return db.test.findMany({where:{instituteId:b.instituteId,status:'ACTIVE',OR:[{batchId:null},{batchId:{not:b.id}}]},select:{id:true,title:true,testType:true,testStatus:true}});
   return fail('Unknown picker',404);
@@ -66,7 +69,7 @@ export const batchWorkspaceRoutes: FastifyPluginAsync = async app => {
     const valid=await tx.user.count({where:{id:{in:ids},instituteId:b.instituteId,status:'ACTIVE',role:{code:'TEACHER'}}});if(valid!==ids.length)return fail('Select active teachers from this institute');
     await tx.batchFaculty.createMany({data:ids.map(userId=>({batchId:b.id,userId,subjectIds:[]})),skipDuplicates:true});
    }else if(kind==='students'){
-    const result=await tx.studentProfile.updateMany({where:{userId:{in:ids},batchId:null,user:{instituteId:b.instituteId,status:'ACTIVE',role:{code:'STUDENT'}}},data:{batchId:b.id}});if(result.count!==ids.length)return fail('One or more students are already enrolled or unavailable',409);
+    const result=await tx.studentProfile.updateMany({where:{userId:{in:ids},OR:[{batchId:null},{batch:{status:'DELETED'}}],user:{instituteId:b.instituteId,status:'ACTIVE',role:{code:'STUDENT'}}},data:{batchId:b.id}});if(result.count!==ids.length)return fail('One or more students are already enrolled or unavailable',409);
    }else if(kind==='subjects'){
     const sources=await tx.subject.findMany({where:{id:{in:ids},status:'ACTIVE',OR:[{batchId:null,instituteId:b.instituteId},{batch:{instituteId:b.instituteId,status:{not:'DELETED'}},batchId:{not:b.id}}]},include:{lessons:{where:{status:{not:'DELETED'}},include:{videos:{where:{status:{not:'DELETED'}}},notes:{where:{status:{not:'DELETED'}}},resources:true}}}});if(sources.length!==ids.length)return fail('Subject unavailable');
     for(const source of sources){
