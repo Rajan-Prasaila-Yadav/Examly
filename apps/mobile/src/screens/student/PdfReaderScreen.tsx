@@ -291,21 +291,15 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
       PanResponder.create({
         onStartShouldSetPanResponder: () => tool === "pen",
         onMoveShouldSetPanResponder: () => tool === "pen",
-        onPanResponderGrant: (event) =>
-          setDrawPoints([
-            {
-              x: event.nativeEvent.locationX / viewerSize.width,
-              y: event.nativeEvent.locationY / viewerSize.height,
-            },
-          ]),
-        onPanResponderMove: (event) =>
-          setDrawPoints((previous) => [
-            ...previous,
-            {
-              x: event.nativeEvent.locationX / viewerSize.width,
-              y: event.nativeEvent.locationY / viewerSize.height,
-            },
-          ]),
+        onPanResponderGrant: (event) => {
+          const { locationX, locationY } = event.nativeEvent;
+          setDrawPoints([{ x: locationX / viewerSize.width, y: locationY / viewerSize.height }]);
+        },
+        onPanResponderMove: (event) => {
+          const { locationX, locationY } = event.nativeEvent;
+          const point = { x: locationX / viewerSize.width, y: locationY / viewerSize.height };
+          setDrawPoints((previous) => [...previous, point]);
+        },
         onPanResponderRelease: () => {
           const points = drawPoints;
           setDrawPoints([]);
