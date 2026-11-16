@@ -1,7 +1,7 @@
 // apps/api/src/fastify/routes/subjects.routes.ts
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requirePermission } from '../plugins/rbac.plugin';
+import { requirePermission, hasPermission } from '../plugins/rbac.plugin';
 import { RecordStatus, RoleType } from '@prisma/client';
 
 const CreateSubjectSchema = z.object({
@@ -22,12 +22,18 @@ const SubjectQuerySchema = z.object({
 });
 
 export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
-  const assertBatchAccess = async (batchId: string, user: { instituteId?: string | null; roleCode: RoleType }) => {
+  const assertBatchAccess = async (batchId: string, user: { userId: string; instituteId?: string | null; roleCode: RoleType }) => {
+    if (user.roleCode !== RoleType.SUPER_ADMIN && !user.instituteId) return null;
+    if (user.roleCode === RoleType.STUDENT) {
+      const profile = await fastify.prisma.studentProfile.findUnique({ where: { userId: user.userId }, select: { batchId: true } });
+      if (profile?.batchId !== batchId) return null;
+    }
     const batch = await fastify.prisma.batch.findFirst({
       where: {
         id: batchId,
-        status: { not: RecordStatus.DELETED },
+        status: user.roleCode === RoleType.STUDENT ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },
         ...(user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN ? { instituteId: user.instituteId } : {}),
+        ...(user.roleCode === RoleType.TEACHER ? { faculty: { some: { userId: user.userId } } } : {}),
       },
       select: { id: true },
     });
@@ -59,8 +65,9 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.put('/api/v1/subjects/reorder', { preHandler: [fastify.authenticate, requirePermission('subjects', 'update')] }, async (request, reply) => {
     const parsed = z.object({ ids: z.array(z.string()).min(1) }).safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ statusCode: 400, message: 'Invalid subject order' });
-    const subjects = await fastify.prisma.subject.findMany({ where: { id: { in: parsed.data.ids } }, select: { id: true, batchId: true, batch: { select: { instituteId: true } } } });
-    if (subjects.length !== parsed.data.ids.length || new Set(subjects.map((s) => s.batchId)).size !== 1 || (request.user!.instituteId && request.user!.roleCode !== RoleType.SUPER_ADMIN && subjects.some((s) => s.batch.instituteId !== request.user!.instituteId))) return reply.status(400).send({ statusCode: 400, message: 'Subjects must belong to one accessible batch' });
+    const subjects = await fastify.prisma.subject.findMany({ where: { id: { in: parsed.data.ids } }, select: { id: true, batchId: true } });
+    const batchId = subjects[0]?.batchId;
+    if (subjects.length !== parsed.data.ids.length || !batchId || new Set(subjects.map((s) => s.batchId)).size !== 1 || !(await assertBatchAccess(batchId, request.user!))) return reply.status(400).send({ statusCode: 400, message: 'Subjects must belong to one accessible batch' });
     await fastify.prisma.$transaction(parsed.data.ids.map((id, sortOrder) => fastify.prisma.subject.update({ where: { id }, data: { sortOrder } })));
     return { success: true };
   });
@@ -125,6 +132,9 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
       const user = request.user!;
       const isStudent = user.roleCode === RoleType.STUDENT;
 
+      const accessible = await assertBatchAccess((await fastify.prisma.subject.findFirst({ where: { id }, select: { batchId: true } }))?.batchId || '__none__', user);
+      if (!accessible) return reply.status(404).send({ statusCode: 404, message: 'Subject not found', error: 'Not Found' });
+
       const subject = await fastify.prisma.subject.findFirst({
         where: {
           id,
@@ -145,7 +155,7 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
                 where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } },
                 orderBy: { sortOrder: 'asc' },
               },
-              resources: { orderBy: { sortOrder: 'asc' } },
+              resources: hasPermission(user, 'resources', 'read') ? { orderBy: { sortOrder: 'asc' } } : false,
             },
             orderBy: { sortOrder: 'asc' },
           },
@@ -181,6 +191,9 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const data = parsed.data;
+      if (!(await assertBatchAccess(data.batchId, request.user!))) {
+        return reply.status(404).send({ statusCode: 404, message: 'Batch not found', error: 'Not Found' });
+      }
       const subject = await fastify.prisma.subject.create({
         data: {
           batchId: data.batchId,
@@ -220,6 +233,9 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
           error: 'Not Found',
         });
       }
+      if (!existing.batchId || !(await assertBatchAccess(existing.batchId, request.user!))) {
+        return reply.status(404).send({ statusCode: 404, message: 'Subject not found', error: 'Not Found' });
+      }
 
       const updated = await fastify.prisma.subject.update({
         where: { id },
@@ -232,8 +248,8 @@ export const subjectsRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/api/v1/subjects/:id', { preHandler: [fastify.authenticate, requirePermission('subjects', 'delete')] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const subject = await fastify.prisma.subject.findFirst({ where: { id, ...(request.user!.instituteId && request.user!.roleCode !== RoleType.SUPER_ADMIN ? { batch: { instituteId: request.user!.instituteId } } : {}) } });
-    if (!subject) return reply.status(404).send({ statusCode: 404, message: 'Subject not found' });
+    const subject = await fastify.prisma.subject.findUnique({ where: { id }, select: { batchId: true } });
+    if (!subject?.batchId || !(await assertBatchAccess(subject.batchId, request.user!))) return reply.status(404).send({ statusCode: 404, message: 'Subject not found' });
     await fastify.prisma.subject.update({ where: { id }, data: { status: RecordStatus.DELETED } });
     return { message: 'Subject deleted successfully' };
   });

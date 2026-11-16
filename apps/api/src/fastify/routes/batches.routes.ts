@@ -107,6 +107,10 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         const batchWhere: any = {
+          // A student can only discover curriculum for the batch assigned to
+          // their own profile.  Returning other institute batches leaked
+          // subject names and published-test metadata.
+          id: studentProfile?.batchId || '__none__',
           status: RecordStatus.ACTIVE,
           ...(user.instituteId ? { instituteId: user.instituteId } : {}),
           ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
@@ -131,10 +135,7 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           orderBy: { sortOrder: 'asc' },
         });
 
-        const batches = rawBatches.map((b: any) => ({
-          ...b,
-          isEnrolled: b.id === studentProfile?.batchId,
-        })).sort((a: any, b: any) => (b.isEnrolled ? 1 : 0) - (a.isEnrolled ? 1 : 0));
+        const batches = rawBatches.map((b: any) => ({ ...b, isEnrolled: true }));
         return batches;
       }
 
