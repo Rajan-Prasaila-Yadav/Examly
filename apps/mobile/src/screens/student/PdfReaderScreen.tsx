@@ -122,6 +122,7 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
   const [searchText, setSearchText] = useState("");
   const [viewerSize, setViewerSize] = useState({ width: 1, height: 1 });
   const [drawPoints, setDrawPoints] = useState<Point[]>([]);
+  const drawPointsRef = useRef<Point[]>([]);
   const [lastTap, setLastTap] = useState<Point>({ x: 0.2, y: 0.2 });
   const load = useCallback(async () => {
     if (!noteId) {
@@ -293,15 +294,19 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
         onMoveShouldSetPanResponder: () => tool === "pen",
         onPanResponderGrant: (event) => {
           const { locationX, locationY } = event.nativeEvent;
-          setDrawPoints([{ x: locationX / viewerSize.width, y: locationY / viewerSize.height }]);
+          const firstPoint = { x: locationX / viewerSize.width, y: locationY / viewerSize.height };
+          drawPointsRef.current = [firstPoint];
+          setDrawPoints(drawPointsRef.current);
         },
         onPanResponderMove: (event) => {
           const { locationX, locationY } = event.nativeEvent;
           const point = { x: locationX / viewerSize.width, y: locationY / viewerSize.height };
-          setDrawPoints((previous) => [...previous, point]);
+          drawPointsRef.current = [...drawPointsRef.current, point];
+          setDrawPoints(drawPointsRef.current);
         },
         onPanResponderRelease: () => {
-          const points = drawPoints;
+          const points = drawPointsRef.current;
+          drawPointsRef.current = [];
           setDrawPoints([]);
           if (points.length > 1)
             void saveAnnotation({
@@ -313,7 +318,7 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
           setTool("select");
         },
       }),
-    [drawPoints, page, tool, viewerSize.height, viewerSize.width],
+    [page, tool, viewerSize.height, viewerSize.width],
   );
   if (loading)
     return (
@@ -334,7 +339,7 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#07080E" />
-      <View style={styles.header}>
+      <View style={styles.header} pointerEvents="none">
         <TouchableOpacity onPress={onBack} style={styles.icon}>
           <ArrowLeft size={20} color="#FFF" />
         </TouchableOpacity>
@@ -360,7 +365,7 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
           <MoreHorizontal size={19} color="#FFF" />
         </TouchableOpacity>
       </View>
-      <View style={styles.controlBar}>
+      <View style={styles.controlBar} pointerEvents="none">
         <TouchableOpacity
           style={styles.pagesButton}
           onPress={() => setShowPages(true)}
@@ -406,10 +411,10 @@ export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
           ref={pdf}
           source={{ uri: pdfUri }}
           style={StyleSheet.absoluteFill}
-          page={page}
           fitPolicy={fitPolicy}
           horizontal={horizontal}
           enablePaging
+          singlePage
           enableDoubleTapZoom
           minScale={1}
           maxScale={4}
@@ -813,6 +818,7 @@ const styles = StyleSheet.create({
   },
   link: { color: "#A78BFA", fontWeight: "800" },
   header: {
+    display: "none",
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
@@ -835,6 +841,7 @@ const styles = StyleSheet.create({
   title: { color: "#FFF", fontSize: 15, fontWeight: "900" },
   meta: { color: "#94A3B8", fontSize: 10, marginTop: 3 },
   controlBar: {
+    display: "none",
     height: 46,
     paddingHorizontal: 15,
     flexDirection: "row",
@@ -863,6 +870,7 @@ const styles = StyleSheet.create({
   },
   smallIcon: { padding: 6 },
   description: {
+    display: "none",
     flexDirection: "row",
     gap: 7,
     alignItems: "flex-start",

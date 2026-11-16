@@ -7,6 +7,7 @@ module.exports = ({ config }) => {
       ...(config.plugins || []).filter((plugin) =>
         (Array.isArray(plugin) ? plugin[0] : plugin) !== '@react-native-google-signin/google-signin'),
       'expo-secure-store',
+      ['expo-video', { supportsPictureInPicture: true }],
       ...(iosClientId ? [[
         '@react-native-google-signin/google-signin',
         { iosUrlScheme: iosClientId.split('.').reverse().join('.') },
