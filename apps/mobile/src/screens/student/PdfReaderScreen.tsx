@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#11152A",
   },
   descriptionText: { flex: 1, color: "#CBD5E1", fontSize: 11, lineHeight: 16 },
-  viewer: { flex: 1, backgroundColor: "#E5E7EB" },
+  viewer: { flex: 1, backgroundColor: "#FFF" },
   annotationPreview: {
     minHeight: 0,
     backgroundColor: "#0B0D17",
