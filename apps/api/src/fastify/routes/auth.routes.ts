@@ -445,7 +445,12 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // ── 6. FORGOT PASSWORD ──
-  fastify.post('/api/v1/auth/forgot-password', async (request) => {
+  fastify.post('/api/v1/auth/forgot-password', async (request, reply) => {
+    // Check delivery availability before looking up an email address, so an
+    // outage cannot reveal whether an account exists or consume reset tokens.
+    if (fastify.backgroundJobsAvailable === false || !process.env.RESEND_API_KEY || !fastify.queues?.notificationsQueue) {
+      return reply.code(503).send({ message: 'Password recovery is temporarily unavailable. Please try again later.' });
+    }
     const parsed = ForgotPasswordSchema.safeParse(request.body);
     if (!parsed.success) {
       return { message: 'If an account exists, a password reset email will be sent.' };

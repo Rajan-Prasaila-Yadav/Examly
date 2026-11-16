@@ -1,7 +1,7 @@
 import { contentAccess } from './content-access';
 import {FastifyPluginAsync} from 'fastify';
 import {z} from 'zod';
-import {requirePermission} from '../plugins/rbac.plugin';
+import {requirePermission, hasPermission} from '../plugins/rbac.plugin';
 const fail=(message:string,statusCode=400):never=>{throw Object.assign(new Error(message),{statusCode});};
 const http=z.string().url().refine(s=>/^https?:\/\//i.test(s),'Use an HTTP or HTTPS URL');
 const state=z.enum(['ACTIVE','HIDDEN','DELETED']);
@@ -29,7 +29,7 @@ export const contentRoutes:FastifyPluginAsync=async app=>{
  app.post('/api/v1/content/subjects/:id/lessons',gate('lessons','create'),async(request,reply)=>{const {id}=request.params as any;await subjectAccess(id,request.user);const p=parse(lessonSchema,request.body);return reply.code(201).send(await db.lesson.create({data:{...p,subjectId:id}}));});
  app.get('/api/v1/content/lessons/:id',gate('lessons'),async request=>{
   const {id}=request.params as any;const l=await lessonAccess(id,request.user);const visible:any={status:request.user!.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}};
-  return db.lesson.findUnique({where:{id:l.id},include:{subject:{include:{batch:{select:{id:true,name:true}}}},videos:{where:visible,orderBy:{sortOrder:'asc'}},notes:{where:visible,orderBy:{sortOrder:'asc'}},tests:{where:{...visible,...(request.user!.roleCode==='STUDENT'?{isPublished:true}:{})},select:{id:true,title:true,testType:true,testStatus:true,durationMinutes:true,totalMarks:true,status:true}}}});
+  return db.lesson.findUnique({where:{id:l.id},include:{resources:hasPermission(request.user,'resources','read')?{orderBy:{sortOrder:'asc'}}:false,subject:{include:{batch:{select:{id:true,name:true}}}},videos:{where:visible,orderBy:{sortOrder:'asc'}},notes:{where:visible,orderBy:{sortOrder:'asc'}},tests:{where:{...visible,...(request.user!.roleCode==='STUDENT'?{isPublished:true}:{})},select:{id:true,title:true,testType:true,testStatus:true,durationMinutes:true,totalMarks:true,status:true}}}});
  });
  app.put('/api/v1/content/lessons/:id',gate('lessons','update'),async request=>{const {id}=request.params as any;await lessonAccess(id,request.user);return db.lesson.update({where:{id},data:parse(lessonSchema.partial(),request.body)});});
  for(const kind of ['videos','notes'] as const){

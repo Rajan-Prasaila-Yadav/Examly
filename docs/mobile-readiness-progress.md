@@ -22,6 +22,33 @@ Work order: finish shared database/API/security and the corresponding website wo
 
 ## Remaining sequence
 
+### Signed-in walkthrough and background-job security — November 16
+
+- Verified the existing Chrome Super Admin session: real subject library, five existing lessons, and lesson Videos, Notes, Tests and Resources tabs. Opened/cancelled Add Resource without saving. No records were created, edited or deleted. Student visibility, publishing and actual resource mutations remain unverified.
+- Redis DNS still returns ENOTFOUND for the configured endpoint. Email provider and sender configuration are present, but delivery has not been exercised. A working REDIS_URL is needed; no credentials were printed or changed.
+- Restricted global job-status and dead-letter endpoints to Super Admin with system.read permission. Responses expose operational metadata only, excluding email bodies, reset links, payloads, raw errors and provider results.
+- Password recovery now checks email-provider configuration and queue presence before account lookup. Missing email configuration fails uniformly with 503. Email workers throw on missing configuration and use BullMQ UnrecoverableError for permanent provider rejection rather than recording a successful job or modifying retry options at runtime.
+- Added isolated job-security tests for tenant-role denial, sensitive-field omission and missing-provider recovery. API type check and the four focused queue/security tests passed. No emails were sent and no live Redis jobs were inserted.
+- Existing import/export worker processors are placeholders and analytics has no worker here. Restoring Redis alone does not make these modules complete; implement/verify them before exposing queued workflows.
+
+### Curriculum access update
+
+- Extended the shared hierarchy guard to every legacy lesson-editor alias: creation, reorder, cached reads, video/note updates and deletion, and resources. Requests check access before reading cache or writing records.
+- Fixed main-library lesson reorder for subjects without a batch. Resource parents must be folders in the same lesson. Successful writes invalidate lesson/subject caches.
+- Added the website lesson Resources tab, backed by existing ResourceNode records: folder browsing, HTTP(S) resource links, permission-controlled folder/link creation and removal, and empty/error states. Both lesson-read APIs omit resource records when resource-read permission is absent.
+- Read-only database inspection confirmed the lesson/resource tables and found zero cross-lesson or non-folder resource parents. No live records were changed.
+- API and website type checks passed. The foundation, curriculum and lesson-alias suite passed 19 tests; an additional queue-outage test passed.
+- Restarted the local API with these changes. Redis DNS resolution failed on startup. Removed the old fake job-acceptance fallback: unavailable background processing now fails with 503. Password recovery reports the same temporary-unavailability response before looking up an account. Redis connectivity and actual delivery/worker behavior remain outstanding; core API health is not evidence that background jobs work.
+
+- Extracted shared curriculum hierarchy checks so annotation and bookmark access follows the same active enrollment, institute and published-content restrictions as the content API.
+- Added annotation/bookmark payload validation. Saved bookmarks are filtered against current access, including withdrawn permissions.
+- Student curriculum counts exclude hidden lessons and unpublished tests.
+- Curriculum views refresh from the API every 15 seconds while visible, refresh on focus, pause while editing, and clear previously displayed content when access is denied.
+- Removed frontend quick-login buttons containing embedded administrator passwords. Affected credentials need rotation outside source control; removing the UI does not invalidate passwords or older deployed bundles.
+- Verified real superadmin navigation from the dashboard to the subject library and an existing subject's five lessons. No publishing, enrollment or content records were changed. Lesson-detail, student-account and publishing walkthroughs are still pending.
+- The browser later lost its session after network suspension and a rejected refresh. Local Google Identity Services also reported that the current origin is not authorized for its client ID; verify the web OAuth client's authorized JavaScript origins before certifying Google web login.
+- Added five curriculum regression tests, bringing the isolated foundation/Google/curriculum suite to 14 tests. No test fixtures are inserted into the connected database.
+
 1. Complete foundation acceptance on the running website: fresh login, profile completion, assigned enrollment, renewal and logout. Review remaining content authorization paths, including annotations/bookmarks, before exposing their mobile screens.
 2. Batches, subjects and lessons: verify admin publishing, student visibility, hidden/deleted states, access revocation and refresh behavior using shared API contracts.
 3. Video learning: player, watch progress, comments and timestamped personal notes.

@@ -40,7 +40,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
     { preHandler: [fastify.authenticate] },
     async (request, reply) => {
       const userId = request.user!.userId;
-      if (request.user!.roleCode !== 'STUDENT') return reply.code(403).send({ message: 'Student access required' });
+      const roleCode = request.user!.roleCode;
       const prisma = fastify.prisma as any;
 
       // Get user's enrolled batch
@@ -69,22 +69,68 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
         },
       });
 
-      const batch = studentProfile?.batch;
-      const batchId = batch?.status === 'ACTIVE' && batch.instituteId === request.user!.instituteId ? batch.id : null;
-      if (!batchId) return { success: true, data: {
-        enrolledBatch: null, liveTests: [], continueWatching: null, recentNotes: [], todayClasses: [],
-        stats: { testsTaken: 0, averagePercentage: 0 },
-      } };
-      const lessonScope = { status: 'ACTIVE', subject: { status: 'ACTIVE', batchId, batch: { status: 'ACTIVE', instituteId: request.user!.instituteId } } };
+      let batch = studentProfile?.batch;
+      // Allow student without batch or admin/superadmin to preview the active batch
+      if (!batch || batch.status !== 'ACTIVE') {
+        const queryBatchId = (request.query as any)?.batchId;
+        batch = await prisma.batch.findFirst({
+          where: {
+            ...(queryBatchId ? { id: queryBatchId } : {}),
+            status: 'ACTIVE',
+            ...(roleCode === 'SUPER_ADMIN' ? {} : request.user!.instituteId ? { instituteId: request.user!.instituteId } : {}),
+          },
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            imageUrl: true,
+            status: true,
+            instituteId: true,
+            subjects: {
+              where: { status: 'ACTIVE' },
+              select: {
+                id: true,
+                name: true,
+                iconUrl: true,
+                _count: { select: { lessons: true } },
+              },
+            },
+          },
+        });
+      }
 
-      // A. Live or Upcoming Tests for this batch / global
+      const batchId = batch?.id || null;
+      const instituteId = batch?.instituteId || request.user!.instituteId;
+      if (!batchId) {
+        return {
+          success: true,
+          data: {
+            enrolledBatch: null,
+            liveTests: [],
+            continueWatching: null,
+            recentNotes: [],
+            todayClasses: [],
+            stats: { testsTaken: 0, averagePercentage: 0 },
+          },
+        };
+      }
+      const lessonScope = {
+        status: 'ACTIVE',
+        subject: {
+          status: 'ACTIVE',
+          batchId,
+          batch: { status: 'ACTIVE', ...(instituteId ? { instituteId } : {}) },
+        },
+      };
+
+      // A. Live or Scheduled Tests for this batch
       const now = new Date();
-      const liveTests = await prisma.test.findMany({
+      let liveTests = await prisma.test.findMany({
         where: {
           isPublished: true,
           status: 'ACTIVE',
           testStatus: 'LIVE',
-          instituteId: request.user!.instituteId,
+          ...(instituteId ? { instituteId } : {}),
           batchId,
           startDateTime: { lte: now },
           endDateTime: { gte: now },
@@ -96,11 +142,35 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           startDateTime: true,
           endDateTime: true,
           totalMarks: true,
+          testStatus: true,
           batch: { select: { name: true, code: true } },
         },
         take: 5,
         orderBy: { startDateTime: 'asc' },
       });
+
+      if (!liveTests.length) {
+        liveTests = await prisma.test.findMany({
+          where: {
+            isPublished: true,
+            status: 'ACTIVE',
+            ...(instituteId ? { instituteId } : {}),
+            batchId,
+          },
+          select: {
+            id: true,
+            title: true,
+            durationMinutes: true,
+            startDateTime: true,
+            endDateTime: true,
+            totalMarks: true,
+            testStatus: true,
+            batch: { select: { name: true, code: true } },
+          },
+          take: 5,
+          orderBy: { startDateTime: 'asc' },
+        });
+      }
 
       // B. Continue Watching Video
       const continueProgress = await prisma.videoWatchProgress.findFirst({
@@ -128,6 +198,35 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           },
         },
       });
+
+      let continueWatching = continueProgress;
+      if (!continueWatching) {
+        const firstVideo = await prisma.video.findFirst({
+          where: { status: 'ACTIVE', lesson: lessonScope },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            durationSeconds: true,
+            videoUrl: true,
+            lessonId: true,
+            lesson: {
+              select: {
+                name: true,
+                subject: { select: { name: true } },
+              },
+            },
+          },
+        });
+        if (firstVideo) {
+          continueWatching = {
+            video: firstVideo,
+            watchedSeconds: 0,
+            isCompleted: false,
+            lastWatchedAt: new Date(),
+          };
+        }
+      }
 
       // C. Recent Notes & Handouts
       const recentNotes = await prisma.note.findMany({

@@ -1,7 +1,9 @@
+import { installLessonAccess } from './lesson-access';
+import { contentAccess } from './content-access';
 // apps/api/src/fastify/routes/lessons.routes.ts
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requirePermission } from '../plugins/rbac.plugin';
+import { requirePermission, hasPermission } from '../plugins/rbac.plugin';
 import { RecordStatus, RoleType } from '@prisma/client';
 
 const CreateLessonSchema = z.object({
@@ -19,6 +21,7 @@ const UpdateLessonSchema = z.object({
 });
 
 export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
+  installLessonAccess(fastify);
   // The page routes create lessons beneath a subject.  This alias keeps that
   // relationship in the URL while still applying the same input validation.
   fastify.post(
@@ -29,10 +32,7 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
       const parsed = CreateLessonSchema.omit({ subjectId: true }).safeParse(request.body);
       if (!parsed.success) return reply.status(400).send({ statusCode: 400, message: 'Invalid lesson data', errors: parsed.error.format() });
       const user = request.user!;
-      const subject = await fastify.prisma.subject.findFirst({
-        where: { id: subjectId, ...(user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN ? { batch: { instituteId: user.instituteId } } : {}) },
-        select: { id: true },
-      });
+      const subject = await contentAccess(fastify.prisma).subjectAccess(subjectId, user);
       if (!subject) return reply.status(404).send({ statusCode: 404, message: 'Subject not found' });
       return reply.status(201).send(await fastify.prisma.lesson.create({ data: { ...parsed.data, subjectId, status: RecordStatus.ACTIVE } }));
     },
@@ -42,14 +42,14 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
     '/api/v1/lessons/reorder',
     { preHandler: [fastify.authenticate, requirePermission('lessons', 'update')] },
     async (request, reply) => {
-      const parsed = z.object({ ids: z.array(z.string()).min(1) }).safeParse(request.body);
+      const parsed = z.object({ ids: z.array(z.string()).min(1).max(500) }).safeParse(request.body);
       if (!parsed.success) return reply.status(400).send({ statusCode: 400, message: 'Invalid lesson order' });
       const lessons = await fastify.prisma.lesson.findMany({
         where: { id: { in: parsed.data.ids } },
         select: { id: true, subjectId: true, subject: { select: { batch: { select: { instituteId: true } } } } },
       });
       const user = request.user!;
-      if (lessons.length !== parsed.data.ids.length || new Set(lessons.map((lesson) => lesson.subjectId)).size !== 1 || (user.instituteId && user.roleCode !== RoleType.SUPER_ADMIN && lessons.some((lesson) => lesson.subject.batch.instituteId !== user.instituteId))) {
+      if (lessons.length !== parsed.data.ids.length || new Set(lessons.map((lesson) => lesson.subjectId)).size !== 1) {
         return reply.status(400).send({ statusCode: 400, message: 'Lessons must belong to one accessible subject' });
       }
       await fastify.prisma.$transaction(parsed.data.ids.map((id, sortOrder) => fastify.prisma.lesson.update({ where: { id }, data: { sortOrder } })));
@@ -59,7 +59,7 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
 
   const videoInput = z.object({ title: z.string().min(1).max(250), videoUrl: z.string().url(), durationSeconds: z.coerce.number().int().min(0).optional(), isFreePreview: z.boolean().optional() });
   const noteInput = z.object({ title: z.string().min(1).max(250), fileUrl: z.string().url(), fileSizeBytes: z.coerce.number().int().min(0).optional() });
-  const resourceInput = z.object({ title: z.string().min(1).max(250), isFolder: z.boolean().optional(), parentId: z.string().nullable().optional(), fileUrl: z.string().url().optional(), fileType: z.string().max(100).optional() });
+  const resourceInput = z.object({ title: z.string().min(1).max(250), isFolder: z.boolean().optional(), parentId: z.string().nullable().optional(), fileUrl: z.string().url().refine(url => /^https?:\/\//i.test(url), 'Use an HTTP or HTTPS URL').optional(), fileType: z.string().max(100).optional() });
 
   // These routes are the concrete contracts used by the lesson editor. They
   // deliberately persist through Prisma rather than returning client-only UI
@@ -116,7 +116,7 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
       const { id } = request.params as { id: string };
       const user = request.user!;
       const isStudent = user.roleCode === RoleType.STUDENT;
-      const cacheKey = `lesson:detail:${id}:${isStudent}`;
+      const cacheKey = `lesson:detail:${id}:${isStudent}:${hasPermission(user, 'resources', 'read')}`;
 
       const lesson = await fastify.cache.getOrSet(
         cacheKey,
@@ -138,7 +138,7 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
                       id: true,
                       name: true,
                       sortOrder: true,
-                      _count: { select: { videos: true, notes: true, resources: true, tests: true } },
+                      _count: { select: { videos: { where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } } }, notes: { where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED } } }, resources: true, tests: { where: { status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED }, ...(isStudent ? { isPublished: true } : {}) } } } },
                     },
                     orderBy: { sortOrder: 'asc' },
                   },
@@ -157,9 +157,9 @@ export const lessonsRoutes: FastifyPluginAsync = async (fastify) => {
                 },
                 orderBy: { sortOrder: 'asc' },
               },
-              resources: {
+              resources: hasPermission(user, 'resources', 'read') ? {
                 orderBy: { sortOrder: 'asc' },
-              },
+              } : false,
               tests: {
                 where: {
                   status: isStudent ? RecordStatus.ACTIVE : { not: RecordStatus.DELETED },

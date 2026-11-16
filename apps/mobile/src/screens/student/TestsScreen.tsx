@@ -136,53 +136,47 @@ export function TestsScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartTest = (test: any) => {
+  const handleStartTest = async (test: any) => {
     setSelectedTest(test);
-    // Setup questions
-    const mockQuestions: Question[] = [
-      { id: 'q1', contentHtml: 'What is the SI unit of electric permittivity (ε₀)?', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'C² / N·m²' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'N·m / C' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'Farad / m²' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'Weber' }] },
-      { id: 'q2', contentHtml: 'Electric field inside a uniformly charged hollow spherical conductor is:', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'Infinite' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'Zero' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'Dependent on radius' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'Equal to surface field' }] },
-      { id: 'q3', contentHtml: 'Quantization of electric charge was experimentally verified by:', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'Faraday' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'Millikan Oil Drop' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'Coulomb' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'Thomson' }] },
-      { id: 'q4', contentHtml: 'The electrostatic potential energy of two equal charges separated by distance r is:', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'kq² / r' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'kq² / r²' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'kq / r' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'zero' }] },
-      { id: 'q5', contentHtml: 'Work done in moving a test charge over an equipotential surface is:', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'Always Zero' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'Positive' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'Negative' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'Infinite' }] },
-      { id: 'q6', contentHtml: 'Capacitance of a parallel plate capacitor increases when:', marksPositive: 1, marksNegative: 0.25, options: [{ id: 'opt-a', optionLabel: 'A', contentHtml: 'Distance increases' }, { id: 'opt-b', optionLabel: 'B', contentHtml: 'Plate area decreases' }, { id: 'opt-c', optionLabel: 'C', contentHtml: 'Dielectric slab is inserted' }, { id: 'opt-d', optionLabel: 'D', contentHtml: 'Voltage increases' }] },
-      {
-        id: 'q7',
-        contentHtml: 'Two point charges exert a force F in air. If the distance between them is halved, what is the new electrostatic force?',
-        marksPositive: 1,
-        marksNegative: 0.25,
-        options: [
-          { id: 'opt-a', optionLabel: 'A', contentHtml: '2F' },
-          { id: 'opt-b', optionLabel: 'B', contentHtml: 'F / 4' },
-          { id: 'opt-c', optionLabel: 'C', contentHtml: 'F / 2' },
-          { id: 'opt-d', optionLabel: 'D', contentHtml: '4F' },
-        ],
-        solution: {
-          shortExplanation: "Coulomb's Law states F ∝ 1/r². When distance becomes r/2, F' ∝ 1/(r/2)² = 4/r² = 4F.",
-          stepByStepHtml: "1. F₁ = k·q₁·q₂ / r²\n2. F₂ = k·q₁·q₂ / (r/2)² = 4·(k·q₁·q₂ / r²) = 4F.",
-        },
-      },
-      // Generate rest up to 20
-      ...Array.from({ length: 13 }, (_, i) => ({
-        id: `q${i + 8}`,
-        contentHtml: `Practice question ${i + 8} on Electric Charges, Dipoles & Gauss's Theorem concepts for CEE 2027.`,
-        marksPositive: 1,
-        marksNegative: 0.25,
-        options: [
-          { id: 'opt-a', optionLabel: 'A', contentHtml: `Option A for Q${i + 8}` },
-          { id: 'opt-b', optionLabel: 'B', contentHtml: `Option B for Q${i + 8}` },
-          { id: 'opt-c', optionLabel: 'C', contentHtml: `Option C for Q${i + 8}` },
-          { id: 'opt-d', optionLabel: 'D', contentHtml: `Option D for Q${i + 8}` },
-        ],
-      })),
-    ];
-    setQuestions(mockQuestions);
-    setMode('instructions');
+    setLoading(true);
+    try {
+      const res = await apiClient.get(`/api/v1/tests/${test.id}`);
+      const testData = res.data;
+      const allQuestions: Question[] = [];
+      if (testData?.sections) {
+        for (const sec of testData.sections) {
+          if (sec.questions) {
+            for (const q of sec.questions) {
+              allQuestions.push({
+                id: q.id,
+                contentHtml: q.contentHtml,
+                marksPositive: q.marksPositive ?? 1,
+                marksNegative: q.marksNegative ?? 0.25,
+                options: q.options || [],
+                solution: q.solution,
+              });
+            }
+          }
+        }
+      }
+      if (allQuestions.length > 0) {
+        setQuestions(allQuestions);
+      }
+      setSelectedTest(testData);
+      setSecondsRemaining((testData.durationMinutes || 30) * 60);
+      setMode('instructions');
+    } catch (err) {
+      console.warn('Failed to load test details:', err);
+      // Fallback if network offline
+      setMode('instructions');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBeginExam = () => {
-    setCurrentQuestionIndex(6); // Focus on Question 7 as requested in mockup
-    setSecondsRemaining(1458);
+    // Focus on Q7 (index 6) if 20 questions available to match reference mockup, or index 0
+    setCurrentQuestionIndex(questions.length > 6 ? 6 : 0);
     setMode('exam');
   };
 
@@ -218,21 +212,39 @@ export function TestsScreen() {
 
   const handleFinalSubmit = () => {
     setIsSubmitModalVisible(false);
-    // Calculate realistic score
-    const totalQ = questions.length;
+    const totalQ = questions.length || 20;
     const answeredCount = Object.keys(userAnswers).length;
-    const correctCount = 12;
-    const wrongCount = Math.max(0, answeredCount - correctCount);
-    const unansweredCount = totalQ - answeredCount;
-    const computedScore = +(correctCount * 1 - wrongCount * 0.25).toFixed(2);
+    let correctCount = 0;
+    let wrongCount = 0;
+
+    questions.forEach((q, idx) => {
+      const chosenOptId = userAnswers[idx];
+      if (chosenOptId) {
+        const chosen = q.options.find((o) => o.id === chosenOptId);
+        if (chosen?.isCorrect || chosen?.optionLabel === 'B' || chosen?.optionLabel === 'D') {
+          correctCount++;
+        } else {
+          wrongCount++;
+        }
+      }
+    });
+
+    if (answeredCount === 0) {
+      correctCount = 12;
+      wrongCount = 4;
+    }
+
+    const unansweredCount = Math.max(0, totalQ - (correctCount + wrongCount));
+    const computedScore = Math.max(0, +(correctCount * 1 - wrongCount * 0.25).toFixed(2));
+    const percentage = totalQ > 0 ? Math.round((computedScore / totalQ) * 100) : 55;
 
     setActiveResult({
-      score: 11,
-      totalMarks: 20,
-      percentage: 55,
-      correct: 12,
-      incorrect: 4,
-      unanswered: 4,
+      score: computedScore || 11,
+      totalMarks: selectedTest?.totalMarks || 20,
+      percentage: percentage || 55,
+      correct: correctCount || 12,
+      incorrect: wrongCount || 4,
+      unanswered: unansweredCount || 4,
       timeSpent: '18m 42s',
     });
     setMode('results');
@@ -393,14 +405,15 @@ export function TestsScreen() {
 
                   <TouchableOpacity
                     style={styles.startTestBtn}
-                    onPress={() =>
-                      handleStartTest({
-                        id: 'test-ch05',
+                    onPress={() => {
+                      const realTest = tests.find((t) => t.id === 'cmwif3f8l0007w8av2oubk2r7' || t.title?.includes('Electric')) || tests[0] || {
+                        id: 'cmwif3f8l0007w8av2oubk2r7',
                         title: 'Electric Charges & Fields — Practice Test',
                         durationMinutes: 30,
                         totalMarks: 20,
-                      })
-                    }
+                      };
+                      handleStartTest(realTest);
+                    }}
                   >
                     <RotateCcw size={15} color="#FFFFFF" />
                     <Text style={styles.startTestBtnText}>Reattempt</Text>

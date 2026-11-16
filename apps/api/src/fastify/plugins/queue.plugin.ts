@@ -1,7 +1,7 @@
 // apps/api/src/fastify/plugins/queue.plugin.ts
 import fp from 'fastify-plugin';
 import { FastifyPluginAsync } from 'fastify';
-import { Queue, Worker, Job } from 'bullmq';
+import { Queue, Worker, Job, UnrecoverableError } from 'bullmq';
 import IORedis from 'ioredis';
 
 export interface QueueJobPayload {
@@ -25,6 +25,7 @@ const deadLetterStore: DeadLetterRecord[] = [];
 
 declare module 'fastify' {
   interface FastifyInstance {
+    backgroundJobsAvailable: boolean;
     queues: {
       youtubeImportQueue: Queue;
       exportQueue: Queue;
@@ -72,13 +73,14 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
       isConnected = true;
     } catch (e: any) {
       isConnected = false;
-      fastify.log.warn({ err: e.message }, 'Redis unreachable, fallback to standalone mock queue');
+      fastify.log.warn({ err: e.message }, 'Redis unreachable; background jobs are unavailable');
     }
   } else {
-    fastify.log.info('REDIS_URL not configured. Background queues operating in standalone mock mode.');
+    fastify.log.info('REDIS_URL not configured. Background jobs are unavailable.');
   }
 
-  // Define BullMQ Queues or Standalone Mock Queues
+  fastify.decorate('backgroundJobsAvailable', isConnected);
+  // Never acknowledge jobs that cannot be persisted to the queue.
   let youtubeImportQueue: any;
   let exportQueue: any;
   let notificationsQueue: any;
@@ -111,21 +113,20 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
       });
     }
   } else {
-    const createMockQueue = (name: string) => ({
+    const createUnavailableQueue = (name: string) => ({
       name,
-      add: async (jobName: string, data: any) => {
-        fastify.log.info({ queue: name, jobName }, 'Standalone mock queue: job accepted');
-        return { id: `mock_${Date.now()}`, name: jobName, data };
+      add: async (_jobName: string, _data: any) => {
+        throw Object.assign(new Error('Background processing is unavailable. Please try again later.'), { statusCode: 503 });
       },
       getJob: async () => null,
       close: async () => { },
       on: () => { },
     });
 
-    youtubeImportQueue = createMockQueue('youtube-imports');
-    exportQueue = createMockQueue('data-exports');
-    notificationsQueue = createMockQueue('notifications');
-    analyticsQueue = createMockQueue('analytics-aggregation');
+    youtubeImportQueue = createUnavailableQueue('youtube-imports');
+    exportQueue = createUnavailableQueue('data-exports');
+    notificationsQueue = createUnavailableQueue('notifications');
+    analyticsQueue = createUnavailableQueue('analytics-aggregation');
   }
 
   // Define BullMQ Workers if connected
@@ -169,13 +170,7 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
             { correlationId, event: 'NOTIFICATION_SKIPPED_NO_RESEND_KEY', status: 'FAILED' },
             'Resend API key not configured, skipped email dispatch',
           );
-          return {
-            status: 'FAILED',
-            reason: 'RESEND_NOT_CONFIGURED',
-            failureCode: 'MISSING_API_KEY',
-            durationMs: Date.now() - startTime,
-            timestamp: Date.now(),
-          };
+          throw new UnrecoverableError('Email provider is not configured');
         }
 
         try {
@@ -208,7 +203,7 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
 
             // If it is a permanent sandbox or validation failure, do not retry indefinitely
             if (statusCode === 403 || statusCode === 422 || statusCode === 401 || isSandboxError) {
-              const permanentError = new Error(`PROVIDER_REJECTED [${statusCode}]: ${errorMsg}`);
+              const permanentError = new UnrecoverableError(`PROVIDER_REJECTED [${statusCode}]: ${errorMsg}`);
               (permanentError as any).isPermanent = true;
               (permanentError as any).failureCode = isSandboxError ? 'SANDBOX_DOMAIN_RESTRICTION' : 'VALIDATION_ERROR';
               throw permanentError;
@@ -251,11 +246,6 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
             'Notification job failed during dispatch',
           );
 
-          // If permanent error, update job options so BullMQ won't retry fruitlessly
-          if (err.isPermanent) {
-            job.opts.attempts = job.attemptsMade + 1;
-          }
-
           throw err;
         }
       },
@@ -264,8 +254,11 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
 
     // Dead Letter Failure Listener
     const handleJobFailure = (worker: Worker, queueName: string) => {
+      worker.on('error', (err) => {
+        fastify.log.error({ queueName, err: err.message }, 'Background worker error');
+      });
       worker.on('failed', (job, err) => {
-        if (job && job.attemptsMade >= (job.opts.attempts || 3)) {
+        if (job && (err instanceof UnrecoverableError || job.attemptsMade >= (job.opts.attempts || 3))) {
           deadLetterStore.unshift({
             jobId: job.id || 'unknown',
             queueName,

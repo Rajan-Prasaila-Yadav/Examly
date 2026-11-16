@@ -4,9 +4,10 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const FALLBACK_ENDPOINTS = [
-  (process.env as any).EXPO_PUBLIC_API_URL || 'http://127.0.0.1:4000',
-  'http://10.255.75.94:4000',
+  (process.env as any).EXPO_PUBLIC_API_URL || 'https://examly-pi.vercel.app',
   'https://examly-pi.vercel.app',
+  'http://10.255.75.94:4000',
+  'http://127.0.0.1:4000',
 ];
 
 let currentBaseUrl = FALLBACK_ENDPOINTS[0];

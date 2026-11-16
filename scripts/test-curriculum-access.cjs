@@ -11,7 +11,8 @@ async function setup({ blocked, permissions = ['notes.read', 'lessons.read'], pl
   const db = {
     studentProfile: { findUnique: async () => ({ batchId: 'enrolled' }) },
     note: { findFirst: async ({ where }) => { assert.equal(where.status, 'ACTIVE'); return blocked === 'note' ? null : { id: 'note', lessonId: 'lesson' }; } },
-    lesson: { findFirst: async ({ where }) => { assert.equal(where.status, 'ACTIVE'); return blocked === 'lesson' ? null : { id: 'lesson', subjectId: 'subject' }; } },
+    lesson: { findFirst: async ({ where }) => { assert.equal(where.status, 'ACTIVE'); return blocked === 'lesson' ? null : { id: 'lesson', subjectId: 'subject' }; },
+      findUnique: async ({ include }) => { assert.equal(!!include.resources, permissions.includes('resources.read')); return { id: 'lesson', ...(include.resources ? { resources: [] } : {}) }; } },
     subject: { findFirst: async ({ where }) => {
       assert.equal(where.batchId, 'enrolled'); assert.equal(where.status, 'ACTIVE');
       assert.equal(where.batch.instituteId, 'institute'); assert.equal(where.batch.status, 'ACTIVE');
@@ -70,4 +71,14 @@ test('student curriculum counts exclude hidden lessons', async () => {
   const { app } = await setup({ permissions: ['subjects.read'], plugin: contentRoutes });
   try { assert.equal((await app.inject('/api/v1/content/subjects')).statusCode, 200); }
   finally { await app.close(); }
+});
+test('lesson resources are included only with resource-read permission', async () => {
+  for (const allowed of [false, true]) {
+    const { app } = await setup({ plugin: contentRoutes, permissions: ['lessons.read', ...(allowed ? ['resources.read'] : [])] });
+    try {
+      const response = await app.inject('/api/v1/content/lessons/lesson');
+      assert.equal(response.statusCode, 200);
+      assert.equal('resources' in response.json(), allowed);
+    } finally { await app.close(); }
+  }
 });

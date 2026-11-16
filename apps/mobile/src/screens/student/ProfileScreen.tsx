@@ -46,6 +46,18 @@ export function ProfileScreen({ onOpenTest, onOpenNote }: ProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'academic' | 'settings'>('overview');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [classReminders, setClassReminders] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
+
+  React.useEffect(() => {
+    apiClient
+      .get('/api/v1/students/home-feed')
+      .then((res) => {
+        if (res.data?.data) {
+          setProfileData(res.data.data);
+        }
+      })
+      .catch((e) => console.warn('Could not load profile feed:', e));
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -57,6 +69,9 @@ export function ProfileScreen({ onOpenTest, onOpenNote }: ProfileScreenProps) {
       ]
     );
   };
+
+  const batchName = profileData?.enrolledBatch?.name || 'CEE Prep 2027';
+  const rollNumber = (user as any)?.studentProfile?.rollNumber || (user as any)?.identifier || 'STU-DEV-001';
 
   return (
     <View style={styles.container}>
@@ -82,10 +97,10 @@ export function ProfileScreen({ onOpenTest, onOpenNote }: ProfileScreenProps) {
           <View style={styles.badgeRow}>
             <View style={styles.batchPill}>
               <GraduationCap size={11} color="#A78BFA" />
-              <Text style={styles.batchPillText}>CEE Prep 2027</Text>
+              <Text style={styles.batchPillText}>{batchName}</Text>
             </View>
             <View style={styles.rollPill}>
-              <Text style={styles.rollPillText}>Roll: CEE-2027-042</Text>
+              <Text style={styles.rollPillText}>Roll: {rollNumber}</Text>
             </View>
           </View>
         </View>

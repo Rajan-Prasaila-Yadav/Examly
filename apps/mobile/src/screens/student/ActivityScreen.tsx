@@ -37,69 +37,85 @@ interface ActivityScreenProps {
 
 export function ActivityScreen({ onOpenTest, onOpenVideo, onOpenNote }: ActivityScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'tests' | 'videos' | 'notes' | 'bookmarks' | 'downloads'>('all');
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const activities = [
-    {
-      id: 'act-1',
-      type: 'test',
-      title: 'Electric Charges & Fields — Practice Test',
-      meta: 'Score: 11 / 20 (55%) • Rank #4 • Passed',
-      time: 'Today, 11:45 AM',
-      badge: '55% Score',
-      badgeColor: '#10B981',
-      icon: Award,
-      actionText: 'View Analysis',
-      onPress: () => onOpenTest?.('test-ch05'),
-    },
-    {
-      id: 'act-2',
-      type: 'video',
-      title: "02 Coulomb's Law & Electrostatic Forces",
-      meta: 'Watched 12 of 30 mins • Chapter 05 Physics',
-      time: 'Today, 10:20 AM',
-      badge: '40% Watched',
-      badgeColor: '#7C65F6',
-      icon: Play,
-      actionText: 'Resume Video',
-      onPress: () => onOpenVideo?.('vid-2'),
-    },
-    {
-      id: 'act-3',
-      type: 'note',
-      title: "Coulomb's Law — Notes.pdf",
-      meta: 'Read 8 Pages • 2 Highlights added',
-      time: 'Yesterday, 4:15 PM',
-      badge: 'Notes Read',
-      badgeColor: '#F59E0B',
-      icon: FileText,
-      actionText: 'Open PDF',
-      onPress: () => onOpenNote?.('note-1'),
-    },
-    {
-      id: 'act-4',
-      type: 'bookmark',
-      title: 'Question 7: Electrostatic Force When Distance Halved',
-      meta: 'Saved in Important Formulas & High Yield Qs',
-      time: 'Yesterday, 3:30 PM',
-      badge: 'Bookmarked',
-      badgeColor: '#EC4899',
-      icon: Bookmark,
-      actionText: 'Review Question',
-      onPress: () => onOpenTest?.('test-ch05'),
-    },
-    {
-      id: 'act-5',
-      type: 'download',
-      title: 'Physics Mechanics & Electrostatics Formula Sheet.pdf',
-      meta: '12.4 MB • Available Offline in Storage',
-      time: '2 days ago',
-      badge: 'Downloaded',
-      badgeColor: '#06B6D4',
-      icon: Download,
-      actionText: 'Open Offline',
-      onPress: () => onOpenNote?.('note-formula'),
-    },
-  ];
+  React.useEffect(() => {
+    loadActivities();
+  }, []);
+
+  const loadActivities = async () => {
+    try {
+      setLoading(true);
+      const items: any[] = [
+        {
+          id: 'act-1',
+          type: 'test',
+          title: 'Electric Charges & Fields — Practice Test',
+          meta: 'Score: 11 / 20 (55%) • Rank #4 • Passed',
+          time: 'Today, 11:45 AM',
+          badge: '55% Score',
+          badgeColor: '#10B981',
+          icon: Award,
+          actionText: 'View Analysis',
+          onPress: () => onOpenTest?.('cmwif3f8l0007w8av2oubk2r7'),
+        },
+        {
+          id: 'act-2',
+          type: 'video',
+          title: "02 Coulomb's Law & Electrostatic Forces",
+          meta: 'Watched 12 of 30 mins • Chapter 05 Physics',
+          time: 'Today, 10:20 AM',
+          badge: '40% Watched',
+          badgeColor: '#7C65F6',
+          icon: Play,
+          actionText: 'Resume Video',
+          onPress: () => onOpenVideo?.('cmwif1bjy000n14fgqjk7veuo'),
+        },
+        {
+          id: 'act-3',
+          type: 'note',
+          title: "Coulomb's Law — Notes.pdf",
+          meta: 'Read 8 Pages • 2 Highlights added',
+          time: 'Yesterday, 4:15 PM',
+          badge: 'Notes Read',
+          badgeColor: '#F59E0B',
+          icon: FileText,
+          actionText: 'Open PDF',
+          onPress: () => onOpenNote?.('cmwif27ox0007pgn7jcorfwc6'),
+        },
+        {
+          id: 'act-4',
+          type: 'bookmark',
+          title: 'Question 7: Electrostatic Force When Distance Halved',
+          meta: 'Saved in Important Formulas & High Yield Qs',
+          time: 'Yesterday, 3:30 PM',
+          badge: 'Bookmarked',
+          badgeColor: '#EC4899',
+          icon: Bookmark,
+          actionText: 'Review Question',
+          onPress: () => onOpenTest?.('cmwif3f8l0007w8av2oubk2r7'),
+        },
+        {
+          id: 'act-5',
+          type: 'download',
+          title: 'Physics Mechanics & Electrostatics Formula Sheet.pdf',
+          meta: '358 KB • Available Offline in Storage',
+          time: '2 days ago',
+          badge: 'Downloaded',
+          badgeColor: '#06B6D4',
+          icon: Download,
+          actionText: 'Open Offline',
+          onPress: () => onOpenNote?.('cmwif27ox0007pgn7jcorfwc6'),
+        },
+      ];
+      setActivities(items);
+    } catch (e) {
+      console.warn('Failed to load activities:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = activities.filter((a) => {
     if (activeFilter === 'all') return true;

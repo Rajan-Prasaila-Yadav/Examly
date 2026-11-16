@@ -49,7 +49,11 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
 
   // Data states
   const [batches, setBatches] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [lessons, setLessons] = useState<any[]>([]);
+  const [lessonDetails, setLessonDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [subLoading, setSubLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTabFilter, setActiveTabFilter] = useState<'active' | 'completed'>('active');
   const [batchSubTab, setBatchSubTab] = useState<'subjects' | 'tests' | 'updates'>('subjects');
@@ -69,6 +73,51 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
       console.warn('Failed to load batches:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenBatch = async (batch: any) => {
+    setSelectedBatch(batch);
+    setViewState('batch_details');
+    setSubLoading(true);
+    try {
+      const res = await apiClient.get(`/api/v1/subjects?batchId=${batch.id}`);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
+      setSubjects(data);
+    } catch (e) {
+      console.warn('Failed to load batch subjects:', e);
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleOpenSubject = async (subject: any) => {
+    setSelectedSubject(subject);
+    setViewState('subject_lessons');
+    setSubLoading(true);
+    try {
+      const res = await apiClient.get(`/api/v1/subjects/${subject.id}`);
+      const subjectData = res.data;
+      setSelectedSubject(subjectData);
+      setLessons(subjectData.lessons || []);
+    } catch (e) {
+      console.warn('Failed to load subject lessons:', e);
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleOpenLesson = async (lesson: any) => {
+    setSelectedLesson(lesson);
+    setViewState('lesson_details');
+    setSubLoading(true);
+    try {
+      const res = await apiClient.get(`/api/v1/lessons/${lesson.id}`);
+      setLessonDetails(res.data);
+    } catch (e) {
+      console.warn('Failed to load lesson details:', e);
+    } finally {
+      setSubLoading(false);
     }
   };
 
@@ -148,135 +197,80 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
           {loading ? (
             <ActivityIndicator size="large" color="#8B80F5" style={{ marginTop: 40 }} />
           ) : (
-            <>
-              {/* Batch Card 1: CEE Preparation 2027 */}
-              <View style={styles.batchCard}>
-                <LinearGradient
-                  colors={['#2D1F6E', '#4B35A6', '#6D4FF0']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.batchBanner}
-                >
-                  <Text style={styles.batchCategory}>MEDICAL ENTRANCE</Text>
-                  <Text style={styles.batchCardName}>CEE Preparation 2027</Text>
-                  <Text style={styles.batchCardOrg}>U-ThinkCrazy • Regular batch</Text>
-                </LinearGradient>
+            batches
+              .filter((b) => !searchQuery || b.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map((b, idx) => {
+                const isCEE = b.name?.toLowerCase().includes('cee');
+                const bannerColors = isCEE ? ['#2D1F6E', '#4B35A6', '#6D4FF0'] : ['#0F3854', '#155E75', '#0E7490'];
+                const category = isCEE ? 'MEDICAL ENTRANCE' : 'ENGINEERING ENTRANCE';
+                return (
+                  <View key={b.id || idx} style={styles.batchCard}>
+                    <LinearGradient
+                      colors={bannerColors as any}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.batchBanner}
+                    >
+                      <Text style={styles.batchCategory}>{category}</Text>
+                      <Text style={styles.batchCardName}>{b.name}</Text>
+                      <Text style={styles.batchCardOrg}>
+                        {b.code ? `${b.code} • Regular batch` : 'U-ThinkCrazy • Regular batch'}
+                      </Text>
+                    </LinearGradient>
 
-                <View style={styles.batchCardBody}>
-                  <View style={styles.batchStatusRow}>
-                    <View style={styles.activeDotRow}>
-                      <View style={styles.greenDot} />
-                      <Text style={styles.activeStatusText}>Active</Text>
-                    </View>
-                    <Text style={styles.subjectCountText}>4 subjects</Text>
-                  </View>
+                    <View style={styles.batchCardBody}>
+                      <View style={styles.batchStatusRow}>
+                        <View style={styles.activeDotRow}>
+                          <View style={styles.greenDot} />
+                          <Text style={styles.activeStatusText}>Active</Text>
+                        </View>
+                        <Text style={styles.subjectCountText}>
+                          {b._count?.subjects || b.subjects?.length || 4} subjects
+                        </Text>
+                      </View>
 
-                  {/* Subject Icons Row */}
-                  <View style={styles.subjectTilesRow}>
-                    <View style={styles.subjectTile}>
-                      <Atom size={24} color="#A78BFA" />
-                      <Text style={styles.subjectTileLabel}>Physics</Text>
-                    </View>
-                    <View style={styles.subjectTile}>
-                      <FlaskConical size={24} color="#60A5FA" />
-                      <Text style={styles.subjectTileLabel}>Chemistry</Text>
-                    </View>
-                    <View style={styles.subjectTile}>
-                      <Sprout size={24} color="#34D399" />
-                      <Text style={styles.subjectTileLabel}>Botany</Text>
-                    </View>
-                    <View style={styles.subjectTile}>
-                      <PawPrint size={24} color="#F87171" />
-                      <Text style={styles.subjectTileLabel}>Zoology</Text>
-                    </View>
-                  </View>
+                      {/* Subject Icons Row */}
+                      <View style={styles.subjectTilesRow}>
+                        <View style={styles.subjectTile}>
+                          <Atom size={24} color="#A78BFA" />
+                          <Text style={styles.subjectTileLabel}>Physics</Text>
+                        </View>
+                        <View style={styles.subjectTile}>
+                          <FlaskConical size={24} color="#60A5FA" />
+                          <Text style={styles.subjectTileLabel}>Chemistry</Text>
+                        </View>
+                        <View style={styles.subjectTile}>
+                          <Sprout size={24} color="#34D399" />
+                          <Text style={styles.subjectTileLabel}>Botany</Text>
+                        </View>
+                        <View style={styles.subjectTile}>
+                          <PawPrint size={24} color="#F87171" />
+                          <Text style={styles.subjectTileLabel}>Zoology</Text>
+                        </View>
+                      </View>
 
-                  {/* Progress Line */}
-                  <View style={styles.progressRow}>
-                    <Text style={styles.progressLabel}>Learning progress</Text>
-                    <Text style={styles.progressPercent}>36%</Text>
-                  </View>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '36%' }]} />
-                  </View>
-                  <Text style={styles.progressSub}>18 of 50 lessons completed</Text>
+                      {/* Progress Line */}
+                      <View style={styles.progressRow}>
+                        <Text style={styles.progressLabel}>Learning progress</Text>
+                        <Text style={styles.progressPercent}>36%</Text>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: '36%' }]} />
+                      </View>
+                      <Text style={styles.progressSub}>Interactive Syllabus</Text>
 
-                  <TouchableOpacity
-                    style={styles.continueBatchBtn}
-                    onPress={() => {
-                      setSelectedBatch(batches.find(b => b.name?.includes('CEE')) || { id: 'cee', name: 'CEE Preparation 2027' });
-                      setViewState('batch_details');
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.continueBatchBtnText}>Continue learning</Text>
-                    <ArrowRight size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Batch Card 2: IOE Foundation 2027 */}
-              <View style={styles.batchCard}>
-                <LinearGradient
-                  colors={['#0F3854', '#155E75', '#0E7490']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.batchBanner}
-                >
-                  <Text style={styles.batchCategory}>ENGINEERING ENTRANCE</Text>
-                  <Text style={styles.batchCardName}>IOE Foundation 2027</Text>
-                  <Text style={styles.batchCardOrg}>U-ThinkCrazy • Weekend batch</Text>
-                </LinearGradient>
-
-                <View style={styles.batchCardBody}>
-                  <View style={styles.batchStatusRow}>
-                    <View style={styles.activeDotRow}>
-                      <View style={styles.greenDot} />
-                      <Text style={styles.activeStatusText}>Active</Text>
-                    </View>
-                    <Text style={styles.subjectCountText}>3 subjects</Text>
-                  </View>
-
-                  {/* Subject Icons Row */}
-                  <View style={styles.subjectTilesRow}>
-                    <View style={styles.subjectTile}>
-                      <Atom size={24} color="#A78BFA" />
-                      <Text style={styles.subjectTileLabel}>Physics</Text>
-                    </View>
-                    <View style={styles.subjectTile}>
-                      <FlaskConical size={24} color="#60A5FA" />
-                      <Text style={styles.subjectTileLabel}>Chemistry</Text>
-                    </View>
-                    <View style={styles.subjectTile}>
-                      <Calculator size={24} color="#38BDF8" />
-                      <Text style={styles.subjectTileLabel}>Maths</Text>
+                      <TouchableOpacity
+                        style={styles.continueBatchBtn}
+                        onPress={() => handleOpenBatch(b)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.continueBatchBtnText}>Continue learning</Text>
+                        <ArrowRight size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  {/* Progress Line */}
-                  <View style={styles.progressRow}>
-                    <Text style={styles.progressLabel}>Learning progress</Text>
-                    <Text style={styles.progressPercent}>10%</Text>
-                  </View>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '10%', backgroundColor: '#22D3EE' }]} />
-                  </View>
-                  <Text style={styles.progressSub}>4 of 40 lessons completed</Text>
-
-                  <TouchableOpacity
-                    style={styles.openBatchBtn}
-                    onPress={() => {
-                      setSelectedBatch(batches.find(b => b.name?.includes('IOE')) || { id: 'ioe', name: 'IOE Foundation 2027' });
-                      setViewState('batch_details');
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.openBatchBtnText}>Open batch</Text>
-                    <ArrowRight size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </>
+                );
+              })
           )}
         </ScrollView>
       </View>
@@ -369,44 +363,50 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
           {/* Your Subjects List */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Your subjects</Text>
-            <Text style={styles.batchCountText}>4 subjects</Text>
+            <Text style={styles.batchCountText}>{subjects.length || 4} subjects</Text>
           </View>
           <Text style={styles.sectionSubtitle}>Choose a subject to explore its lessons.</Text>
 
-          {[
-            { id: 'phy', name: 'Physics', progress: '50%', completed: '6 of 12 lessons completed' },
-            { id: 'chm', name: 'Chemistry', progress: '29%', completed: '4 of 14 lessons completed' },
-            { id: 'bot', name: 'Botany', progress: '42%', completed: '5 of 12 lessons completed' },
-            { id: 'zoo', name: 'Zoology', progress: '25%', completed: '3 of 12 lessons completed' },
-          ].map((sub) => (
-            <TouchableOpacity
-              key={sub.id}
-              style={styles.subjectRowCard}
-              onPress={() => {
-                setSelectedSubject(sub);
-                setViewState('subject_lessons');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.subjectCardLeft}>
-                <View style={styles.subjectRowIconBox}>
-                  {renderSubjectIcon(sub.name, 28)}
-                </View>
-                <View style={styles.subjectRowTextCol}>
-                  <Text style={styles.subjectRowName}>{sub.name}</Text>
-                  <Text style={styles.subjectRowSub}>{sub.completed}</Text>
-                  <View style={styles.smallProgressTrack}>
-                    <View style={[styles.progressFill, { width: sub.progress as any }]} />
+          {subLoading ? (
+            <ActivityIndicator size="small" color="#8B80F5" style={{ marginVertical: 24 }} />
+          ) : (
+            (subjects.length > 0 ? subjects : [
+              { id: 'cmwif17tb000314fgolz2yznu', name: 'Physics', _count: { lessons: 5 } },
+              { id: 'cmwif186s000514fgd7s3kd54', name: 'Chemistry', _count: { lessons: 0 } },
+              { id: 'cmwif18kn000714fg94j8mm1b', name: 'Botany', _count: { lessons: 0 } },
+              { id: 'cmwif18yk000914fg0no8trrv', name: 'Zoology', _count: { lessons: 0 } },
+            ]).map((sub, idx) => {
+              const lessonCount = sub._count?.lessons ?? sub.lessons?.length ?? 0;
+              const completedText = `${lessonCount} lessons available`;
+              const progressPct = sub.name === 'Physics' ? '50%' : '25%';
+              return (
+                <TouchableOpacity
+                  key={sub.id || idx}
+                  style={styles.subjectRowCard}
+                  onPress={() => handleOpenSubject(sub)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.subjectCardLeft}>
+                    <View style={styles.subjectRowIconBox}>
+                      {renderSubjectIcon(sub.name, 28)}
+                    </View>
+                    <View style={styles.subjectRowTextCol}>
+                      <Text style={styles.subjectRowName}>{sub.name}</Text>
+                      <Text style={styles.subjectRowSub}>{completedText}</Text>
+                      <View style={styles.smallProgressTrack}>
+                        <View style={[styles.progressFill, { width: progressPct as any }]} />
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
 
-              <View style={styles.subjectCardRight}>
-                <Text style={styles.subjectPercentText}>{sub.progress}</Text>
-                <ChevronRight size={18} color="#8A8F9E" />
-              </View>
-            </TouchableOpacity>
-          ))}
+                  <View style={styles.subjectCardRight}>
+                    <Text style={styles.subjectPercentText}>{progressPct}</Text>
+                    <ChevronRight size={18} color="#8A8F9E" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     );
@@ -523,35 +523,44 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             <Text style={styles.syllabusOrderText}>↑↓ Syllabus order</Text>
           </View>
 
-          {[
-            { num: '01', title: 'Units & Measurements', meta: '▷ 3 videos • 🗎 1 note • ✔ 1 test' },
-            { num: '02', title: 'Vectors & Motion', meta: '▷ 5 videos • 🗎 2 notes • ✔ 1 test' },
-            { num: '03', title: 'Laws of Motion', meta: '▷ 4 videos • 🗎 2 notes • ✔ 1 test' },
-            { num: '04', title: 'Work, Energy & Power', meta: '▷ 4 videos • 🗎 1 note • ✔ 1 test' },
-          ].map((l) => (
-            <TouchableOpacity
-              key={l.num}
-              style={styles.lessonItemCard}
-              onPress={() => {
-                setSelectedLesson(l);
-                setViewState('lesson_details');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.lessonNumBox}>
-                <Text style={styles.lessonNumText}>{l.num}</Text>
-              </View>
-              <View style={styles.lessonItemTextCol}>
-                <Text style={styles.lessonItemTitle}>{l.title}</Text>
-                <Text style={styles.lessonItemMeta}>{l.meta}</Text>
-              </View>
-              <View style={styles.completedBadgeRow}>
-                <CheckCircle2 size={16} color="#10B981" />
-                <Text style={styles.completedBadgeText}>Completed</Text>
-                <ChevronRight size={18} color="#8A8F9E" />
-              </View>
-            </TouchableOpacity>
-          ))}
+          {subLoading ? (
+            <ActivityIndicator size="small" color="#8B80F5" style={{ marginVertical: 24 }} />
+          ) : (
+            (lessons.length > 0 ? lessons : [
+              { id: 'cmwif19co000b14fgul0kjtsa', sortOrder: 1, name: '01 Units & Measurements', _count: { videos: 0, notes: 0, tests: 0 } },
+              { id: 'cmwif19r4000d14fgsusy39y1', sortOrder: 2, name: '02 Vectors & Motion', _count: { videos: 0, notes: 0, tests: 0 } },
+              { id: 'cmwif1a41000f14fgamggev7h', sortOrder: 3, name: '03 Laws of Motion', _count: { videos: 0, notes: 0, tests: 0 } },
+              { id: 'cmwif1agt000h14fgh5jl6blx', sortOrder: 4, name: '04 Work, Energy & Power', _count: { videos: 0, notes: 0, tests: 0 } },
+              { id: 'cmwif1asw000j14fgkx2zgrmx', sortOrder: 5, name: '05 Electric Charges & Fields', _count: { videos: 4, notes: 1, tests: 1 } },
+            ]).map((l, idx) => {
+              const numStr = String(l.sortOrder || idx + 1).padStart(2, '0');
+              const videoCount = l._count?.videos ?? l.videos?.length ?? 0;
+              const noteCount = l._count?.notes ?? l.notes?.length ?? 0;
+              const testCount = l._count?.tests ?? l.tests?.length ?? 0;
+              const metaStr = `▷ ${videoCount} videos • 🗎 ${noteCount} note${noteCount !== 1 ? 's' : ''} • ✔ ${testCount} test${testCount !== 1 ? 's' : ''}`;
+              return (
+                <TouchableOpacity
+                  key={l.id || idx}
+                  style={styles.lessonItemCard}
+                  onPress={() => handleOpenLesson(l)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.lessonNumBox}>
+                    <Text style={styles.lessonNumText}>{numStr}</Text>
+                  </View>
+                  <View style={styles.lessonItemTextCol}>
+                    <Text style={styles.lessonItemTitle}>{l.name}</Text>
+                    <Text style={styles.lessonItemMeta}>{metaStr}</Text>
+                  </View>
+                  <View style={styles.completedBadgeRow}>
+                    <CheckCircle2 size={16} color="#10B981" />
+                    <Text style={styles.completedBadgeText}>Available</Text>
+                    <ChevronRight size={18} color="#8A8F9E" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     );
@@ -643,19 +652,25 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
               >
                 <TouchableOpacity
                   style={styles.bigPlayButton}
-                  onPress={() => onOpenVideo?.()}
+                  onPress={() => onOpenVideo?.(lessonDetails?.videos?.[0]?.id)}
                   activeOpacity={0.85}
                 >
                   <Play size={26} color="#6D4FF0" fill="#6D4FF0" />
                 </TouchableOpacity>
                 <View style={styles.durationBadge}>
-                  <Text style={styles.durationBadgeText}>30:00</Text>
+                  <Text style={styles.durationBadgeText}>
+                    {lessonDetails?.videos?.[0]
+                      ? `${Math.round((lessonDetails.videos[0].durationSeconds || 1800) / 60)}:00`
+                      : '30:00'}
+                  </Text>
                 </View>
               </LinearGradient>
 
               <View style={styles.videoHeroInfo}>
-                <Text style={styles.videoHeroTitle}>Coulomb’s Law</Text>
-                <Text style={styles.videoHeroSub}>Video 2 of 4</Text>
+                <Text style={styles.videoHeroTitle}>
+                  {lessonDetails?.videos?.[0]?.title || 'Coulomb’s Law'}
+                </Text>
+                <Text style={styles.videoHeroSub}>Video 1 of {lessonDetails?.videos?.length || 4}</Text>
 
                 <View style={styles.progressTrack}>
                   <View style={[styles.progressFill, { width: '40%' }]} />
@@ -668,7 +683,7 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
 
                 <TouchableOpacity
                   style={styles.fullResumeVideoBtn}
-                  onPress={() => onOpenVideo?.()}
+                  onPress={() => onOpenVideo?.(lessonDetails?.videos?.[0]?.id)}
                   activeOpacity={0.9}
                 >
                   <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
@@ -680,91 +695,110 @@ export function LearnScreen({ onOpenVideo, onOpenNote, onOpenTest }: LearnScreen
             {/* Lesson Videos List */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeading}>Lesson videos</Text>
-              <Text style={styles.batchCountText}>1 of 4 completed</Text>
+              <Text style={styles.batchCountText}>
+                {lessonDetails?.videos?.length || 4} available
+              </Text>
             </View>
 
-            {[
-              { id: 'v1', title: 'Electric Charge Basics', duration: '24 min', status: 'completed' },
-              { id: 'v2', title: "Coulomb's Law", duration: '30 min', left: '18 min left', status: 'in_progress' },
-              { id: 'v3', title: 'Electric Field & Field Lines', duration: '28 min', status: 'not_started' },
-              { id: 'v4', title: 'Electric Dipole', duration: '26 min', status: 'not_started' },
-            ].map((v) => (
-              <TouchableOpacity
-                key={v.id}
-                style={styles.videoRowItem}
-                onPress={() => onOpenVideo?.(v.id)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.videoRowThumb}>
-                  <Play size={16} color="#A78BFA" fill="#A78BFA" />
-                </View>
-                <View style={styles.videoRowInfo}>
-                  <Text style={styles.videoRowTitle}>{v.title}</Text>
-                  <View style={styles.videoRowMeta}>
-                    <Text style={styles.videoMetaText}>▷ {v.duration}</Text>
-                    {v.status === 'completed' && (
-                      <View style={styles.statusCompletedBadge}>
-                        <CheckCircle2 size={12} color="#10B981" />
-                        <Text style={styles.statusCompletedText}>Completed</Text>
-                      </View>
-                    )}
-                    {v.status === 'in_progress' && (
-                      <View style={styles.statusProgressBadge}>
-                        <Text style={styles.statusProgressText}>In progress</Text>
-                      </View>
-                    )}
+            {(lessonDetails?.videos?.length > 0 ? lessonDetails.videos : [
+              { id: 'cmwif1b5p000l14fg7m43jsw5', title: 'Electric Charge Basics', durationSeconds: 1440 },
+              { id: 'cmwif1bjy000n14fgqjk7veuo', title: "Coulomb's Law", durationSeconds: 1800 },
+              { id: 'cmwif1bwq000p14fgb2g3v2s6', title: 'Electric Field & Field Lines', durationSeconds: 1680 },
+              { id: 'cmwif1ca7000r14fg5bnlnj86', title: 'Electric Dipole', durationSeconds: 1560 },
+            ]).map((v: any, idx: number) => {
+              const mins = Math.round((v.durationSeconds || 1500) / 60);
+              return (
+                <TouchableOpacity
+                  key={v.id || idx}
+                  style={styles.videoRowItem}
+                  onPress={() => onOpenVideo?.(v.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.videoRowThumb}>
+                    <Play size={16} color="#A78BFA" fill="#A78BFA" />
                   </View>
-                </View>
-                <TouchableOpacity style={styles.downloadIconBtn}>
-                  <Download size={18} color="#8A8F9E" />
+                  <View style={styles.videoRowInfo}>
+                    <Text style={styles.videoRowTitle}>{v.title}</Text>
+                    <View style={styles.videoRowMeta}>
+                      <Text style={styles.videoMetaText}>▷ {mins} min</Text>
+                      {idx === 0 && (
+                        <View style={styles.statusCompletedBadge}>
+                          <CheckCircle2 size={12} color="#10B981" />
+                          <Text style={styles.statusCompletedText}>Completed</Text>
+                        </View>
+                      )}
+                      {idx === 1 && (
+                        <View style={styles.statusProgressBadge}>
+                          <Text style={styles.statusProgressText}>In progress</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.downloadIconBtn}>
+                    <Download size={18} color="#8A8F9E" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              );
+            })}
           </>
         )}
 
         {/* Tab 2: Notes */}
         {lessonContentTab === 'notes' && (
           <View style={{ marginTop: 12 }}>
-            <TouchableOpacity
-              style={styles.noteItemCard}
-              onPress={() => onOpenNote?.()}
-              activeOpacity={0.85}
-            >
-              <View style={styles.pdfIconBadge}>
-                <Text style={styles.pdfIconText}>PDF</Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.noteItemTitle}>Coulomb’s Law — Notes</Text>
-                <Text style={styles.noteItemMeta}>PDF • 8 pages • 350 KB</Text>
-              </View>
-              <TouchableOpacity style={styles.openNoteBtn} onPress={() => onOpenNote?.()}>
-                <Text style={styles.openNoteBtnText}>Open</Text>
+            {(lessonDetails?.notes?.length > 0 ? lessonDetails.notes : [
+              { id: 'cmwif27ox0007pgn7jcorfwc6', title: 'Coulomb’s Law — Notes', fileSizeBytes: 358400 }
+            ]).map((note: any, idx: number) => (
+              <TouchableOpacity
+                key={note.id || idx}
+                style={styles.noteItemCard}
+                onPress={() => onOpenNote?.(note.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.pdfIconBadge}>
+                  <Text style={styles.pdfIconText}>PDF</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.noteItemTitle}>{note.title}</Text>
+                  <Text style={styles.noteItemMeta}>
+                    PDF • 8 pages • {Math.round((note.fileSizeBytes || 358400) / 1024)} KB
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.openNoteBtn} onPress={() => onOpenNote?.(note.id)}>
+                  <Text style={styles.openNoteBtnText}>Open</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
+            ))}
           </View>
         )}
 
         {/* Tab 3: Tests */}
         {lessonContentTab === 'tests' && (
           <View style={{ marginTop: 12 }}>
-            <TouchableOpacity
-              style={styles.practiceTestCard}
-              onPress={() => onOpenTest?.()}
-              activeOpacity={0.85}
-            >
-              <View style={styles.practiceTestIcon}>
-                <Atom size={28} color="#A78BFA" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={styles.practiceTestTitle}>Electric Charges & Fields — Practice Test</Text>
-                <Text style={styles.practiceTestMeta}>20 questions • 30 min • +1 / -0.25</Text>
-                <View style={styles.testAttemptNotice}>
-                  <CheckCircle2 size={14} color="#10B981" />
-                  <Text style={styles.testAttemptNoticeText}>Attempt 1 completed • Score 11/20</Text>
+            {(lessonDetails?.tests?.length > 0 ? lessonDetails.tests : [
+              { id: 'cmwif3f8l0007w8av2oubk2r7', title: 'Electric Charges & Fields — Practice Test', durationMinutes: 30, totalMarks: 20 }
+            ]).map((test: any, idx: number) => (
+              <TouchableOpacity
+                key={test.id || idx}
+                style={styles.practiceTestCard}
+                onPress={() => onOpenTest?.(test.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.practiceTestIcon}>
+                  <Atom size={28} color="#A78BFA" />
                 </View>
-              </View>
-            </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.practiceTestTitle}>{test.title}</Text>
+                  <Text style={styles.practiceTestMeta}>
+                    20 questions • {test.durationMinutes || 30} min • +1 / -0.25
+                  </Text>
+                  <View style={styles.testAttemptNotice}>
+                    <CheckCircle2 size={14} color="#10B981" />
+                    <Text style={styles.testAttemptNoticeText}>Ready to attempt • {test.totalMarks || 20} Marks</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
