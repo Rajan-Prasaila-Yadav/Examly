@@ -106,18 +106,14 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           select: { batchId: true },
         });
 
-        // Unassigned students have no enrolled batches
-        if (!studentProfile?.batchId) {
-          return [];
-        }
+        const batchWhere: any = {
+          status: RecordStatus.ACTIVE,
+          ...(user.instituteId ? { instituteId: user.instituteId } : {}),
+          ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
+        };
 
-        const batches = await fastify.prisma.batch.findMany({
-          where: {
-            id: studentProfile.batchId,
-            status: RecordStatus.ACTIVE,
-            ...(user.instituteId ? { instituteId: user.instituteId } : {}),
-            ...(query.search ? { OR: [{ name: { contains: query.search, mode: 'insensitive' } }, { code: { contains: query.search, mode: 'insensitive' } }] } : {}),
-          },
+        const rawBatches = await fastify.prisma.batch.findMany({
+          where: batchWhere,
           include: {
             subjects: {
               where: { status: RecordStatus.ACTIVE },
@@ -134,6 +130,11 @@ export const batchesRoutes: FastifyPluginAsync = async (fastify) => {
           },
           orderBy: { sortOrder: 'asc' },
         });
+
+        const batches = rawBatches.map((b: any) => ({
+          ...b,
+          isEnrolled: b.id === studentProfile?.batchId,
+        })).sort((a: any, b: any) => (b.isEnrolled ? 1 : 0) - (a.isEnrolled ? 1 : 0));
         return batches;
       }
 

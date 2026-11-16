@@ -70,7 +70,18 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       });
 
       let batch = studentProfile?.batch;
-      // Allow student without batch or admin/superadmin to preview the active batch
+      const emptyFeed = { success: true, data: {
+        enrolledBatch: null, liveTests: [], continueWatching: null, recentNotes: [], todayClasses: [],
+        stats: { testsTaken: 0, averagePercentage: 0 },
+      } };
+      // Student content always follows their active, same-institute enrollment.
+      // Preview is available only to administrators, never as student enrollment.
+      if (roleCode === 'STUDENT') {
+        if (!request.user!.instituteId || !batch || batch.status !== 'ACTIVE' || batch.instituteId !== request.user!.instituteId) return emptyFeed;
+      } else if (!['ADMIN', 'SUPER_ADMIN'].includes(roleCode) || (roleCode !== 'SUPER_ADMIN' && !request.user!.instituteId)) {
+        return reply.code(403).send({ message: 'Student or administrator access required' });
+      }
+      if (roleCode !== 'SUPER_ADMIN' && batch?.instituteId !== request.user!.instituteId) batch = null;
       if (!batch || batch.status !== 'ACTIVE') {
         const queryBatchId = (request.query as any)?.batchId;
         batch = await prisma.batch.findFirst({
@@ -144,6 +155,11 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           totalMarks: true,
           testStatus: true,
           batch: { select: { name: true, code: true } },
+          sections: {
+            include: {
+              questions: { select: { id: true } }
+            }
+          }
         },
         take: 5,
         orderBy: { startDateTime: 'asc' },
@@ -166,11 +182,41 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
             totalMarks: true,
             testStatus: true,
             batch: { select: { name: true, code: true } },
+            sections: {
+              include: {
+                questions: { select: { id: true } }
+              }
+            }
           },
           take: 5,
           orderBy: { startDateTime: 'asc' },
         });
       }
+
+      const formattedLiveTests = liveTests.map((t: any) => {
+        const qCount = t.sections?.reduce((sum: number, sec: any) => sum + (sec.questions?.length || 0), 0) || t.totalQuestions || 20;
+        const durMin = t.durationMinutes || 60;
+        const sDate = t.startDateTime ? new Date(t.startDateTime) : now;
+        const isToday = sDate.toDateString() === now.toDateString();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const isTomorrow = sDate.toDateString() === tomorrow.toDateString();
+        const badge = t.testStatus === 'LIVE' ? 'LIVE NOW' : isToday ? 'TODAY' : isTomorrow ? 'TOMORROW' : 'UPCOMING';
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const formattedDate = `${sDate.getDate()} ${months[sDate.getMonth()]} • ${sDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+        return {
+          id: t.id,
+          title: t.title,
+          durationMinutes: durMin,
+          questionsCount: qCount,
+          startDateTime: t.startDateTime,
+          endDateTime: t.endDateTime,
+          totalMarks: t.totalMarks,
+          testStatus: t.testStatus,
+          badge,
+          formattedDate,
+        };
+      });
 
       // B. Continue Watching Video
       const continueProgress = await prisma.videoWatchProgress.findFirst({
@@ -273,13 +319,14 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
         orderBy: { date: 'asc' },
       });
 
-      // E. Quick Stats (Tests attempted, Average score)
+      // E. Quick Stats (Tests attempted, Average score, Streak)
       const attempts = await prisma.testAttempt.findMany({
         where: {
           studentId: userId,
           submittedAt: { not: null },
         },
         select: {
+          submittedAt: true,
           test: { include: { config: true } },
           result: {
             select: {
@@ -295,18 +342,49 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
       const released = attempts.filter((att: any) => att.result && resultVisible(att.test, !!att.result.publishedAt));
       const avgScore = released.length ? Math.round(released.reduce((sum: number, att: any) => sum + Number(att.result.percentage), 0) / released.length) : 0;
 
+      // Real streak calculation
+      const recentWatchDates = await prisma.videoWatchProgress.findMany({
+        where: { userId },
+        select: { lastWatchedAt: true },
+        take: 30,
+        orderBy: { lastWatchedAt: 'desc' },
+      });
+      const dates = new Set<string>();
+      attempts.forEach((a: any) => a.submittedAt && dates.add(new Date(a.submittedAt).toISOString().split('T')[0]));
+      recentWatchDates.forEach((w: any) => w.lastWatchedAt && dates.add(new Date(w.lastWatchedAt).toISOString().split('T')[0]));
+      dates.add(new Date().toISOString().split('T')[0]); // Active today
+
+      let streakDays = 0;
+      let checkDate = new Date();
+      while (true) {
+        const dStr = checkDate.toISOString().split('T')[0];
+        if (dates.has(dStr)) {
+          streakDays++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      const durSec = continueWatching?.video?.durationSeconds || (continueWatching as any)?.durationSeconds || 1800;
+      const progSec = (continueWatching as any)?.progressSeconds || (continueWatching as any)?.watchedSeconds || 0;
+      const pct = durSec > 0 ? Math.min(100, Math.round((progSec / durSec) * 100)) : 0;
+      const minsLeft = durSec > 0 ? Math.max(1, Math.round((durSec - progSec) / 60)) : 18;
+
       return {
         success: true,
         data: {
-          enrolledBatch: studentProfile?.batch || null,
-          liveTests,
-          continueWatching: continueProgress
+          enrolledBatch: studentProfile?.batch || batch || null,
+          liveTests: formattedLiveTests,
+          continueWatching: continueWatching
             ? {
-                videoId: continueProgress.videoId,
-                progressSeconds: continueProgress.progressSeconds,
-                durationSeconds: continueProgress.durationSeconds,
-                lastWatchedAt: continueProgress.lastWatchedAt,
-                video: continueProgress.video,
+                videoId: continueWatching.video?.id || (continueWatching as any).videoId,
+                progressSeconds: progSec,
+                durationSeconds: durSec,
+                percentage: pct,
+                minutesLeft: minsLeft,
+                lastWatchedAt: continueWatching.lastWatchedAt,
+                video: continueWatching.video,
               }
             : null,
           recentNotes,
@@ -314,6 +392,7 @@ export const studentFeedRoutes: FastifyPluginAsync = async (fastify: FastifyInst
           stats: {
             testsTaken,
             averagePercentage: avgScore,
+            streakDays,
           },
         },
       };
