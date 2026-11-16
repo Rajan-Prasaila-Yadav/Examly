@@ -39,13 +39,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Restore session from SecureStore on startup
     const restoreSession = async () => {
       try {
-        const storedUser = await SecureStore.getItemAsync('examly_user');
-        const refreshedToken = await refreshAccessToken();
-        if (refreshedToken && storedUser) {
+        const [storedUser, storedToken] = await Promise.all([
+          SecureStore.getItemAsync('examly_user'),
+          SecureStore.getItemAsync('examly_token'),
+        ]);
+        // Restore the still-valid access token immediately. Refresh runs in the
+        // background so returning to Android never flashes the login screen.
+        if (storedToken && storedUser) {
           const restoredUser = JSON.parse(storedUser) as User;
           if (restoredUser.role === 'STUDENT') {
-            setToken(refreshedToken);
+            setToken(storedToken);
             setUser(restoredUser);
+            refreshAccessToken().then((refreshedToken) => {
+              if (refreshedToken) setToken(refreshedToken);
+            });
           }
         }
       } catch (e) {

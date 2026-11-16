@@ -270,7 +270,11 @@ export function HomeScreen({
           {/* Notes */}
           <TouchableOpacity
             style={styles.quickCard}
-            onPress={() => onOpenNote?.()}
+            onPress={() => {
+              const latestNoteId = feed?.recentNotes?.[0]?.id;
+              if (latestNoteId) onOpenNote?.(latestNoteId);
+              else onNavigateTab?.('learn');
+            }}
             activeOpacity={0.8}
           >
             <LinearGradient

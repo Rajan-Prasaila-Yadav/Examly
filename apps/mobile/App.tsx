@@ -59,7 +59,7 @@ function MainApp() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#06070B" />
       <View style={styles.screenContainer}>
-        {currentTab === 'home' && (
+        <View style={[styles.tabScreen, currentTab !== 'home' && styles.hiddenScreen]} pointerEvents={currentTab === 'home' ? 'auto' : 'none'}>
           <HomeScreen
             onNavigateTab={(tab) => setCurrentTab(tab)}
             onOpenTest={() => setCurrentTab('tests')}
@@ -67,27 +67,27 @@ function MainApp() {
             onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
             onOpenBatch={() => setCurrentTab('learn')}
           />
-        )}
-        {currentTab === 'learn' && (
+        </View>
+        <View style={[styles.tabScreen, currentTab !== 'learn' && styles.hiddenScreen]} pointerEvents={currentTab === 'learn' ? 'auto' : 'none'}>
           <LearnScreen
             onOpenVideo={(vId) => setActiveVideoId(vId ?? null)}
             onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
             onOpenTest={() => setCurrentTab('tests')}
           />
-        )}
-        {currentTab === 'tests' && <TestsScreen />}
-        {currentTab === 'activity' && (
+        </View>
+        <View style={[styles.tabScreen, currentTab !== 'tests' && styles.hiddenScreen]} pointerEvents={currentTab === 'tests' ? 'auto' : 'none'}><TestsScreen /></View>
+        <View style={[styles.tabScreen, currentTab !== 'activity' && styles.hiddenScreen]} pointerEvents={currentTab === 'activity' ? 'auto' : 'none'}>
           <ActivityScreen
             onOpenTest={() => setCurrentTab('tests')}
             onOpenVideo={(vId) => setActiveVideoId(vId ?? null)}
             onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
           />
-        )}
-        {currentTab === 'profile' && (
+        </View>
+        <View style={[styles.tabScreen, currentTab !== 'profile' && styles.hiddenScreen]} pointerEvents={currentTab === 'profile' ? 'auto' : 'none'}>
           <ProfileScreen
             onOpenNote={(nId) => setActiveNoteId(nId ?? null)}
           />
-        )}
+        </View>
       </View>
 
       <BottomTabBar currentTab={currentTab} onTabChange={setCurrentTab} />
@@ -118,5 +118,11 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
+  },
+  tabScreen: {
+    flex: 1,
+  },
+  hiddenScreen: {
+    display: 'none',
   },
 });
