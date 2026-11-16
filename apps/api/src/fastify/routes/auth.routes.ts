@@ -325,44 +325,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       } catch {}
     }
 
+    // Google proves identity but must not create an enrolled Student account.
+    // Student accounts, their batch membership, and their account status are
+    // managed by authorized staff in Examly.
     if (!user) {
-      let studentRole = await fastify.prisma.role.findFirst({ where: { code: RoleType.STUDENT } });
-      if (!studentRole) {
-        studentRole = await fastify.prisma.role.create({
-          data: { name: 'Student', code: RoleType.STUDENT, description: 'Default Student Role' },
-        });
-      }
-
-      const defaultInstitute = await fastify.prisma.institute.findFirst({ where: { status: RecordStatus.ACTIVE } });
-      const rollNumber = `STU-G-${Math.floor(10000 + Math.random() * 90000)}`;
-
-      user = await fastify.prisma.user.create({
-        data: {
-          fullName: payload.name || 'Google User',
-          email: payload.email.toLowerCase(),
-          googleId: payload.sub,
-          avatarUrl: payload.picture || null,
-          identifier: rollNumber,
-          passwordHash: await bcrypt.hash(payload.sub + getAccessSecret(), 10),
-          roleId: studentRole.id,
-          instituteId: defaultInstitute?.id || null,
-          status: RecordStatus.ACTIVE,
-          studentProfile: {
-            create: {
-              rollNumber,
-              province: 'Bagmati',
-              district: 'Kathmandu',
-              municipality: 'Kathmandu Metropolitan City',
-              wardNumber: '04',
-            },
-          },
-        },
-        include: {
-          role: true,
-          institute: true,
-          studentProfile: { include: { batch: true } },
-          teacherProfile: true,
-        },
+      return reply.status(403).send({
+        statusCode: 403,
+        message: 'No active Examly account is linked to this Google email. Contact your institute administrator.',
       });
     }
 

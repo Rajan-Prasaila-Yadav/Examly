@@ -26,6 +26,10 @@ export function useGoogleLogin() {
       if (Platform.OS === 'android') {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
+      // Do not silently reuse the previous account. This clears Examly's local
+      // Google session only; it does not remove accounts from the phone or sign
+      // the user out of Gmail/Chrome.
+      await GoogleSignin.signOut().catch(() => null);
       const response = await GoogleSignin.signIn();
       if (response.type === 'cancelled') return null;
       const idToken = response.data.idToken;
