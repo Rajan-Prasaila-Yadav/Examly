@@ -1,6 +1,6 @@
 // apps/mobile/App.tsx
-import React, { useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet, StatusBar, BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/auth/auth-context';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
@@ -20,6 +20,25 @@ function MainApp() {
   // Fullscreen Modal States
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (activeVideoId) {
+        setActiveVideoId(null);
+        return true;
+      }
+      if (activeNoteId) {
+        setActiveNoteId(null);
+        return true;
+      }
+      if (currentTab !== 'home') {
+        setCurrentTab('home');
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [activeNoteId, activeVideoId, currentTab]);
 
   if (isLoading) {
     return (
