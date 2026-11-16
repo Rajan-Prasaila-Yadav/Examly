@@ -41,6 +41,10 @@ function MainApp() {
         videoId={activeVideoId}
         onBack={() => setActiveVideoId(null)}
         onNavigateVideo={(newId) => setActiveVideoId(newId)}
+        onOpenNote={(noteId) => {
+          setActiveVideoId(null);
+          setActiveNoteId(noteId);
+        }}
       />
     );
   }

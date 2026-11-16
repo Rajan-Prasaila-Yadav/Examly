@@ -39,13 +39,15 @@ export const contentRoutes:FastifyPluginAsync=async app=>{
  }
  app.get('/api/v1/content/videos/:id',gate('videos'),async request=>{
   const {id}=request.params as any,u=request.user!;const video=await videoAccess(id,u);const lesson=await db.lesson.findUnique({where:{id:video.lessonId},include:{subject:{include:{batch:{select:{id:true,name:true}}}}}});
-  const [playlist,notes,progress,comments,reactions]=await Promise.all([
+  const [playlist,notes,courseNotes,progress,comments,reactions]=await Promise.all([
    db.video.findMany({where:{lesson:{subjectId:lesson!.subjectId,status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}},status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}},select:{id:true,title:true,durationSeconds:true,lesson:{select:{name:true}},watchProgress:{where:{userId:u.userId},select:{isCompleted:true}}},orderBy:{sortOrder:'asc'}}),
-   db.videoPersonalNote.findMany({where:{videoId:id,userId:u.userId},orderBy:{seconds:'asc'}}),db.videoWatchProgress.findUnique({where:{userId_videoId:{videoId:id,userId:u.userId}}}),
+   db.videoPersonalNote.findMany({where:{videoId:id,userId:u.userId},orderBy:{seconds:'asc'}}),
+   db.note.findMany({where:{lessonId:video.lessonId,status:u.roleCode==='STUDENT'?'ACTIVE':{not:'DELETED'}},select:{id:true,title:true,fileSizeBytes:true,description:true,allowDownload:true},orderBy:{sortOrder:'asc'}}),
+   db.videoWatchProgress.findUnique({where:{userId_videoId:{videoId:id,userId:u.userId}}}),
    db.videoComment.findMany({where:{videoId:id},orderBy:{createdAt:'asc'},take:200}),db.videoReaction.findMany({where:{videoId:id},select:{userId:true,reactionType:true}})
   ]);
   const authors=await db.user.findMany({where:{id:{in:[...new Set(comments.map(c=>c.userId))]}},select:{id:true,fullName:true}});
-  return {video,lesson,playlist,notes,progress,comments:comments.map(c=>({...c,author:authors.find(a=>a.id===c.userId)?.fullName||'User'})),reactions:{LIKE:reactions.filter(r=>r.reactionType==='LIKE').length,LOVE:reactions.filter(r=>r.reactionType==='LOVE').length,mine:reactions.find(r=>r.userId===u.userId)?.reactionType||null}};
+  return {video,lesson,playlist,notes,courseNotes,progress,comments:comments.map(c=>({...c,author:authors.find(a=>a.id===c.userId)?.fullName||'User'})),reactions:{LIKE:reactions.filter(r=>r.reactionType==='LIKE').length,LOVE:reactions.filter(r=>r.reactionType==='LOVE').length,mine:reactions.find(r=>r.userId===u.userId)?.reactionType||null}};
  });
  app.post('/api/v1/content/videos/:id/personal-notes',gate('videos'),async(request,reply)=>{const {id}=request.params as any;await videoAccess(id,request.user);const p=parse(z.object({seconds:z.number().int().nonnegative(),text:z.string().trim().min(1).max(2000)}),request.body);return reply.code(201).send(await db.videoPersonalNote.create({data:{...p,videoId:id,userId:request.user!.userId}}));});
  app.delete('/api/v1/content/videos/:id/personal-notes/:noteId',gate('videos'),async request=>{const {id,noteId}=request.params as any;await videoAccess(id,request.user);await db.videoPersonalNote.deleteMany({where:{id:noteId,videoId:id,userId:request.user!.userId}});return {success:true};});
