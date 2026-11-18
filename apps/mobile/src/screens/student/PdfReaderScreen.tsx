@@ -1,1053 +1,148 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  LayoutChangeEvent,
-  Linking,
-  Modal,
-  PanResponder,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import Pdf from "react-native-pdf";
-import Svg, { Path, Rect } from "react-native-svg";
-import * as FileSystem from "expo-file-system";
-import {
-  ArrowLeft,
-  Bookmark,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  FileText,
-  Highlighter,
-  Menu,
-  MoreHorizontal,
-  PenLine,
-  Search,
-  Settings2,
-  StickyNote,
-  X,
-} from "lucide-react-native";
-import { apiClient } from "../../api/client";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, PanResponder, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { WebView } from 'react-native-webview';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { ArrowLeft, Bookmark, ChevronLeft, ChevronRight, Download, Eraser, Highlighter, Menu, PenLine, Search, Settings2, StickyNote, Undo2, Redo2, X, Maximize2 } from 'lucide-react-native';
+import { apiClient } from '../../api/client';
 
-interface PdfReaderScreenProps {
-  noteId?: string;
-  onBack: () => void;
+interface PdfReaderScreenProps { noteId?: string; onBack: () => void; }
+type Tool = 'select' | 'highlight' | 'pen' | 'note';
+type AnnotationType = 'HIGHLIGHT' | 'DRAWING' | 'STICKY' | 'TEXT';
+type Point = { x: number; y: number };
+type Geometry = { x?: number; y?: number; width?: number; height?: number; opacity?: number; strokeWidth?: number; points?: Point[] };
+type Annotation = { id: string; pageNumber: number; type: AnnotationType; color?: string | null; content?: string | null; geometryJson?: string | null; };
+type AnnotationPayload = Omit<Annotation, 'id' | 'geometryJson'> & { geometryJson?: Geometry };
+type NoteData = { note: { id: string; title: string; fileUrl?: string; fileSizeBytes?: number | null; description?: string | null }; lesson?: { subject?: { name?: string } } };
+type Bookmark = { id: string; targetType: string; targetId: string };
+
+const PALETTE = ['#FDE047', '#86EFAC', '#60A5FA', '#F9A8D4', '#C084FC'];
+const PEN_COLORS = ['#111827', '#2563EB', '#7C3AED', '#DC2626', '#16A34A'];
+const unwrap = <T,>(response: { data: T | { data?: T } }) => { const value = response.data as { data?: T }; return value && typeof value === 'object' && 'data' in value ? value.data as T : response.data as T; };
+const geometry = (annotation: Annotation): Geometry => { try { return annotation.geometryJson ? JSON.parse(annotation.geometryJson) : {}; } catch { return {}; } };
+const size = (bytes?: number | null) => !bytes ? 'PDF' : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+function pdfHtml(url: string) {
+  const safeUrl = JSON.stringify(url);
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=3,user-scalable=yes"><style>html,body{margin:0;width:100%;height:100%;background:#fff;overflow:hidden}#stage{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;background:#fff}canvas{display:block;box-shadow:0 1px 5px rgba(0,0,0,.13)}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script></head><body><main id="stage"><canvas id="page"></canvas></main><script>const source=${safeUrl};let doc,pageNo=1,fit='width',busy=false;const stage=document.getElementById('stage'),canvas=document.getElementById('page'),ctx=canvas.getContext('2d');const send=(message)=>window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(message));async function render(){if(!doc||busy)return;busy=true;try{const page=await doc.getPage(pageNo);const base=page.getViewport({scale:1});const scale=fit==='page'?Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height):stage.clientWidth/base.width;const pixelRatio=Math.max(1,window.devicePixelRatio||1);const viewport=page.getViewport({scale:Math.max(.2,scale)*pixelRatio});canvas.width=Math.floor(viewport.width);canvas.height=Math.floor(viewport.height);canvas.style.width=Math.floor(viewport.width/pixelRatio)+'px';canvas.style.height=Math.floor(viewport.height/pixelRatio)+'px';await page.render({canvasContext:ctx,viewport}).promise;send({type:'page',page:pageNo,count:doc.numPages})}catch(e){send({type:'error',message:e&&e.message||'PDF render failed'})}finally{busy=false}}async function init(){try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';doc=await pdfjsLib.getDocument({url:source,withCredentials:false}).promise;await render()}catch(e){send({type:'error',message:e&&e.message||'PDF load failed'})}}function receive(raw){try{const m=JSON.parse(raw);if(m.type==='page'){pageNo=Math.min(Math.max(1,m.page),doc.numPages);render()}if(m.type==='fit'){fit=m.fit;render()}}catch(e){}}document.addEventListener('message',e=>receive(e.data));window.addEventListener('message',e=>receive(e.data));window.addEventListener('resize',render);init();</script></body></html>`;
 }
-type Tool = "select" | "highlight" | "pen" | "note";
-type AnnotationType = "HIGHLIGHT" | "DRAWING" | "STICKY" | "TEXT";
-interface CourseNote {
-  id: string;
-  title: string;
-  fileUrl?: string;
-  fileSizeBytes?: number | null;
-  description?: string | null;
-}
-interface ReaderData {
-  note: CourseNote;
-  lesson?: { name?: string; subject?: { name?: string } };
-}
-interface Annotation {
-  id: string;
-  pageNumber: number;
-  type: AnnotationType;
-  color?: string | null;
-  content?: string | null;
-  geometryJson?: string | null;
-}
-interface BookmarkRecord {
-  id: string;
-  targetType: string;
-  targetId: string;
-}
-interface Point {
-  x: number;
-  y: number;
-}
-type AnnotationPayload = Omit<Annotation, "id" | "geometryJson"> & {
-  geometryJson?: string | Record<string, unknown>;
-};
-const bytes = (value?: number | null) =>
-  !value
-    ? ""
-    : value < 1024 * 1024
-      ? `${Math.round(value / 1024)} KB`
-      : `${(value / (1024 * 1024)).toFixed(1)} MB`;
-const responseData = <T,>(response: { data: T | { data?: T } }) => {
-  const body = response.data as { data?: T };
-  return body && typeof body === "object" && "data" in body
-    ? (body.data as T)
-    : (response.data as T);
-};
-const annotationGeometry = (
-  annotation: Annotation,
-): Record<string, unknown> | null => {
-  if (!annotation.geometryJson) return null;
-  try {
-    return JSON.parse(annotation.geometryJson) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-};
 
 export function PdfReaderScreen({ noteId, onBack }: PdfReaderScreenProps) {
-  const pdf = useRef<Pdf>(null);
-  const [data, setData] = useState<ReaderData | null>(null);
+  const web = useRef<WebView>(null);
+  const drawRef = useRef<Point[]>([]);
+  const history = useRef<Annotation[]>([]);
+  const [data, setData] = useState<NoteData | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [bookmark, setBookmark] = useState<BookmarkRecord | null>(null);
+  const [bookmark, setBookmark] = useState<Bookmark | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [pageCount, setPageCount] = useState(0);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
-  const [pdfUri, setPdfUri] = useState("");
-  const [tool, setTool] = useState<Tool>("select");
-  const [fitPolicy, setFitPolicy] = useState<0 | 1 | 2>(0);
-  const [horizontal, setHorizontal] = useState(false);
+  const [pageCount, setPageCount] = useState(0);
+  const [tool, setTool] = useState<Tool>('select');
+  const [drawPoints, setDrawPoints] = useState<Point[]>([]);
+  const [viewerSize, setViewerSize] = useState({ width: 1, height: 1 });
+  const [penColor, setPenColor] = useState(PEN_COLORS[1]);
+  const [highlightColor, setHighlightColor] = useState(PALETTE[0]);
+  const [strokeWidth, setStrokeWidth] = useState(3);
+  const [opacity, setOpacity] = useState(.48);
+  const [eraser, setEraser] = useState(false);
   const [showPages, setShowPages] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showAnnotationSheet, setShowAnnotationSheet] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [annotationText, setAnnotationText] = useState("");
-  const [searchText, setSearchText] = useState("");
-  const [viewerSize, setViewerSize] = useState({ width: 1, height: 1 });
-  const [drawPoints, setDrawPoints] = useState<Point[]>([]);
-  const drawPointsRef = useRef<Point[]>([]);
-  const [lastTap, setLastTap] = useState<Point>({ x: 0.2, y: 0.2 });
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showAllAnnotations, setShowAllAnnotations] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [search, setSearch] = useState('');
+  const [fit, setFit] = useState<'width' | 'page'>('width');
+  const [theme, setTheme] = useState<'original' | 'sepia' | 'dark'>('original');
+  const [showAnnotations, setShowAnnotations] = useState(false);
+  const [fullReader, setFullReader] = useState(false);
+  const [lastTap, setLastTap] = useState<Point>({ x: .25, y: .25 });
+
   const load = useCallback(async () => {
-    if (!noteId) {
-      setError("This note is unavailable.");
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    setPdfUri("");
+    if (!noteId) { setError('This note is unavailable.'); setLoading(false); return; }
+    setLoading(true); setError('');
     try {
-      const [noteResponse, annotationsResponse, bookmarksResponse] =
-        await Promise.all([
-          apiClient.get(`/api/v1/content/notes/${noteId}`),
-          apiClient.get(`/api/v1/notes/${noteId}/annotations`),
-          apiClient.get("/api/v1/bookmarks"),
-        ]);
-      const readerData = responseData<ReaderData>(noteResponse);
-      if (!readerData.note.fileUrl)
-        throw new Error("This note has no PDF file.");
-      const cacheDirectory = FileSystem.cacheDirectory;
-      if (!cacheDirectory)
-        throw new Error("Local file storage is unavailable.");
-      const noteDirectory = `${cacheDirectory}examly-notes`;
-      await FileSystem.makeDirectoryAsync(noteDirectory, {
-        intermediates: true,
-      });
-      const downloaded = await FileSystem.downloadAsync(
-        readerData.note.fileUrl,
-        `${noteDirectory}/${noteId}.pdf`,
-        { headers: { Accept: "application/pdf" } },
-      );
-      if (downloaded.status < 200 || downloaded.status >= 300)
-        throw new Error(`PDF download failed (${downloaded.status}).`);
-      setData(readerData);
-      setPdfUri(downloaded.uri);
-      setAnnotations(responseData<Annotation[]>(annotationsResponse) || []);
-      const bookmarks = responseData<BookmarkRecord[]>(bookmarksResponse) || [];
-      setBookmark(
-        bookmarks.find(
-          (entry) => entry.targetType === "NOTE" && entry.targetId === noteId,
-        ) || null,
-      );
+      const [noteResponse, annotationResponse, bookmarkResponse] = await Promise.all([apiClient.get(`/api/v1/content/notes/${noteId}`), apiClient.get(`/api/v1/notes/${noteId}/annotations`), apiClient.get('/api/v1/bookmarks')]);
+      const noteData = unwrap<NoteData>(noteResponse);
+      if (!noteData.note.fileUrl) throw new Error('This note has no PDF file.');
+      setData(noteData); setAnnotations(unwrap<Annotation[]>(annotationResponse) || []);
+      const bookmarks = unwrap<Bookmark[]>(bookmarkResponse) || [];
+      setBookmark(bookmarks.find((item) => item.targetType === 'NOTE' && item.targetId === noteId) || null);
       await apiClient.post(`/api/v1/content/notes/${noteId}/open`, {});
-    } catch (requestError: any) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.message ||
-          "Unable to load this note.",
-      );
-    } finally {
-      setLoading(false);
-    }
+    } catch (requestError: any) { setError(requestError.response?.data?.message || requestError.message || 'Unable to open this note.'); }
+    finally { setLoading(false); }
   }, [noteId]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
+
   const note = data?.note;
-  const pageAnnotations = useMemo(
-    () => annotations.filter((entry) => entry.pageNumber === page),
-    [annotations, page],
-  );
-  const visualAnnotations = useMemo(
-    () =>
-      pageAnnotations.filter(
-        (entry) => entry.type === "HIGHLIGHT" || entry.type === "DRAWING",
-      ),
-    [pageAnnotations],
-  );
-  const visibleSearch = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-    return query
-      ? annotations.filter((entry) =>
-          entry.content?.toLowerCase().includes(query),
-        )
-      : annotations;
-  }, [annotations, searchText]);
-  const setPdfPage = (nextPage: number) => {
-    const safePage = Math.max(1, Math.min(pageCount || 1, nextPage));
-    setPage(safePage);
-    pdf.current?.setPage(safePage);
-  };
-  const saveAnnotation = async (payload: AnnotationPayload) => {
+  const pageAnnotations = useMemo(() => annotations.filter((item) => item.pageNumber === page), [annotations, page]);
+  const foundAnnotations = useMemo(() => { const term = search.trim().toLowerCase(); return term ? annotations.filter((item) => item.content?.toLowerCase().includes(term)) : annotations; }, [annotations, search]);
+  const visualAnnotations = showAnnotations ? pageAnnotations.filter((item) => item.type === 'HIGHLIGHT' || item.type === 'DRAWING') : [];
+  const send = (message: unknown) => web.current?.postMessage(JSON.stringify(message));
+  const setPageSafe = (next: number) => { const safe = Math.max(1, Math.min(pageCount || 1, next)); setPage(safe); send({ type: 'page', page: safe }); };
+  const save = async (payload: AnnotationPayload) => {
     if (!noteId) return;
-    try {
-      const response = await apiClient.post(
-        `/api/v1/notes/${noteId}/annotations`,
-        payload,
-      );
-      setAnnotations((previous) => [
-        ...previous,
-        responseData<Annotation>(response),
-      ]);
-    } catch (requestError: any) {
-      Alert.alert(
-        "Could not save annotation",
-        requestError.response?.data?.message || "Please try again.",
-      );
-    }
+    setShowAnnotations(true);
+    try { const response = await apiClient.post(`/api/v1/notes/${noteId}/annotations`, payload); const added = unwrap<Annotation>(response); history.current = [...history.current, added]; setAnnotations((current) => [...current, added]); }
+    catch (requestError: any) { Alert.alert('Could not save annotation', requestError.response?.data?.message || 'Try again.'); }
   };
-  const removeAnnotation = async (annotationId: string) => {
-    try {
-      await apiClient.delete(`/api/v1/notes/annotations/${annotationId}`);
-      setAnnotations((previous) =>
-        previous.filter((entry) => entry.id !== annotationId),
-      );
-    } catch {
-      Alert.alert("Could not remove annotation", "Please try again.");
-    }
-  };
+  const remove = async (id: string) => { try { await apiClient.delete(`/api/v1/notes/annotations/${id}`); setAnnotations((current) => current.filter((item) => item.id !== id)); } catch { Alert.alert('Could not erase annotation', 'Try again.'); } };
+  const undo = () => { const latest = history.current.at(-1); if (latest) { history.current = history.current.slice(0, -1); void remove(latest.id); } };
   const toggleBookmark = async () => {
     if (!noteId || !note) return;
-    try {
-      if (bookmark) {
-        await apiClient.delete(`/api/v1/bookmarks/${bookmark.id}`);
-        setBookmark(null);
-      } else {
-        const response = await apiClient.post("/api/v1/bookmarks", {
-          targetType: "NOTE",
-          targetId: noteId,
-          title: note.title,
-        });
-        setBookmark(responseData<BookmarkRecord>(response));
-      }
-    } catch {
-      Alert.alert("Could not update bookmark", "Please try again.");
-    }
+    try { if (bookmark) { await apiClient.delete(`/api/v1/bookmarks/${bookmark.id}`); setBookmark(null); } else { const response = await apiClient.post('/api/v1/bookmarks', { targetType: 'NOTE', targetId: noteId, title: note.title }); setBookmark(unwrap<Bookmark>(response)); } }
+    catch { Alert.alert('Could not update bookmark', 'Try again.'); }
   };
-  const openFile = async () => {
-    if (!note?.fileUrl) return;
-    try {
-      await Linking.openURL(note.fileUrl);
-    } catch {
-      Alert.alert(
-        "Unable to open document",
-        "The document URL is not available on this device.",
-      );
-    }
-  };
-  const commitNote = async () => {
-    const content = annotationText.trim();
-    if (!content) return;
-    await saveAnnotation({
-      pageNumber: page,
-      type: tool === "highlight" ? "HIGHLIGHT" : "STICKY",
-      color: tool === "highlight" ? "#FDE047" : "#A78BFA",
-      content,
-      geometryJson: { x: lastTap.x, y: lastTap.y },
-    });
-    setAnnotationText("");
-    setShowAnnotationSheet(false);
-    setTool("select");
-  };
-  const addHighlight = (x: number, y: number) => {
-    setLastTap({ x, y });
-    if (tool === "highlight")
-      void saveAnnotation({
-        pageNumber: page,
-        type: "HIGHLIGHT",
-        color: "#FDE047",
-        geometryJson: { x, y, width: 0.36, height: 0.035 },
-      });
-    if (tool === "note") setShowAnnotationSheet(true);
-  };
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => tool === "pen",
-        onMoveShouldSetPanResponder: () => tool === "pen",
-        onPanResponderGrant: (event) => {
-          const { locationX, locationY } = event.nativeEvent;
-          const firstPoint = { x: locationX / viewerSize.width, y: locationY / viewerSize.height };
-          drawPointsRef.current = [firstPoint];
-          setDrawPoints(drawPointsRef.current);
-        },
-        onPanResponderMove: (event) => {
-          const { locationX, locationY } = event.nativeEvent;
-          const point = { x: locationX / viewerSize.width, y: locationY / viewerSize.height };
-          drawPointsRef.current = [...drawPointsRef.current, point];
-          setDrawPoints(drawPointsRef.current);
-        },
-        onPanResponderRelease: () => {
-          const points = drawPointsRef.current;
-          drawPointsRef.current = [];
-          setDrawPoints([]);
-          if (points.length > 1)
-            void saveAnnotation({
-              pageNumber: page,
-              type: "DRAWING",
-              color: "#A78BFA",
-              geometryJson: { points },
-            });
-          setTool("select");
-        },
-      }),
-    [page, tool, viewerSize.height, viewerSize.width],
-  );
-  if (loading)
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#8B80F5" />
-        <Text style={styles.loadingText}>Opening your course note…</Text>
-      </View>
-    );
-  if (error || !note)
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || "Note unavailable."}</Text>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.link}>Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#07080E" />
-      <View style={styles.header} pointerEvents="none">
-        <TouchableOpacity onPress={onBack} style={styles.icon}>
-          <ArrowLeft size={20} color="#FFF" />
-        </TouchableOpacity>
-        <View style={styles.heading}>
-          <Text style={styles.title} numberOfLines={1}>
-            {note.title}
-          </Text>
-          <Text style={styles.meta} numberOfLines={1}>
-            {data?.lesson?.subject?.name || "Subject"} ·{" "}
-            {bytes(note.fileSizeBytes) || "Course PDF"}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => setShowSearch(true)}
-          style={styles.icon}
-        >
-          <Search size={18} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowSettings(true)}
-          style={styles.icon}
-        >
-          <MoreHorizontal size={19} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.controlBar} pointerEvents="none">
-        <TouchableOpacity
-          style={styles.pagesButton}
-          onPress={() => setShowPages(true)}
-        >
-          <Menu size={15} color="#C4B5FD" />
-          <Text style={styles.pagesText}>Pages</Text>
-        </TouchableOpacity>
-        <Text style={styles.pageLabel}>
-          Page {page} of {pageCount || "—"}
-        </Text>
-        <TouchableOpacity
-          style={styles.smallIcon}
-          onPress={() => void toggleBookmark()}
-        >
-          <Bookmark
-            size={17}
-            color={bookmark ? "#FDE047" : "#CBD5E1"}
-            fill={bookmark ? "#FDE047" : "transparent"}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.smallIcon}
-          onPress={() => void openFile()}
-        >
-          <Download size={17} color="#CBD5E1" />
-        </TouchableOpacity>
-      </View>
-      {note.description ? (
-        <View style={styles.description}>
-          <FileText size={14} color="#A78BFA" />
-          <Text style={styles.descriptionText} numberOfLines={2}>
-            {note.description}
-          </Text>
-        </View>
-      ) : null}
-      <View
-        style={styles.viewer}
-        onLayout={(event: LayoutChangeEvent) =>
-          setViewerSize(event.nativeEvent.layout)
-        }
-      >
-        <Pdf
-          ref={pdf}
-          source={{ uri: pdfUri }}
-          style={StyleSheet.absoluteFill}
-          fitPolicy={fitPolicy}
-          horizontal={horizontal}
-          enablePaging
-          singlePage
-          enableDoubleTapZoom
-          minScale={1}
-          maxScale={4}
-          onLoadComplete={(count) => setPageCount(count)}
-          onPageChanged={(current, total) => {
-            setPage(current);
-            setPageCount(total);
-          }}
-          onPageSingleTap={(_page, x, y) =>
-            addHighlight(x / viewerSize.width, y / viewerSize.height)
-          }
-          onError={(nativeError) => setError(`This PDF could not be opened: ${String(nativeError)}`)}
-          renderActivityIndicator={() => (
-            <ActivityIndicator size="large" color="#7C65F6" />
-          )}
-        />
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <Svg width="100%" height="100%">
-            {visualAnnotations.map((annotation) => {
-              const geometry = annotationGeometry(annotation);
-              if (annotation.type === "HIGHLIGHT")
-                return (
-                  <Rect
-                    key={annotation.id}
-                    x={`${Number(geometry?.x || 0.2) * 100}%`}
-                    y={`${Number(geometry?.y || 0.2) * 100}%`}
-                    width={`${Number(geometry?.width || 0.3) * 100}%`}
-                    height={`${Number(geometry?.height || 0.035) * 100}%`}
-                    fill={annotation.color || "#FDE047"}
-                    opacity={0.36}
-                    rx={3}
-                  />
-                );
-              const points = Array.isArray(geometry?.points)
-                ? (geometry.points as Point[])
-                : [];
-              const path = points
-                .map(
-                  (point, index) =>
-                    `${index ? "L" : "M"} ${point.x * viewerSize.width} ${point.y * viewerSize.height}`,
-                )
-                .join(" ");
-              return path ? (
-                <Path
-                  key={annotation.id}
-                  d={path}
-                  stroke={annotation.color || "#A78BFA"}
-                  strokeWidth={3}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : null;
-            })}
-            {drawPoints.length > 1 ? (
-              <Path
-                d={drawPoints
-                  .map(
-                    (point, index) =>
-                      `${index ? "L" : "M"} ${point.x * viewerSize.width} ${point.y * viewerSize.height}`,
-                  )
-                  .join(" ")}
-                stroke="#A78BFA"
-                strokeWidth={3}
-                fill="none"
-                strokeLinecap="round"
-              />
-            ) : null}
-          </Svg>
-        </View>
-        {tool === "pen" ? (
-          <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
-        ) : null}
-      </View>
-      <View style={styles.annotationPreview}>
-        {pageAnnotations
-          .filter((entry) => entry.type === "STICKY" || entry.type === "TEXT")
-          .slice(0, 1)
-          .map((entry) => (
-            <TouchableOpacity
-              key={entry.id}
-              onLongPress={() => void removeAnnotation(entry.id)}
-              style={styles.noteChip}
-            >
-              <StickyNote size={13} color="#DDD6FE" />
-              <Text numberOfLines={1} style={styles.noteChipText}>
-                {entry.content || "Saved note"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        {pageAnnotations.filter(
-          (entry) => entry.type === "STICKY" || entry.type === "TEXT",
-        ).length > 1 ? (
-          <Text style={styles.annotationCount}>
-            +
-            {pageAnnotations.filter(
-              (entry) => entry.type === "STICKY" || entry.type === "TEXT",
-            ).length - 1}{" "}
-            notes
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.pageNavigation}>
-        <TouchableOpacity
-          disabled={page <= 1}
-          onPress={() => setPdfPage(page - 1)}
-          style={[styles.navButton, page <= 1 && styles.disabled]}
-        >
-          <ChevronLeft size={21} color="#FFF" />
-        </TouchableOpacity>
-        <View style={styles.progress}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${pageCount ? (page / pageCount) * 100 : 0}%` },
-            ]}
-          />
-        </View>
-        <TouchableOpacity
-          disabled={page >= pageCount}
-          onPress={() => setPdfPage(page + 1)}
-          style={[styles.navButton, page >= pageCount && styles.disabled]}
-        >
-          <ChevronRight size={21} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.toolDock}>
-        <ToolButton
-          label="Select"
-          active={tool === "select"}
-          icon={<ArrowLeft size={16} color="#E2E8F0" />}
-          onPress={() => setTool("select")}
-        />
-        <ToolButton
-          label="Highlight"
-          active={tool === "highlight"}
-          icon={<Highlighter size={16} color="#FDE047" />}
-          onPress={() => setTool(tool === "highlight" ? "select" : "highlight")}
-        />
-        <ToolButton
-          label="Pen"
-          active={tool === "pen"}
-          icon={<PenLine size={16} color="#C4B5FD" />}
-          onPress={() => setTool(tool === "pen" ? "select" : "pen")}
-        />
-        <ToolButton
-          label="Note"
-          active={tool === "note"}
-          icon={<StickyNote size={16} color="#C4B5FD" />}
-          onPress={() => {
-            setTool("note");
-            setShowAnnotationSheet(true);
-          }}
-        />
-        <ToolButton
-          label="View"
-          active={false}
-          icon={<Settings2 size={16} color="#CBD5E1" />}
-          onPress={() => setShowSettings(true)}
-        />
-      </View>
-      <ReaderModal
-        visible={showPages}
-        title="Pages"
-        onClose={() => setShowPages(false)}
-      >
-        <ScrollView contentContainerStyle={styles.pageGrid}>
-          {Array.from({ length: pageCount }, (_, index) => index + 1).map(
-            (number) => (
-              <TouchableOpacity
-                key={number}
-                onPress={() => {
-                  setPdfPage(number);
-                  setShowPages(false);
-                }}
-                style={[
-                  styles.pageTile,
-                  number === page && styles.pageTileActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.pageTileText,
-                    number === page && styles.pageTileTextActive,
-                  ]}
-                >
-                  Page {number}
-                </Text>
-              </TouchableOpacity>
-            ),
-          )}
-        </ScrollView>
-      </ReaderModal>
-      <ReaderModal
-        visible={showSettings}
-        title="Reader settings"
-        onClose={() => setShowSettings(false)}
-      >
-        <Text style={styles.modalHint}>
-          These controls change this live PDF reader only; your course content
-          remains unchanged.
-        </Text>
-        <SettingRow
-          label="Fit width"
-          active={fitPolicy === 0}
-          onPress={() => setFitPolicy(0)}
-        />
-        <SettingRow
-          label="Fit page"
-          active={fitPolicy === 1}
-          onPress={() => setFitPolicy(1)}
-        />
-        <SettingRow
-          label="Fit both"
-          active={fitPolicy === 2}
-          onPress={() => setFitPolicy(2)}
-        />
-        <SettingRow
-          label="Horizontal page swipe"
-          active={horizontal}
-          onPress={() => setHorizontal((value) => !value)}
-        />
-        <TouchableOpacity
-          style={styles.externalButton}
-          onPress={() => void openFile()}
-        >
-          <Download size={16} color="#FFF" />
-          <Text style={styles.externalText}>Open original document</Text>
-        </TouchableOpacity>
-      </ReaderModal>
-      <ReaderModal
-        visible={showSearch}
-        title="Search saved notes"
-        onClose={() => setShowSearch(false)}
-      >
-        <TextInput
-          value={searchText}
-          onChangeText={setSearchText}
-          autoFocus
-          placeholder="Search your annotations"
-          placeholderTextColor="#64748B"
-          style={styles.input}
-        />
-        <ScrollView>
-          {visibleSearch.length ? (
-            visibleSearch.map((entry) => (
-              <TouchableOpacity
-                key={entry.id}
-                style={styles.searchResult}
-                onPress={() => {
-                  setPdfPage(entry.pageNumber);
-                  setShowSearch(false);
-                }}
-              >
-                <Text style={styles.searchPage}>Page {entry.pageNumber}</Text>
-                <Text style={styles.searchContent}>
-                  {entry.content || entry.type.replace("_", " ")}
-                </Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>
-              No saved annotations match this search.
-            </Text>
-          )}
-        </ScrollView>
-      </ReaderModal>
-      <Modal
-        visible={showAnnotationSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAnnotationSheet(false)}
-      >
-        <View style={styles.sheetShade}>
-          <View style={styles.sheet}>
-            <View style={styles.sheetTitle}>
-              <Text style={styles.sheetHeading}>
-                {tool === "highlight" ? "Describe highlight" : "Add a note"}
-              </Text>
-              <TouchableOpacity onPress={() => setShowAnnotationSheet(false)}>
-                <X size={20} color="#CBD5E1" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalHint}>
-              Saved privately to your Examly account on page {page}.
-            </Text>
-            <TextInput
-              value={annotationText}
-              onChangeText={setAnnotationText}
-              multiline
-              autoFocus
-              placeholder={
-                tool === "highlight"
-                  ? "What should you remember?"
-                  : "Write your note…"
-              }
-              placeholderTextColor="#64748B"
-              style={[styles.input, styles.noteInput]}
-            />
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={() => void commitNote()}
-            >
-              <Text style={styles.saveText}>Save annotation</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  const openFile = async () => { if (!note?.fileUrl) return; const { Linking } = require('react-native'); try { await Linking.openURL(note.fileUrl); } catch { Alert.alert('Unable to download', 'This original file is unavailable.'); } };
+  const addHighlight = (point: Point) => { if (eraser) { const last = [...pageAnnotations].reverse().find((item) => item.type === 'HIGHLIGHT' || item.type === 'DRAWING'); if (last) void remove(last.id); return; } void save({ pageNumber: page, type: 'HIGHLIGHT', color: highlightColor, geometryJson: { x: point.x, y: point.y, width: .34, height: .035, opacity } }); };
+  const saveNote = () => { const text = noteText.trim(); if (!text) return; void save({ pageNumber: page, type: 'STICKY', color: '#A78BFA', content: text, geometryJson: { x: lastTap.x, y: lastTap.y } }); setNoteText(''); setShowNoteEditor(false); setTool('select'); };
+  const pan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => tool === 'pen', onMoveShouldSetPanResponder: () => tool === 'pen',
+    onPanResponderGrant: (event) => { if (eraser) return; const point = { x: event.nativeEvent.locationX / viewerSize.width, y: event.nativeEvent.locationY / viewerSize.height }; drawRef.current = [point]; setDrawPoints([point]); },
+    onPanResponderMove: (event) => { if (eraser) return; const point = { x: event.nativeEvent.locationX / viewerSize.width, y: event.nativeEvent.locationY / viewerSize.height }; drawRef.current = [...drawRef.current, point]; setDrawPoints(drawRef.current); },
+    onPanResponderRelease: () => { if (eraser) { const last = [...pageAnnotations].reverse().find((item) => item.type === 'DRAWING'); if (last) void remove(last.id); setEraser(false); return; } const points = drawRef.current; drawRef.current = []; setDrawPoints([]); if (points.length > 1) void save({ pageNumber: page, type: 'DRAWING', color: penColor, geometryJson: { points, strokeWidth, opacity } }); },
+  }), [eraser, page, pageAnnotations, penColor, strokeWidth, opacity, tool, viewerSize.height, viewerSize.width]);
+  const onMessage = (event: any) => { try { const message = JSON.parse(event.nativeEvent.data); if (message.type === 'page') { setPage(Number(message.page)); setPageCount(Number(message.count)); } if (message.type === 'error') setError(String(message.message)); } catch {} };
+
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#C084FC" /><Text style={styles.loading}>Opening your course PDF…</Text></View>;
+  if (error || !note) return <View style={styles.center}><Text style={styles.error}>{error || 'Note unavailable.'}</Text><TouchableOpacity onPress={onBack}><Text style={styles.link}>Go back</Text></TouchableOpacity></View>;
+  const sheetOpen = tool === 'highlight' || tool === 'pen';
+  return <View style={styles.container}>
+    <StatusBar barStyle="light-content" backgroundColor="#070911" />
+    {!fullReader ? <View style={styles.header}><TouchableOpacity style={styles.round} onPress={onBack}><ArrowLeft size={21} color="#FFF" /></TouchableOpacity><View style={styles.titleWrap}><Text style={styles.title} numberOfLines={1}>{note.title}</Text><Text style={styles.meta} numberOfLines={1}>{data?.lesson?.subject?.name || 'Course'} · {size(note.fileSizeBytes)} · {pageCount || '—'} pages</Text></View><TouchableOpacity style={styles.topIcon} onPress={() => setShowSearch(true)}><Search size={21} color="#FFF" /></TouchableOpacity><TouchableOpacity style={styles.topIcon} onPress={() => setShowSettings(true)}><Settings2 size={20} color="#FFF" /></TouchableOpacity></View> : null}
+    {!fullReader ? <View style={styles.infoBar}><TouchableOpacity style={styles.pageButton} onPress={() => setShowPages(true)}><Menu size={17} color="#E9D5FF" /><Text style={styles.pageButtonText}>Pages</Text></TouchableOpacity><Text style={styles.pageReadout}>Page {page} of {pageCount || '—'}</Text><TouchableOpacity style={styles.topIcon} onPress={() => void toggleBookmark()}><Bookmark size={19} color={bookmark ? '#FDE047' : '#FFF'} fill={bookmark ? '#FDE047' : 'transparent'} /></TouchableOpacity><TouchableOpacity style={styles.topIcon} onPress={() => void openFile()}><Download size={20} color="#FFF" /></TouchableOpacity></View> : null}
+    <View style={[styles.viewer, theme === 'sepia' && styles.sepia, theme === 'dark' && styles.darkPage]} onLayout={(event) => setViewerSize(event.nativeEvent.layout)}>
+      <WebView ref={web} source={{ html: pdfHtml(note.fileUrl!), baseUrl: 'https://examly-pi.vercel.app/' }} onMessage={onMessage} javaScriptEnabled domStorageEnabled originWhitelist={['*']} style={StyleSheet.absoluteFill} />
+      {theme !== 'original' ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, theme === 'sepia' ? styles.sepiaOverlay : styles.darkOverlay]} /> : null}
+      {showAnnotations ? <View pointerEvents="none" style={StyleSheet.absoluteFill}><Svg width="100%" height="100%">{visualAnnotations.map((item) => { const g = geometry(item); if (item.type === 'HIGHLIGHT') return <Rect key={item.id} x={`${(g.x || .2) * 100}%`} y={`${(g.y || .2) * 100}%`} width={`${(g.width || .34) * 100}%`} height={`${(g.height || .035) * 100}%`} fill={item.color || '#FDE047'} opacity={g.opacity ?? .48} rx={3} />; const points = g.points || []; const path = points.map((point, index) => `${index ? 'L' : 'M'} ${point.x * viewerSize.width} ${point.y * viewerSize.height}`).join(' '); return path ? <Path key={item.id} d={path} stroke={item.color || '#2563EB'} strokeWidth={g.strokeWidth || 3} opacity={g.opacity ?? 1} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null; })}{drawPoints.length > 1 ? <Path d={drawPoints.map((point, index) => `${index ? 'L' : 'M'} ${point.x * viewerSize.width} ${point.y * viewerSize.height}`).join(' ')} stroke={penColor} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" /> : null}</Svg></View> : null}
+      {tool === 'pen' ? <View style={StyleSheet.absoluteFill} {...pan.panHandlers} /> : <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={(event) => { const point = { x: event.nativeEvent.locationX / viewerSize.width, y: event.nativeEvent.locationY / viewerSize.height }; setLastTap(point); if (tool === 'highlight') addHighlight(point); if (tool === 'note') setShowNoteEditor(true); }} />}
     </View>
-  );
+    {!fullReader ? <View style={styles.navigator}><TouchableOpacity disabled={page <= 1} style={[styles.nav, page <= 1 && styles.disabled]} onPress={() => setPageSafe(page - 1)}><ChevronLeft size={23} color="#FFF" /></TouchableOpacity><View style={styles.track}><View style={[styles.trackFill, { width: `${pageCount ? page / pageCount * 100 : 0}%` }]} /></View><Text style={styles.counter}>{page}/{pageCount || '—'}</Text><TouchableOpacity disabled={!pageCount || page >= pageCount} style={[styles.nav, (!pageCount || page >= pageCount) && styles.disabled]} onPress={() => setPageSafe(page + 1)}><ChevronRight size={23} color="#FFF" /></TouchableOpacity></View> : null}
+    {sheetOpen && !fullReader ? <View style={styles.toolSheet}><View style={styles.sheetTop}><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>{tool === 'pen' ? 'Pen' : 'Highlight'}</Text><View style={styles.sheetActions}><TouchableOpacity onPress={undo}><Undo2 size={20} color="#E2E8F0" /></TouchableOpacity><TouchableOpacity disabled style={styles.dim}><Redo2 size={20} color="#E2E8F0" /></TouchableOpacity><TouchableOpacity style={styles.done} onPress={() => { setTool('select'); setEraser(false); }}><Text style={styles.doneText}>Done</Text></TouchableOpacity></View></View>{tool === 'pen' ? <><View style={styles.toolRow}><TouchableOpacity style={[styles.mode, !eraser && styles.modeActive]} onPress={() => setEraser(false)}><PenLine size={19} color="#E9D5FF" /><Text style={styles.modeText}>Pen</Text></TouchableOpacity><TouchableOpacity style={[styles.mode, eraser && styles.modeActive]} onPress={() => setEraser(true)}><Eraser size={19} color="#FFF" /><Text style={styles.modeText}>Eraser</Text></TouchableOpacity><ColorRow colors={PEN_COLORS} selected={penColor} onSelect={setPenColor} /></View><SliderRow label="Stroke width" value={`${strokeWidth} px`} onDecrease={() => setStrokeWidth((value) => Math.max(1, value - 1))} onIncrease={() => setStrokeWidth((value) => Math.min(12, value + 1))} /></> : <><ColorRow colors={PALETTE} selected={highlightColor} onSelect={setHighlightColor} /><SliderRow label="Opacity" value={`${Math.round(opacity * 100)}%`} onDecrease={() => setOpacity((value) => Math.max(.15, +(value - .1).toFixed(2)))} onIncrease={() => setOpacity((value) => Math.min(.9, +(value + .1).toFixed(2)))} /></>}<Text style={styles.toolHint}>{eraser ? 'Tap a previous pen mark to remove the latest drawing on this page.' : tool === 'pen' ? 'Draw directly on the page. Your marks are saved to your account.' : 'Tap the PDF to place a highlight.'}</Text></View></View> : null}
+    {!fullReader ? <View style={styles.dock}><DockButton label="Select" active={tool === 'select'} icon={<ArrowLeft size={18} color="#FFF" />} onPress={() => { setTool('select'); setEraser(false); }} /><DockButton label="Highlight" active={tool === 'highlight'} icon={<Highlighter size={19} color="#FDE047" />} onPress={() => { setTool('highlight'); setEraser(false); }} /><DockButton label="Pen" active={tool === 'pen'} icon={<PenLine size={19} color="#C4B5FD" />} onPress={() => { setTool('pen'); setEraser(false); }} /><DockButton label="Note" active={tool === 'note'} icon={<StickyNote size={19} color="#C4B5FD" />} onPress={() => setTool('note')} /><DockButton label="View" active={false} icon={<Maximize2 size={19} color="#FFF" />} onPress={() => setFullReader(true)} /></View> : <TouchableOpacity style={styles.exitFull} onPress={() => setFullReader(false)}><Maximize2 size={19} color="#FFF" /><Text style={styles.exitFullText}>Exit reader</Text></TouchableOpacity>}
+    <Sheet visible={showPages} title="Pages" onClose={() => setShowPages(false)}><ScrollView contentContainerStyle={styles.pageGrid}>{Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => <TouchableOpacity key={number} style={[styles.pageTile, number === page && styles.pageTileActive]} onPress={() => { setPageSafe(number); setShowPages(false); }}><Text style={[styles.pageTileText, number === page && styles.pageTileTextActive]}>Page {number}</Text></TouchableOpacity>)}</ScrollView></Sheet>
+    <Sheet visible={showSettings} title="Reader settings" onClose={() => setShowSettings(false)}><Text style={styles.sectionLabel}>APPEARANCE</Text><View style={styles.themeRow}>{(['original', 'sepia', 'dark'] as const).map((item) => <TouchableOpacity key={item} style={[styles.theme, theme === item && styles.themeActive, item === 'sepia' && styles.themeSepia, item === 'dark' && styles.themeDark]} onPress={() => setTheme(item)}><Text style={[styles.themeText, item === 'dark' && { color: '#FFF' }]}>{item === 'original' ? 'Original' : item === 'sepia' ? 'Sepia' : 'Dark'}</Text></TouchableOpacity>)}</View><Text style={styles.sectionLabel}>PAGE VIEW</Text><Setting label="Fit width" active={fit === 'width'} onPress={() => { setFit('width'); send({ type: 'fit', fit: 'width' }); }} /><Setting label="Fit page" active={fit === 'page'} onPress={() => { setFit('page'); send({ type: 'fit', fit: 'page' }); }} /><Setting label="Show highlights & notes" active={showAnnotations} onPress={() => setShowAnnotations((value) => !value)} /><TouchableOpacity style={styles.allButton} onPress={() => { setShowSettings(false); setShowAllAnnotations(true); }}><Text style={styles.allButtonText}>View all annotations</Text><ChevronRight size={18} color="#E9D5FF" /></TouchableOpacity></Sheet>
+    <Sheet visible={showSearch} title="Search saved notes" onClose={() => setShowSearch(false)}><TextInput value={search} onChangeText={setSearch} placeholder="Search your annotations" placeholderTextColor="#64748B" style={styles.input} autoFocus /><ScrollView>{foundAnnotations.length ? foundAnnotations.map((item) => <TouchableOpacity key={item.id} style={styles.result} onPress={() => { setPageSafe(item.pageNumber); setShowSearch(false); }}><Text style={styles.resultPage}>PAGE {item.pageNumber}</Text><Text style={styles.resultText}>{item.content || item.type.replace('_', ' ')}</Text></TouchableOpacity>) : <Text style={styles.empty}>No saved annotations match this search.</Text>}</ScrollView></Sheet>
+    <Sheet visible={showAllAnnotations} title="All annotations" onClose={() => setShowAllAnnotations(false)}><ScrollView>{annotations.length ? annotations.map((item) => <View key={item.id} style={styles.annotationRow}><TouchableOpacity style={{ flex: 1 }} onPress={() => { setPageSafe(item.pageNumber); setShowAllAnnotations(false); }}><Text style={styles.resultPage}>PAGE {item.pageNumber} · {item.type}</Text><Text style={styles.resultText}>{item.content || 'Drawing or highlight'}</Text></TouchableOpacity><TouchableOpacity onPress={() => void remove(item.id)}><X size={18} color="#FDA4AF" /></TouchableOpacity></View>) : <Text style={styles.empty}>No annotations yet.</Text>}</ScrollView></Sheet>
+    <Modal visible={showNoteEditor} transparent animationType="slide" onRequestClose={() => setShowNoteEditor(false)}><View style={styles.shade}><View style={styles.noteSheet}><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>Add note · Page {page}</Text><TouchableOpacity onPress={() => setShowNoteEditor(false)}><X size={20} color="#FFF" /></TouchableOpacity></View><TextInput value={noteText} onChangeText={setNoteText} multiline autoFocus placeholder="Write a private study note…" placeholderTextColor="#64748B" style={[styles.input, styles.noteInput]} /><TouchableOpacity style={styles.save} onPress={saveNote}><Text style={styles.saveText}>Save note</Text></TouchableOpacity></View></View></Modal>
+  </View>;
 }
 
-function ToolButton({
-  label,
-  active,
-  icon,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  icon: React.ReactNode;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[styles.tool, active && styles.toolActive]}
-    >
-      {icon}
-      <Text style={[styles.toolText, active && styles.toolTextActive]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-function SettingRow({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
-      <View style={[styles.radio, active && styles.radioActive]}>
-        {active ? <View style={styles.radioDot} /> : null}
-      </View>
-    </TouchableOpacity>
-  );
-}
-function ReaderModal({
-  visible,
-  title,
-  onClose,
-  children,
-}: {
-  visible: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.sheetShade}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetTitle}>
-            <Text style={styles.sheetHeading}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <X size={20} color="#CBD5E1" />
-            </TouchableOpacity>
-          </View>
-          {children}
-        </View>
-      </View>
-    </Modal>
-  );
-}
+function DockButton({ label, active, icon, onPress }: { label: string; active: boolean; icon: React.ReactNode; onPress: () => void }) { return <TouchableOpacity onPress={onPress} style={[styles.dockButton, active && styles.dockActive]}>{icon}<Text style={[styles.dockText, active && styles.dockTextActive]}>{label}</Text></TouchableOpacity>; }
+function ColorRow({ colors, selected, onSelect }: { colors: string[]; selected: string; onSelect: (color: string) => void }) { return <View style={styles.colors}>{colors.map((color) => <TouchableOpacity key={color} onPress={() => onSelect(color)} style={[styles.color, { backgroundColor: color }, selected === color && styles.colorSelected]} />)}</View>; }
+function SliderRow({ label, value, onDecrease, onIncrease }: { label: string; value: string; onDecrease: () => void; onIncrease: () => void }) { return <View style={styles.sliderRow}><Text style={styles.sliderLabel}>{label}</Text><View style={styles.sliderControl}><TouchableOpacity style={styles.adjust} onPress={onDecrease}><Text style={styles.adjustText}>−</Text></TouchableOpacity><View style={styles.fakeSlider}><View style={styles.fakeSliderFill} /></View><TouchableOpacity style={styles.adjust} onPress={onIncrease}><Text style={styles.adjustText}>+</Text></TouchableOpacity></View><Text style={styles.sliderValue}>{value}</Text></View>; }
+function Setting({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) { return <TouchableOpacity onPress={onPress} style={styles.setting}><Text style={styles.settingText}>{label}</Text><View style={[styles.toggle, active && styles.toggleOn]}><View style={[styles.knob, active && styles.knobOn]} /></View></TouchableOpacity>; }
+function Sheet({ visible, title, onClose, children }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode }) { return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.shade}><View style={styles.sheet}><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>{title}</Text><TouchableOpacity onPress={onClose}><X size={20} color="#FFF" /></TouchableOpacity></View>{children}</View></View></Modal>; }
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#07080E" },
-  center: {
-    flex: 1,
-    backgroundColor: "#07080E",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-  },
-  loadingText: { color: "#A5B4FC", fontSize: 13 },
-  error: {
-    color: "#FCA5A5",
-    fontSize: 15,
-    textAlign: "center",
-    paddingHorizontal: 28,
-  },
-  link: { color: "#A78BFA", fontWeight: "800" },
-  header: {
-    display: "none",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    paddingHorizontal: 14,
-    paddingTop: 37,
-    paddingBottom: 10,
-    backgroundColor: "#0B0D17",
-    borderBottomWidth: 1,
-    borderColor: "#1C2032",
-  },
-  icon: {
-    width: 35,
-    height: 35,
-    borderRadius: 18,
-    backgroundColor: "#161A2B",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heading: { flex: 1, minWidth: 0 },
-  title: { color: "#FFF", fontSize: 15, fontWeight: "900" },
-  meta: { color: "#94A3B8", fontSize: 10, marginTop: 3 },
-  controlBar: {
-    display: "none",
-    height: 46,
-    paddingHorizontal: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    backgroundColor: "#0E1120",
-    borderBottomWidth: 1,
-    borderColor: "#1C2032",
-  },
-  pagesButton: {
-    flexDirection: "row",
-    gap: 6,
-    alignItems: "center",
-    backgroundColor: "#1A1D32",
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  pagesText: { color: "#DDD6FE", fontSize: 11, fontWeight: "800" },
-  pageLabel: {
-    flex: 1,
-    textAlign: "center",
-    color: "#CBD5E1",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  smallIcon: { padding: 6 },
-  description: {
-    display: "none",
-    flexDirection: "row",
-    gap: 7,
-    alignItems: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    backgroundColor: "#11152A",
-  },
-  descriptionText: { flex: 1, color: "#CBD5E1", fontSize: 11, lineHeight: 16 },
-  viewer: { flex: 1, backgroundColor: "#FFF" },
-  annotationPreview: {
-    minHeight: 0,
-    backgroundColor: "#0B0D17",
-    paddingHorizontal: 12,
-  },
-  noteChip: {
-    alignSelf: "flex-start",
-    maxWidth: "80%",
-    flexDirection: "row",
-    gap: 6,
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginTop: 6,
-    borderRadius: 7,
-    backgroundColor: "#282144",
-  },
-  noteChipText: { color: "#EDE9FE", fontSize: 10, flexShrink: 1 },
-  annotationCount: { color: "#A78BFA", fontSize: 10, marginTop: 5 },
-  pageNavigation: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#0B0D17",
-  },
-  navButton: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    backgroundColor: "#20243A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  disabled: { opacity: 0.32 },
-  progress: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-    backgroundColor: "#272B3B",
-  },
-  progressFill: { height: "100%", borderRadius: 2, backgroundColor: "#8B80F5" },
-  toolDock: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 8,
-    paddingBottom: 22,
-    paddingHorizontal: 8,
-    backgroundColor: "#121527",
-    borderTopWidth: 1,
-    borderColor: "#242942",
-  },
-  tool: {
-    minWidth: 55,
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 5,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-  },
-  toolActive: { backgroundColor: "#2F2758" },
-  toolText: { color: "#94A3B8", fontSize: 9, fontWeight: "800" },
-  toolTextActive: { color: "#E9E5FF" },
-  sheetShade: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.56)",
-  },
-  sheet: {
-    maxHeight: "77%",
-    padding: 18,
-    paddingBottom: 28,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    backgroundColor: "#15192C",
-  },
-  sheetTitle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  sheetHeading: { color: "#FFF", fontSize: 18, fontWeight: "900" },
-  modalHint: {
-    color: "#94A3B8",
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 13,
-  },
-  pageGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  pageTile: {
-    width: "30%",
-    paddingVertical: 15,
-    alignItems: "center",
-    borderRadius: 10,
-    backgroundColor: "#22273C",
-  },
-  pageTileActive: { backgroundColor: "#7461E9" },
-  pageTileText: { color: "#CBD5E1", fontSize: 11, fontWeight: "800" },
-  pageTileTextActive: { color: "#FFF" },
-  settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderColor: "#292E45",
-    paddingVertical: 15,
-  },
-  settingLabel: { color: "#E2E8F0", fontSize: 14, fontWeight: "700" },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#64748B",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  radioActive: { borderColor: "#A78BFA" },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#A78BFA",
-  },
-  externalButton: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 18,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#735EEA",
-  },
-  externalText: { color: "#FFF", fontWeight: "900", fontSize: 13 },
-  input: {
-    color: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    backgroundColor: "#0D1020",
-    borderWidth: 1,
-    borderColor: "#303753",
-    borderRadius: 10,
-    fontSize: 14,
-  },
-  noteInput: { minHeight: 106, textAlignVertical: "top" },
-  saveButton: {
-    marginTop: 12,
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: "center",
-    backgroundColor: "#7C65F6",
-  },
-  saveText: { color: "#FFF", fontWeight: "900" },
-  searchResult: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: "#292E45",
-  },
-  searchPage: {
-    color: "#A78BFA",
-    fontSize: 10,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  searchContent: { color: "#E2E8F0", fontSize: 13 },
-  emptyText: { color: "#94A3B8", textAlign: "center", paddingVertical: 22 },
+  container: { flex: 1, backgroundColor: '#070911' }, center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#070911', gap: 14 }, loading: { color: '#C4B5FD', fontSize: 14 }, error: { color: '#FDA4AF', textAlign: 'center', fontSize: 15, paddingHorizontal: 32 }, link: { color: '#C084FC', fontWeight: '900' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 38, paddingHorizontal: 15, paddingBottom: 10 }, round: { height: 38, width: 38, borderRadius: 19, backgroundColor: '#151A2B', alignItems: 'center', justifyContent: 'center' }, titleWrap: { flex: 1 }, title: { color: '#FFF', fontSize: 17, fontWeight: '900' }, meta: { color: '#C4B5FD', fontSize: 11, marginTop: 3 }, topIcon: { height: 36, width: 36, alignItems: 'center', justifyContent: 'center' },
+  infoBar: { marginHorizontal: 14, borderWidth: 1, borderColor: '#3B4157', backgroundColor: '#121827', borderRadius: 14, height: 58, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9 }, pageButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 9, borderRadius: 8, backgroundColor: '#262342' }, pageButtonText: { color: '#F1E8FF', fontWeight: '800', fontSize: 12 }, pageReadout: { flex: 1, textAlign: 'center', color: '#FFF', fontSize: 13, fontWeight: '800' },
+  viewer: { flex: 1, marginTop: 10, backgroundColor: '#FFF', overflow: 'hidden' }, sepia: { backgroundColor: '#EFD9A6' }, darkPage: { backgroundColor: '#141414' }, sepiaOverlay: { backgroundColor: 'rgba(112,74,15,.20)' }, darkOverlay: { backgroundColor: 'rgba(0,0,0,.65)' },
+  navigator: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: '#0C1020' }, nav: { height: 34, width: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1C2438' }, disabled: { opacity: .35 }, track: { flex: 1, height: 5, overflow: 'hidden', borderRadius: 4, backgroundColor: '#394056' }, trackFill: { height: '100%', borderRadius: 4, backgroundColor: '#C084FC' }, counter: { color: '#E2E8F0', fontSize: 11, minWidth: 37, textAlign: 'center' },
+  dock: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#111728', borderTopWidth: 1, borderColor: '#303852', paddingTop: 8, paddingBottom: 22 }, dockButton: { minWidth: 58, gap: 4, borderRadius: 10, paddingVertical: 6, alignItems: 'center' }, dockActive: { backgroundColor: '#5F3C8D' }, dockText: { color: '#9CA3B8', fontWeight: '800', fontSize: 10 }, dockTextActive: { color: '#FFF' }, exitFull: { position: 'absolute', right: 15, top: 42, flexDirection: 'row', gap: 7, alignItems: 'center', backgroundColor: 'rgba(12,16,32,.84)', borderRadius: 18, paddingHorizontal: 11, paddingVertical: 8 }, exitFullText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
+  toolSheet: { backgroundColor: '#151B2C', borderTopWidth: 1, borderColor: '#4B556E', paddingHorizontal: 17, paddingVertical: 14 }, sheetTop: { gap: 12 }, sheetTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, sheetTitle: { color: '#FFF', fontWeight: '900', fontSize: 18 }, sheetActions: { flexDirection: 'row', alignItems: 'center', gap: 15 }, dim: { opacity: .35 }, done: { backgroundColor: '#C084FC', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9 }, doneText: { color: '#1A1025', fontWeight: '900' }, toolRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, mode: { alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: '#49516B' }, modeActive: { borderColor: '#C084FC', backgroundColor: '#3A275A' }, modeText: { color: '#E2E8F0', fontSize: 10, fontWeight: '800' }, colors: { flexDirection: 'row', gap: 9, alignItems: 'center' }, color: { height: 27, width: 27, borderRadius: 14 }, colorSelected: { borderWidth: 3, borderColor: '#FFF', transform: [{ scale: 1.12 }] }, sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, sliderLabel: { color: '#E2E8F0', fontSize: 12, minWidth: 82 }, sliderControl: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }, adjust: { height: 25, width: 25, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#303850' }, adjustText: { color: '#FFF', fontWeight: '900', fontSize: 17 }, fakeSlider: { flex: 1, height: 5, borderRadius: 3, backgroundColor: '#4A5268' }, fakeSliderFill: { height: '100%', width: '45%', backgroundColor: '#C084FC', borderRadius: 3 }, sliderValue: { color: '#FFF', fontSize: 12, minWidth: 36, textAlign: 'right' }, toolHint: { color: '#A7B0C7', fontStyle: 'italic', textAlign: 'center', fontSize: 11 },
+  shade: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.62)' }, sheet: { maxHeight: '78%', padding: 19, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: '#151B2C' }, pageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, pageTile: { width: '30%', backgroundColor: '#242C42', borderRadius: 10, paddingVertical: 18, alignItems: 'center' }, pageTileActive: { backgroundColor: '#8652BE' }, pageTileText: { color: '#D5D9E5', fontSize: 12, fontWeight: '800' }, pageTileTextActive: { color: '#FFF' },
+  sectionLabel: { color: '#E9D5FF', fontWeight: '900', fontSize: 11, letterSpacing: 1.1, marginTop: 20, marginBottom: 10 }, themeRow: { flexDirection: 'row', gap: 10 }, theme: { flex: 1, height: 72, borderRadius: 11, borderWidth: 1, borderColor: '#4A5268', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 9, backgroundColor: '#FFF' }, themeActive: { borderWidth: 3, borderColor: '#C084FC' }, themeSepia: { backgroundColor: '#F4E0A9' }, themeDark: { backgroundColor: '#202635' }, themeText: { color: '#1E2432', fontWeight: '800', fontSize: 11 }, setting: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderColor: '#303850' }, settingText: { color: '#F8FAFC', fontSize: 14, fontWeight: '700' }, toggle: { width: 42, height: 24, padding: 3, borderRadius: 14, backgroundColor: '#50586C' }, toggleOn: { backgroundColor: '#B36BEE' }, knob: { height: 18, width: 18, borderRadius: 10, backgroundColor: '#FFF' }, knobOn: { alignSelf: 'flex-end' }, allButton: { marginTop: 18, padding: 14, borderWidth: 1, borderColor: '#4B556D', borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, allButtonText: { color: '#FFF', fontWeight: '800' },
+  input: { color: '#FFF', borderWidth: 1, borderColor: '#3F4963', borderRadius: 11, backgroundColor: '#0D1220', padding: 12, fontSize: 14 }, result: { paddingVertical: 13, borderBottomWidth: 1, borderColor: '#303850' }, resultPage: { color: '#C084FC', fontSize: 10, fontWeight: '900', marginBottom: 4 }, resultText: { color: '#E5E7EB', fontSize: 13 }, annotationRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderColor: '#303850' }, empty: { color: '#A7B0C7', textAlign: 'center', paddingVertical: 28 }, noteSheet: { padding: 19, paddingBottom: 28, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: '#151B2C' }, noteInput: { height: 130, marginTop: 14, textAlignVertical: 'top' }, save: { backgroundColor: '#C084FC', marginTop: 13, borderRadius: 10, alignItems: 'center', padding: 13 }, saveText: { color: '#1D1029', fontWeight: '900' },
 });
